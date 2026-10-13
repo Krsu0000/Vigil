@@ -46,7 +46,7 @@
 1. 사용자: `docs/architecture.md`를 저장소에 올린다. S0의 두 번째 단위(코어 계약)부터 이 문서의 인터페이스 정의가 필요하다.
 2. S0 첫 단위(승인되면 구현): **프로젝트 뼈대.** Vite + React + TypeScript + Vitest + Zod 프로젝트와 npm 명령 5개, 빈 화면.
    - 완료 기준: `npm test`(스모크 테스트 1개), `npm run typecheck`, `npm run build`, `npm run validate:content`(검증할 콘텐츠 0개) 통과, `npm run dev`로 빈 화면.
-   - 승인 받을 선택: `validate:content` 실행 방식, TypeScript 주 버전 (9장).
+   - 승인 받을 선택: `validate:content` 실행 방식 (9장). 패키지는 설치 시점 최신 안정판을 쓰고 호환 문제가 있으면 한 단계 낮춘다.
 3. 첫 단위가 끝나면 사용자에게 Cloudflare Pages 연결(빌드 명령 `npm run build`, 출력 폴더 `dist`)을 요청한다.
 4. S0 나머지 단위 안: ② 코어 기초(sfc32, `computeValue`, UUID) → ③ 코어 계약(`GameState`, `Action`·`GameEvent`, `dispatch`, 효과 레지스트리) → ④ 콘텐츠(매니페스트, 로더, 교차 참조 검증, 시간 규칙 JSON) → ⑤ 저장(`SaveFile` v1, 변환 체인 구조, `CombatLog` 타입) → ⑥ S0 정리와 문서 갱신. ②~⑤는 `docs/architecture.md`의 해당 절을 기준으로 한다.
 
@@ -70,9 +70,7 @@
 
 ## 9. 사용자 결정 대기
 
-- S0 첫 단위 승인과 그 안의 선택 두 가지
-  - `validate:content` 실행 방식: Node 내장 TypeScript 실행(추천, 의존성 없음) / Vitest로 실행 / `tsx` 추가(새 의존성)
-  - TypeScript 주 버전: 7.x 최신 안정판(추천) / 6.x
+- S0 첫 단위 승인과 `validate:content` 실행 방식: Node 내장 TypeScript 실행(추천, 의존성 없음) / Vitest로 실행 / `tsx` 추가(새 의존성)
 - `docs/architecture.md` 업로드
 
 다가오는 단계의 '착수 전 확인' 항목 (`docs/roadmap.md`):
