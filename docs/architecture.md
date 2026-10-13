@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0 진행 중.** 구현된 것은 프로젝트 뼈대(빌드·테스트 환경, 빈 화면, 콘텐츠 JSON 구문 검사)뿐이다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0 진행 중.** 구현된 것은 프로젝트 뼈대(빌드·테스트 환경, 빈 화면, 콘텐츠 JSON 구문 검사)와 코어 기초(sfc32, `computeValue`, UUID, 엔진 순수성 검사)다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -47,6 +47,7 @@ server   클라이언트 코드를 import하지 않는다. 공유 타입은 별�
 - `engine/core`는 `engine/systems`를 import하지 않는다. 시스템이 코어에 등록된다.
 - `content`는 Zod 외에 프로젝트 모듈을 import하지 않는다.
 - `ui`는 게임 상태를 바꾸는 코드를 갖지 않는다. 상태 변경은 `runtime`의 `GameStore.dispatch`를 호출한다.
+- `[구현됨]` `src/engine/purity.test.ts`가 엔진의 금지 사항을 문자열 검색으로 검사한다: `Math.random`·`Date.now`·`new Date`·`performance`·`window`·`document`·`crypto` 사용, React·`node:` import, `ui`·`runtime`·`persistence`·`sync` import, `core`에서 `systems` import. 주석에 같은 표기를 쓰면 오탐이 나므로 주석에서는 다른 표기를 쓴다.
 - `scripts`는 `content`와 `engine`을 import할 수 있다. 콘텐츠 검증은 효과 레지스트리(`engine/core`, 7.1절)도 써야 하므로 검증 CLI는 `content`가 아니라 `scripts`에 둔다. `src/` 아래 모듈은 `scripts`를 import하지 않는다.
 
 ### 1.3 데이터 흐름 `[설계]`
@@ -228,6 +229,9 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 ## 5. 난수 `[설계]`
 
+`[구현됨]` 생성기와 상태 저장·복원: `src/engine/core/rng.ts`. `seedRngState(seed)`는 시드 정수 4개로 초기 상태를 만들고 처음 출력 15개를 버린다. `createRng(state)`는 `nextUint32()`, `nextFloat()`(0 이상 1 미만), `nextInt(min, max)`(양끝 포함, 치우침 없는 재추첨), `getState()`를 가진 생성기를 만들며 입력 배열을 바꾸지 않는다. 출력식은 PractRand 원본 sfc32(`tmp = a + b + counter++`)와 같고, 참조값 테스트로 고정한다. 시드 생성(런타임)과 `CombatLog`는 아직 없다.
+
+
 - 의존성 없이 직접 구현하는 작은 시드 난수 생성기를 `src/engine/core/rng.ts`에 둔다. sfc32(내부 상태 32비트 정수 4개)를 쓴다(D-008).
 - 생성기의 내부 상태는 `meta.rngState`에 저장한다. 그래서 저장 후 불러와도 같은 난수 흐름이 이어진다.
 - 새 캠페인의 시드는 런타임이 `crypto.getRandomValues`로 만들어 `createCampaign`에 넘긴다.
@@ -240,6 +244,7 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 - `npm run validate:content`는 `scripts/validate-content.ts`에서 같은 검증 코드를 Node로 실행한다(1.4절, D-016). `[구현됨]` 범위는 `src/content/` 아래 JSON 파일의 구문 검사뿐이다. 스키마·교차 참조 검증은 S0 콘텐츠 단위에서 연결한다.
 - 콘텐츠 ID는 `종류.이름` 형식의 소문자 영문이다 (예: `item.dried_ration`, `monster.genlock`). 한 번 배포한 ID는 바꾸지 않는다. 세이브가 참조하는 ID를 지우거나 바꾸려면 세이브 버전 변환이 필요하다.
 - 캐릭터, 캠페인, 사망 기록처럼 실행 중에 생기는 개체는 UUID를 쓴다. 서버 도입 시 ID가 겹치지 않게 하기 위해서다.
+  - `[구현됨]` `createUuid(rng)`(`src/engine/core/id.ts`)는 시드 난수 4개로 UUID v4 형식 문자열을 만든다. 같은 입력에서 같은 결과를 내야 하므로(INV-04) `crypto.randomUUID`를 쓰지 않는다. ID를 만들면 난수를 소비하므로 이후 판정 결과도 달라지지만, 저장·재생 시에는 같다.
 - 콘텐츠 매니페스트에 `contentVersion`을 둔다.
 - 버튼 문구, 오류 메시지 같은 UI 시스템 문구는 콘텐츠가 아니라 `src/ui/strings/`에 둔다.
 
@@ -262,7 +267,7 @@ export type EffectHandler<P> = {
 - 콘텐츠를 불러올 때 모든 효과의 `type`이 등록되어 있는지, `params`가 해당 스키마에 맞는지 검증한다. 등록되지 않은 효과는 실행 단계까지 가지 않는다.
 - 효과 유형은 필요한 단계에서 하나씩 추가한다. S0에서는 레지스트리와 테스트용 효과 하나만 만든다.
 
-### 7.2 수치 수정치 `[설계]`
+### 7.2 수치 수정치 `[구현됨]`
 
 ```ts
 // src/engine/core/modifiers.ts
@@ -290,11 +295,14 @@ export function computeValue(base: number, mods: Modifier[], rule: ValueRule): n
 4. `rule.round`로 반올림한다
 5. `rule.min`, `rule.max`로 자른다
 
-예: 이동 비용 기본 2, 장비 `add -1`, 과적 `add +1`, 탐사 경로 `mul 0.5` → (2 − 1 + 1) × 0.5 = 1 → 반올림 1 → 최소 0 적용 → **1**.
+예: 이동 비용 기본 6(D-014), 장비 `add -1`, 과적 `add +1`, 탐사 경로 `mul 0.5` → (6 − 1 + 1) × 0.5 = 3 → 반올림 3 → 최소 0 적용 → **3**.
 
 - 수정치를 모으는 함수는 시스템별로 하나씩 두고(장비, 상태이상, 시설, 지형·길 지식), `computeValue`에 넘기기 전에 합친다.
 - 모든 수치 계산은 `computeValue`를 거친다. 시스템 안에서 따로 더하거나 곱하지 않는다.
 - 이 순서는 D-007로 승인되었다. `core/modifiers.test.ts`로 고정한다.
+- 소수의 덧셈·곱셈은 순서에 따라 결과가 미세하게 다르므로, `add`와 `mul` 값을 각각 크기순으로 정렬한 뒤 계산한다. 그래서 수정치 목록의 순서와 상관없이 결과가 비트 단위까지 같다(INV-18).
+- `computeValue`는 받은 수정치를 모두 적용한다. 같은 `target`의 수정치만 골라 넘기는 것은 호출자(수집 함수)의 책임이다.
+- 기본값, 수정치 값, `min`·`max`, 결과가 유한한 수가 아니거나 `min > max`이면 오류를 던진다(콘텐츠나 코드 결함). `round`는 0.5를 올린다(`Math.round`, 임시값). 결과의 `-0`은 `0`으로 돌려준다.
 
 ## 8. 저장
 
@@ -388,8 +396,8 @@ export type SaveFile = {
 | INV-14 | 캐릭터가 사망해도 `campaign` 영역(지도, 거점, 채집지, 코덱스)은 유지된다 | 확정 | `character/*.test.ts` |
 | INV-15 | 콘텐츠의 모든 ID 참조는 존재하는 대상을 가리킨다 | 확정 | `content/*.test.ts` |
 | INV-16 | 등록되지 않은 효과 유형이나 잘못된 매개변수는 콘텐츠 검증에서 실패한다 | 확정 | `content/*.test.ts` |
-| INV-17 | `src/engine/`은 브라우저 API 없이 Node 테스트 환경에서 실행된다 | 확정 | 전체 엔진 테스트 |
-| INV-18 | 같은 수정치 목록이면 순서와 상관없이 `computeValue` 결과가 같다 | 확정 | `core/modifiers.test.ts` |
+| INV-17 | `src/engine/`은 브라우저 API 없이 Node 테스트 환경에서 실행된다 | 확정 | `[구현됨]` 전체 엔진 테스트(Node 환경), `engine/purity.test.ts` |
+| INV-18 | 같은 수정치 목록이면 순서와 상관없이 `computeValue` 결과가 같다 | 확정 | `[구현됨]` `core/modifiers.test.ts` |
 | INV-19 | 스태미나와 그 회복량·비용은 항상 정수다 | 확정 | `stamina/*.test.ts` |
 
 게임 규칙상 예외가 생기면 해당 조건 아래에 예외와 근거를 적는다.
