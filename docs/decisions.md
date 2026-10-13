@@ -28,6 +28,7 @@
 | D-013 | 미정 세부 사항은 임시값으로 진행 | 승인 | 2026-10-14 |
 | D-014 | 스태미나는 정수로 유지, 최대치·틱당 회복량·이동 비용 임시값 조정 | 임시 | 2026-10-14 |
 | D-015 | 개발 환경: Claude Code on the web + GitHub, Cloudflare Pages 미리보기를 S0부터 사용 | 승인 | 2026-10-14 |
+| D-016 | Node 실행 스크립트는 Node 내장 TypeScript 실행, `scripts/`에 둔다 | 승인 | 2026-10-14 |
 
 ---
 
@@ -174,3 +175,15 @@
 - **대안:** 한 파일 빌드를 내려받아 여는 방식은 아이폰에서 동작하지 않고, IndexedDB와 시간 처리 테스트를 믿을 수 없다.
 - **장단점:** 미리보기 주소는 주소를 아는 사람이면 누구나 열 수 있다. 주소를 공유하지 않는 것으로 관리한다.
 - **재검토 조건:** 미리보기를 외부에 공개하지 않아야 할 이유가 생기거나, 사용자 도메인이 필요해질 때(S10).
+
+## D-016 Node 실행 스크립트는 Node 내장 TypeScript 실행
+
+- **상태:** 승인
+- **결정:**
+  - `npm run validate:content` 같은 Node 실행 스크립트는 별도 실행 도구 없이 Node 내장 TypeScript 실행(Node 22.18 이상에서 플래그 없이 동작)으로 돌린다.
+  - 스크립트는 루트 `scripts/`에 둔다. `scripts`는 `content`와 `engine`을 import할 수 있고, `src/`는 `scripts`를 import하지 않는다.
+  - 이를 위해 모든 TypeScript 코드는 상대 import에 확장자를 붙이고, `import type`을 쓰며, `enum`·`namespace`·생성자 매개변수 프로퍼티를 쓰지 않는다. `tsconfig.json`(`nodenext`, `verbatimModuleSyntax`, `erasableSyntaxOnly`)이 강제한다 (architecture 1.4절).
+- **이유:** 새 의존성이 없다. architecture 6장의 "같은 검증 코드를 Node에서 실행한다"를 그대로 따른다. 검증 CLI는 효과 레지스트리(`engine/core`)도 써야 하는데, `content`는 Zod 외에 프로젝트 모듈을 import할 수 없어서(architecture 1.2절) `src/content/` 밖에 둔다.
+- **대안:** Vitest로 실행하면 import 규칙은 그대로지만 출력이 테스트 형식이고 `npm test`와 범위를 나눠야 한다. `tsx` 패키지는 가장 간편하지만 새 의존성이다.
+- **장단점:** 의존성 없이 단순하다. 대신 import 표기 규칙이 프로젝트 전체에 생기고, Node 22.18 미만에서는 스크립트가 실행되지 않는다 (`package.json`의 `engines`, `.node-version`에 명시).
+- **재검토 조건:** Node 내장 실행으로 처리할 수 없는 문법이나 도구가 필요해질 때.

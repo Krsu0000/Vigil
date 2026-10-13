@@ -18,10 +18,16 @@
 | `npm run dev` | 개발 서버 |
 | `npm test` | 전체 테스트 1회 실행 (`vitest run`) |
 | `npm run typecheck` | 타입 검사 (`tsc --noEmit`) |
-| `npm run validate:content` | 콘텐츠 JSON의 Zod 검증 |
+| `npm run validate:content` | 콘텐츠 JSON 검증 (`node scripts/validate-content.ts`) |
 | `npm run build` | 프로덕션 빌드 |
 
-이 명령은 0단계에서 이 이름으로 만든다. 실제 `package.json`과 다르면 이 표를 먼저 고친다.
+이 명령은 `package.json`에 정의되어 있다. 실제 `package.json`과 다르면 이 표를 먼저 고친다.
+
+**TypeScript 작성 규칙 (D-016):** `scripts/`는 별도 실행 도구 없이 Node 내장 TypeScript 실행(Node 22.18 이상)으로 돌리고, `src/`의 콘텐츠·엔진 코드를 그대로 import한다. 그래서 모든 코드에서 다음을 지킨다. 어기면 `npm run typecheck`가 실패한다.
+
+- 상대 경로 import에는 확장자를 붙인다 (`./rng.ts`, `./App.tsx`).
+- 타입만 가져올 때는 `import type`을 쓴다.
+- `enum`, `namespace`, 생성자 매개변수 프로퍼티처럼 타입 제거만으로 실행되지 않는 문법은 쓰지 않는다.
 
 ## 3. 구조
 
@@ -35,10 +41,11 @@ src/
   runtime/       브라우저 연결부: GameStore, 틱 루프, 일시정지, 하트비트, 자동 저장
   ui/            React 컴포넌트 (엔진 호출과 표시, 일시적 UI 상태)
   sync/          클라이언트 동기화 (서버 도입 단계부터)
+scripts/         Node에서 직접 실행하는 개발 도구 (콘텐츠 검증 CLI, 제작자 맵 생성기)
 docs/            설계·진행 문서
 ```
 
-서버 런타임과 D1 마이그레이션은 도입 시 별도 위치로 분리한다. 테스트는 대상 파일 옆에 `*.test.ts`로 둔다.
+서버 런타임과 D1 마이그레이션은 도입 시 별도 위치로 분리한다. 테스트는 대상 파일 옆에 `*.test.ts`(React 컴포넌트는 `*.test.tsx`)로 둔다. `src/`는 `scripts/`를 import하지 않는다.
 
 ## 4. 문서 읽는 법
 
