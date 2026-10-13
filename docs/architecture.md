@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: 설계 단계. 구현된 코드 없음(S0 착수 전).** 이 문서의 모든 내용은 계획이다.
+- **현재 상태: S0 진행 중.** 구현된 것은 프로젝트 뼈대(빌드·테스트 환경, 빈 화면, 콘텐츠 JSON 구문 검사)뿐이다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -26,6 +26,7 @@
 | UI | `src/ui/` | React 컴포넌트, 표시, 일시적 UI 상태, UI 시스템 문구 |
 | 동기화 | `src/sync/` | 클라이언트 동기화 (서버 도입 단계부터) |
 | 서버 | `server/` | Workers 런타임과 D1 마이그레이션 (서버 도입 단계부터) |
+| 스크립트 | `scripts/` | Node에서 직접 실행하는 개발 도구: 콘텐츠 검증 CLI(`validate-content.ts`), 제작자 맵 생성기(T1). 게임 실행 코드에 포함되지 않는다 |
 
 엔진은 브라우저 API를 쓸 수 없고 UI는 게임 규칙을 처리하면 안 되므로, 둘을 잇는 브라우저 의존 코드(틱 루프, `visibilitychange`, `performance.now()`)는 `src/runtime/`에 둔다(D-006).
 
@@ -38,6 +39,7 @@ ui ──────▶ runtime ──────▶ engine ──────
  └──────────────▶ engine (타입과 조회 함수만)
 
 sync ──▶ persistence          (서버 도입 단계)
+scripts ──▶ content, engine    (Node 실행. src는 scripts를 import하지 않는다)
 server   클라이언트 코드를 import하지 않는다. 공유 타입은 별도 패키지 또는 복사본으로 둔다.
 ```
 
@@ -45,6 +47,7 @@ server   클라이언트 코드를 import하지 않는다. 공유 타입은 별�
 - `engine/core`는 `engine/systems`를 import하지 않는다. 시스템이 코어에 등록된다.
 - `content`는 Zod 외에 프로젝트 모듈을 import하지 않는다.
 - `ui`는 게임 상태를 바꾸는 코드를 갖지 않는다. 상태 변경은 `runtime`의 `GameStore.dispatch`를 호출한다.
+- `scripts`는 `content`와 `engine`을 import할 수 있다. 콘텐츠 검증은 효과 레지스트리(`engine/core`, 7.1절)도 써야 하므로 검증 CLI는 `content`가 아니라 `scripts`에 둔다. `src/` 아래 모듈은 `scripts`를 import하지 않는다.
 
 ### 1.3 데이터 흐름 `[설계]`
 
@@ -65,6 +68,20 @@ engine/dispatch(state, action, ctx) ──▶ { ok, state, events } 또는 { ok:
 IndexedDB ──▶ persistence(형식 확인 → 버전 변환 → Zod 검증) ──▶ GameStore 초기화
           ──▶ dispatch(time/settle) 로 오프라인 정산 1회
 ```
+
+### 1.4 TypeScript 작성 규칙 `[구현됨]`
+
+`scripts/`는 Node 내장 TypeScript 실행(Node 22.18 이상, 별도 실행 도구 없음)으로 돌리고 `src/`의 코드를 그대로 import한다(D-016). Node는 타입만 제거하고 실행하므로 모든 코드가 다음을 지킨다. `tsconfig.json`이 이를 강제해 어기면 `npm run typecheck`가 실패한다.
+
+| 규칙 | 강제하는 설정 |
+|---|---|
+| 상대 경로 import에 확장자를 붙인다 (`./rng.ts`, `./App.tsx`) | `module`·`moduleResolution: nodenext`, `allowImportingTsExtensions` |
+| 타입만 가져올 때는 `import type`을 쓴다 | `verbatimModuleSyntax` |
+| `enum`, `namespace`, 생성자 매개변수 프로퍼티를 쓰지 않는다 | `erasableSyntaxOnly` |
+| JSON을 import할 때는 `with { type: 'json' }`을 붙인다 | `module: nodenext` |
+
+- 빌드는 Vite가 하고 `tsc`는 타입 검사만 한다(`noEmit`).
+- 테스트 환경은 Node다(`vite.config.ts`의 `test.environment`). 브라우저 API를 흉내 내는 테스트 환경은 쓰지 않는다(INV-17).
 
 ## 2. 게임 상태
 
@@ -220,7 +237,7 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 - 종류별 JSON 파일과 Zod 스키마를 `src/content/`에 둔다. 예: `items.json`, `monsters.json`, `maps/*.json`, `time-rules.json`.
 - 시작 시 모든 파일을 읽어 1차로 스키마를 검증하고, 2차로 교차 참조(존재하지 않는 ID, 순환 의존)를 검증한 뒤 ID별 조회가 가능한 `ContentDb`를 만든다. 검증에 실패하면 게임을 시작하지 않고 오류를 보여 준다.
-- `npm run validate:content`는 같은 검증 코드를 Node에서 실행한다.
+- `npm run validate:content`는 `scripts/validate-content.ts`에서 같은 검증 코드를 Node로 실행한다(1.4절, D-016). `[구현됨]` 범위는 `src/content/` 아래 JSON 파일의 구문 검사뿐이다. 스키마·교차 참조 검증은 S0 콘텐츠 단위에서 연결한다.
 - 콘텐츠 ID는 `종류.이름` 형식의 소문자 영문이다 (예: `item.dried_ration`, `monster.genlock`). 한 번 배포한 ID는 바꾸지 않는다. 세이브가 참조하는 ID를 지우거나 바꾸려면 세이브 버전 변환이 필요하다.
 - 캐릭터, 캠페인, 사망 기록처럼 실행 중에 생기는 개체는 UUID를 쓴다. 서버 도입 시 ID가 겹치지 않게 하기 위해서다.
 - 콘텐츠 매니페스트에 `contentVersion`을 둔다.
