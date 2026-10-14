@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0 진행 중.** 구현된 것은 프로젝트 뼈대(빌드·테스트 환경, 빈 화면, 콘텐츠 JSON 구문 검사)와 코어 기초(sfc32, `computeValue`, UUID, 엔진 순수성 검사)다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0 진행 중.** 구현된 것은 프로젝트 뼈대(빌드·테스트 환경, 빈 화면, 콘텐츠 JSON 구문 검사)와 코어 기초(sfc32, `computeValue`, UUID, 엔진 순수성 검사), 코어 계약(상태·행동·사건 타입, 캠페인 생성, 행동 처리, 효과 레지스트리)이다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -98,82 +98,113 @@ IndexedDB ──▶ persistence(형식 확인 → 버전 변환 → Zod 검증) 
 | 세션 런타임 | 일시정지 여부, 하트비트, 마지막 틱 시각 | 브라우저 세션 | 해당 없음. 세이브에 넣지 않는다 |
 | UI 상태 | 열린 창, 선택 탭, 입력 중 텍스트 | 컴포넌트 | 해당 없음 |
 
-- 각 필드는 정확히 한 시스템이 소유하고, 다른 시스템은 읽기만 한다. 소유 시스템은 6장 모듈 표에 적는다.
+- 각 필드는 정확히 한 시스템이 소유하고, 다른 시스템은 읽기만 한다. 소유 시스템은 11장 모듈 표에 적는다.
 - 같은 정보를 두 곳에 저장하지 않는다. 파생 값(예: 현재 위치의 구역 종류)은 저장하지 않고 계산한다.
 
-### 2.2 상태 타입의 최소형 `[설계]`
+### 2.2 상태 타입의 최소형 `[구현됨]`
 
 S0에서는 아래 뼈대만 만든다. 각 시스템의 필드는 그 시스템이 도입되는 단계에서 추가한다.
 
 ```ts
 // src/engine/core/state.ts
-export type GameState = {
-  meta: StateMeta;
-  campaign: CampaignState;            // 시스템별 조각을 단계마다 추가
-  character: CharacterState | null;   // 사망 후 새 캐릭터 생성 전에는 null
-  expedition: ExpeditionState | null; // 위험지대 외출 중에만 존재
-};
+export type CampaignState = Readonly<Record<string, never>>;
+export type CharacterState = Readonly<Record<string, never>>;
+export type ExpeditionState = Readonly<Record<string, never>>;
 
-export type StateMeta = {
+export type GameState = Readonly<{
+  meta: StateMeta;
+  campaign: CampaignState;
+  character: CharacterState | null;
+  expedition: ExpeditionState | null;
+}>;
+
+export type StateMeta = Readonly<{
   campaignId: string;    // UUID
   gameTime: number;      // Game Time, 틱 단위 정수. 시간 시스템만 변경
-  rngState: number[];    // 시드 난수의 내부 상태 (알고리즘은 5장)
-  lastActiveAt: number;  // Wall-clock ms. 마지막으로 실행이 확인된 시각
-  settledUntil: number;  // Wall-clock ms. 오프라인 정산이 끝난 시각
-};
+  rngState: readonly number[];
+  lastActiveAt: number;  // Wall-clock ms
+  settledUntil: number;  // Wall-clock ms
+}>;
 ```
 
+- 빈 상태 타입은 임의의 필드가 들어가지 못하게 한다. 시스템 도입 시 실제 필드를 추가한다.
 - 상태는 JSON으로 직렬화할 수 있어야 한다. 함수, 클래스 인스턴스, `Map`, `Set`, `Date`를 넣지 않는다. 목록은 배열, 조회용 묶음은 `Record<string, T>`를 쓴다.
-- 상태는 불변 객체로 다룬다. 새 상태는 바뀐 부분만 새로 만든다. 갱신 코드는 직접 작성한다(D-009). 갱신 코드가 지나치게 복잡해지면 Immer 도입을 다시 검토한다.
+- 상태는 불변 객체로 다룬다. 타입의 `Readonly`는 직접 대입을 제한하고, 테스트에서 중첩 객체를 동결해 원본 변경을 검출한다. 제품 실행마다 상태 전체를 복사·동결하는 로직은 추가하지 않는다.
+- 새 상태는 바뀐 부분만 새로 만든다. 갱신 코드는 직접 작성한다(D-009). 복잡해지면 Immer 도입을 다시 검토한다.
 
 ## 3. 행동 처리
 
-### 3.1 dispatch `[설계]`
+### 3.1 dispatch `[구현됨]`
 
 ```ts
-// src/engine/core/dispatch.ts
-export type EngineContext = {
+// src/engine/core/context.ts
+export type EngineContext = Readonly<{
   content: ContentDb;
-  now: number;            // 이번 행동 시점의 Wall-clock ms. 런타임이 주입
+  now: number; // 이번 행동 시점의 Wall-clock ms. 호출자가 주입
+}>;
+
+// src/engine/core/actions.ts
+export type Action = Readonly<{ type: `${string}/${string}` }>;
+export type RejectReason =
+  | 'unknown_action' | 'invalid_action'
+  | 'condition_not_met' | 'insufficient_resources';
+export type ExecutionResult<E extends GameEvent = GameEvent> = {
+  state: GameState;
+  events: E[];
+};
+export type DispatchResult<E extends GameEvent = GameEvent> =
+  | ({ ok: true } & ExecutionResult<E>)
+  | { ok: false; state: GameState; reason: RejectReason };
+
+export type ActionHandler<A extends Action, E extends GameEvent = GameEvent> = Readonly<{
+  validate: (state: GameState, action: A, ctx: EngineContext) => RejectReason | null;
+  execute: (state: GameState, action: A, ctx: EngineContext, rng: Rng) => ExecutionResult<E>;
+}>;
+export type ActionHandlers<A extends Action, E extends GameEvent = GameEvent> = {
+  readonly [Type in A['type']]?: ActionHandler<Extract<A, { type: Type }>, E>;
 };
 
-export type DispatchResult =
-  | { ok: true; state: GameState; events: GameEvent[] }
-  | { ok: false; state: GameState; reason: RejectReason }; // state는 입력과 같은 참조
+// src/engine/core/events.ts
+export type GameEvent = Readonly<{ type: `${string}/${string}` }>;
 
-export function dispatch(state: GameState, action: Action, ctx: EngineContext): DispatchResult;
+// src/engine/core/dispatch.ts
+export type Dispatcher<A extends Action = Action, E extends GameEvent = GameEvent> =
+  (state: GameState, action: A, ctx: EngineContext) => DispatchResult<E>;
+export function createDispatcher<A extends Action, E extends GameEvent = GameEvent>(
+  handlers: ActionHandlers<A, E>,
+): Dispatcher<A, E>;
+export const dispatch: Dispatcher; // S0에서는 게임 처리기가 없는 기본 함수
 ```
 
 처리 순서:
 
-1. 행동 종류로 처리기를 찾는다. 없으면 `{ ok: false, reason: 'unknown_action' }`.
-2. `validate`: 실행 조건과 필요한 자원을 확인한다. 실패하면 상태를 바꾸지 않고 거부한다.
-3. 상태의 `rngState`로 난수 생성기를 만든다.
+1. 행동 종류로 처리기를 찾는다. 없으면 `{ ok: false, state, reason: 'unknown_action' }`.
+2. `validate`: 실행 조건과 필요한 자원을 확인한다. 실패하면 입력과 같은 상태 참조를 반환한다.
+3. 상태의 `rngState`로 난수 생성기를 만든다. 거부된 행동에서는 만들지 않는다.
 4. `execute`: 효과를 계산하고, 새 상태와 사건을 만든다.
-5. 난수 생성기의 새 내부 상태를 새 상태의 `meta.rngState`에 기록한다.
+5. 난수 생성기의 실제 최종 상태를 결과 상태의 `meta.rngState`에 기록한다. 원본 상태는 수정하지 않는다.
 
-```ts
-// src/engine/core/actions.ts
-export type ActionHandler<A extends Action> = {
-  validate(state: GameState, action: A, ctx: EngineContext): RejectReason | null;
-  execute(state: GameState, action: A, ctx: EngineContext, rng: Rng):
-    { state: GameState; events: GameEvent[] };
-};
-```
-
-- 처리기 목록은 시작 시점에 고정된 객체로 만든다. 실행 중에 처리기를 추가·제거하는 플러그인 구조는 만들지 않는다.
-- `Action`과 `GameEvent`는 `type` 문자열로 구분하는 유니온 타입이다. 이름 형식은 `영역/동작` (예: `move/step`, `time/tick`, `rest/start`).
-- 거부와 실패를 구분한다. 거부(조건 불충족)는 상태와 자원을 바꾸지 않는다. 실행된 뒤의 실패(공격 빗나감 등)는 `execute` 안에서 명세대로 비용을 처리한다.
+- 연결부가 시작 시 `createDispatcher(handlers)`를 호출하고, 반환된 함수를 `dispatch(state, action, ctx)` 형태로 사용한다(D-017). 코어는 시스템을 import하지 않는다.
+- 처리기 목록과 각 처리기를 얕게 복사·동결한다. 원본 목록·처리기를 나중에 바꿔도 이미 만든 함수는 영향받지 않는다. 실행 중 등록·제거 API는 없다.
+- 코어의 `Action`·`GameEvent`는 공통 형태다. 구체적인 행동·사건은 시스템별로 `type`으로 구분하는 유니온으로 정의하고 생성 함수의 타입 인수로 전달한다. `ActionHandlers`가 행동 종류별 매개변수 타입을 연결한다.
+- 이름 형식은 `영역/동작` (예: `move/step`, `time/tick`, `rest/start`). 거부 사유는 실제 시스템이 필요로 할 때 추가한다.
+- 거부와 실행 후 실패를 구분한다. 거부는 상태·자원을 바꾸지 않고, 공격 빗나감 같은 실행 후 실패는 처리기 안에서 명세대로 비용을 처리한다.
+- 처리기나 검증기의 코드 예외는 그대로 전달한다. 일반적인 행동 거부로 숨기지 않는다.
+- 테스트용 행동·효과는 `core/test-fixtures.ts`에서만 구성하고 제품의 기본 목록에는 등록하지 않는다.
 
 ### 3.2 dispatch를 거치지 않는 경로 `[설계]`
 
-| 경로 | 위치 | 용도 |
-|---|---|---|
-| `createCampaign(content, seed, now)` | `engine/core` | 새 캠페인 초기 상태 생성 |
-| `restoreSave(raw)` | `persistence` | 형식 확인 → 버전 변환 → Zod 검증 → `GameState` |
-| 버전 변환 함수 | `persistence/migrations/` | 이전 스키마의 세이브를 다음 버전으로 변환 |
+| 경로 | 위치 | 용도 | 상태 |
+|---|---|---|---|
+| `createCampaign(content, seed, now)` | `engine/core/campaign.ts` | 새 캠페인 초기 상태 생성 | `[구현됨]` |
+| `restoreSave(raw)` | `persistence` | 형식 확인 → 버전 변환 → Zod 검증 → `GameState` | `[설계]` |
+| 버전 변환 함수 | `persistence/migrations/` | 이전 스키마의 세이브를 다음 버전으로 변환 | `[설계]` |
 
-새 캐릭터 생성은 게임 안의 행동이므로 `dispatch`를 거친다.
+- `createCampaign`은 `seedRngState(seed)`로 시드 정수 4개를 검증·초기화하고, `createUuid(rng)`로 캠페인 ID를 만든 뒤 그 이후의 난수 상태를 저장한다.
+- 초기 `gameTime`은 0, `lastActiveAt`·`settledUntil`은 전달받은 `now`, `campaign`은 빈 객체, `character`·`expedition`은 `null`이다.
+- `now`는 0 이상의 안전한 정수(epoch ms)여야 한다. 잘못된 입력은 예외로 처리한다.
+- S0에서는 초기 캐릭터·장소 데이터가 없으므로 `content`를 초기화 계산에 사용하지 않는다. 콘텐츠 정의는 상태에 복사하지 않는다.
+- 새 캐릭터 생성은 이후 게임 안의 행동으로 구현하며 `dispatch`를 거친다.
 
 ## 4. 시간
 
@@ -239,6 +270,8 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 ## 6. 콘텐츠 `[설계]`
 
+- `[구현됨]` `src/content/types.ts`의 `ContentDb`는 현재 `Readonly<{ contentVersion: string }>`인 연결용 최소 타입이다. 실제 매니페스트·로더·종류별 조회 구조는 S0 콘텐츠 단위에서 추가한다.
+
 - 종류별 JSON 파일과 Zod 스키마를 `src/content/`에 둔다. 예: `items.json`, `monsters.json`, `maps/*.json`, `time-rules.json`.
 - 시작 시 모든 파일을 읽어 1차로 스키마를 검증하고, 2차로 교차 참조(존재하지 않는 ID, 순환 의존)를 검증한 뒤 ID별 조회가 가능한 `ContentDb`를 만든다. 검증에 실패하면 게임을 시작하지 않고 오류를 보여 준다.
 - `npm run validate:content`는 `scripts/validate-content.ts`에서 같은 검증 코드를 Node로 실행한다(1.4절, D-016). `[구현됨]` 범위는 `src/content/` 아래 JSON 파일의 구문 검사뿐이다. 스키마·교차 참조 검증은 S0 콘텐츠 단위에서 연결한다.
@@ -250,22 +283,35 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 ## 7. 효과와 수정치
 
-### 7.1 효과 레지스트리 `[설계]`
+### 7.1 효과 레지스트리 `[구현됨]`
 
 ```ts
 // src/engine/core/effects.ts
-export type EffectInstance = { type: string; params: unknown };
+export type EffectInstance = Readonly<{ type: string; params: unknown }>;
+export type EffectHandler<P, E extends GameEvent = GameEvent> = Readonly<{
+  params: z.ZodType<P>;
+  apply: (state: GameState, params: P, ctx: EngineContext, rng: Rng) => ExecutionResult<E>;
+}>;
+export type EffectValidationResult =
+  | { ok: true }
+  | { ok: false; reason: 'unknown_effect' | 'invalid_effect_params'; type: string; message: string };
 
-export type EffectHandler<P> = {
-  params: z.ZodType<P>;   // 이 효과의 매개변수 스키마
-  apply(state: GameState, params: P, ctx: EngineContext, rng: Rng):
-    { state: GameState; events: GameEvent[] };
-};
+export function defineEffect<P, E extends GameEvent = GameEvent>(
+  handler: EffectHandler<P, E>,
+): EffectDefinition<E>;
+export function createEffectRegistry<E extends GameEvent = GameEvent>(
+  handlers: Readonly<Record<string, EffectDefinition<E>>>,
+): EffectRegistry<E>;
+export const effectRegistry: EffectRegistry; // S0에서는 제품의 효과 목록이 비어 있다
 ```
 
-- 효과 처리기는 효과 유형 이름을 키로 하는 고정된 객체에 등록한다.
-- 콘텐츠를 불러올 때 모든 효과의 `type`이 등록되어 있는지, `params`가 해당 스키마에 맞는지 검증한다. 등록되지 않은 효과는 실행 단계까지 가지 않는다.
-- 효과 유형은 필요한 단계에서 하나씩 추가한다. S0에서는 레지스트리와 테스트용 효과 하나만 만든다.
+- `defineEffect`는 Zod 스키마와 적용 함수를 묶고, 파싱된 매개변수만 적용 함수에 넘긴다. 서로 다른 매개변수 타입의 효과도 원시 데이터를 강제 형 변환하지 않고 한 목록에 담는다.
+- `createEffectRegistry`는 효과 유형 이름을 키로 하는 고정 객체를 만든다. 목록과 정의를 얕게 복사·동결하며 실행 중 등록·제거 API는 없다.
+- 레지스트리의 `validate(effect)`는 위 검증 결과를 반환하고, `apply(state, effect, ctx, rng)`는 검증 후 효과를 실행해 `{ state, events }`를 반환한다. 직접 적용하더라도 미등록 유형·잘못된 매개변수는 실행 전에 예외로 처리한다.
+- 효과의 적용 함수가 던지는 코드 예외는 검증 오류나 행동 거부로 변환하지 않는다.
+- 난수의 최종 상태 기록은 `dispatch`가 담당한다. 효과는 전달받은 같은 난수 생성기를 사용한다.
+- S0의 테스트용 효과 `test/emit`는 사건을 생성하고 선택적으로 난수를 소비한다. 제품의 목록에는 등록하지 않는다. 실제 게임 효과는 필요한 단계에서 추가한다.
+- 콘텐츠 로딩 시 `validate`를 이용해 모든 효과 유형과 매개변수를 검증한다. 이 연결과 INV-16 전체 검증은 S0 콘텐츠 단위에서 구현한다. 현재 레지스트리 단위 검증만 완료됐다.
 
 ### 7.2 수치 수정치 `[구현됨]`
 
@@ -357,7 +403,7 @@ export type SaveFile = {
 
 | 모듈 | 경로 | 소유하는 상태 | 도입 단계 | 상태 |
 |---|---|---|---|---|
-| Core | `src/engine/core/` | `meta.rngState` | S0 | 설계 |
+| Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약 구현됨 |
 | Content | `src/content/` | 없음(ContentDb) | S0 | 설계 |
 | Persistence | `src/persistence/` | 없음(SaveFile) | S0 설계, S3 구현 | 설계 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign` 탐사 기록·길 지식, `character` 위치 | S1 | 설계 |
@@ -381,10 +427,10 @@ export type SaveFile = {
 | ID | 조건 | 상태 | 테스트(계획) |
 |---|---|---|---|
 | INV-01 | 스태미나는 0 이상, 최대치 이하다 | 확정 | `stamina/*.test.ts` |
-| INV-02 | 거부된 행동은 입력과 같은 상태 참조를 돌려주고, 자원과 난수 상태를 바꾸지 않는다 | 확정 | `core/dispatch.test.ts` |
+| INV-02 | 거부된 행동은 입력과 같은 상태 참조를 돌려주고, 자원과 난수 상태를 바꾸지 않는다 | 확정 | `[구현됨]` `core/dispatch.test.ts` |
 | INV-03 | `meta.gameTime`은 `advanceTime`으로만 증가하고, 한 행동에서 두 번 진행되지 않는다 | 확정 | `time/advance.test.ts` |
-| INV-04 | 같은 상태, 같은 행동, 같은 `ctx`에서 `dispatch`는 같은 결과를 돌려준다 | 확정 | `core/dispatch.test.ts` |
-| INV-05 | `GameState`는 JSON 직렬화 후 복원해도 같다 | 확정 | `core/state.test.ts` |
+| INV-04 | 같은 상태, 같은 행동, 같은 `ctx`에서 `dispatch`는 같은 결과를 돌려준다 | 확정 | `[구현됨]` `core/dispatch.test.ts` |
+| INV-05 | `GameState`는 JSON 직렬화 후 복원해도 같다 | 확정 | `[구현됨]` `core/state.test.ts` |
 | INV-06 | 저장 후 불러오기 왕복 시 상태가 같고, 게임 시간이 바뀌지 않는다 | 확정 | `persistence/*.test.ts` |
 | INV-07 | 오프라인 정산은 멱등이다. 같은 `to`로 두 번 정산해도 결과는 한 번 정산한 것과 같다 | 확정 | `time/settle.test.ts` |
 | INV-08 | 기기 시각이 뒤로 가도 자원, 타이머, 게임 시간이 줄거나 늘지 않는다 | 확정 | `time/settle.test.ts` |
@@ -395,7 +441,7 @@ export type SaveFile = {
 | INV-13 | 오염도는 명세된 효과 외에는 감소하지 않는다 | 확정 | `character/*.test.ts` |
 | INV-14 | 캐릭터가 사망해도 `campaign` 영역(지도, 거점, 채집지, 코덱스)은 유지된다 | 확정 | `character/*.test.ts` |
 | INV-15 | 콘텐츠의 모든 ID 참조는 존재하는 대상을 가리킨다 | 확정 | `content/*.test.ts` |
-| INV-16 | 등록되지 않은 효과 유형이나 잘못된 매개변수는 콘텐츠 검증에서 실패한다 | 확정 | `content/*.test.ts` |
+| INV-16 | 등록되지 않은 효과 유형이나 잘못된 매개변수는 콘텐츠 검증에서 실패한다 | 확정 | 레지스트리 단위 검증 구현됨(`core/effects.test.ts`), 콘텐츠 연결은 `content/*.test.ts`에서 예정 |
 | INV-17 | `src/engine/`은 브라우저 API 없이 Node 테스트 환경에서 실행된다 | 확정 | `[구현됨]` 전체 엔진 테스트(Node 환경), `engine/purity.test.ts` |
 | INV-18 | 같은 수정치 목록이면 순서와 상관없이 `computeValue` 결과가 같다 | 확정 | `[구현됨]` `core/modifiers.test.ts` |
 | INV-19 | 스태미나와 그 회복량·비용은 항상 정수다 | 확정 | `stamina/*.test.ts` |
@@ -415,3 +461,5 @@ export type SaveFile = {
 | 자동 저장 | 디바운스 1초, 화면이 가려질 때 즉시, 백업 1개 | D-010 (값은 임시) |
 | 시간 값 | 1틱 10초, 하트비트 15초, 유예 2분, 최대 오프라인 인정 24시간 | D-011 (임시) |
 | 스태미나 수치 | 정수 유지. 최대 900, 거점·대기 틱당 1, 휴식 틱당 5, 이동 비용 6/3/0 | D-014 (임시) |
+
+- 코어 처리기 연결은 D-017에 따라 시작 시 목록을 주입해 고정한다.
