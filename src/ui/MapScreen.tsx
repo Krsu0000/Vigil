@@ -5,6 +5,7 @@ import { initialMapId } from '../runtime/store.ts';
 import { bindMovementKeys } from '../runtime/input.ts';
 import { browserClock, browserScheduler } from '../runtime/clock.ts';
 import { createGameLoop } from '../runtime/loop.ts';
+import { AmbushDialog } from './AmbushDialog.tsx';
 import { SettingsDialog } from './SettingsDialog.tsx';
 import type { Direction } from '../engine/systems/map/actions.ts';
 import { currentLocation, requireTile } from '../engine/systems/map/selectors.ts';
@@ -21,6 +22,14 @@ export function MapScreen({ store }: { store: GameStore }) {
   const loop = useMemo(() => createGameLoop(store, browserClock, browserScheduler), [store]);
   const session = useSyncExternalStore(loop.subscribe, loop.getSnapshot, loop.getSnapshot);
   useEffect(() => { loop.start(); return () => loop.stop(); }, [loop]);
+  const pendingAmbush = state.expedition?.pendingAmbush;
+  const [ambushOpen, setAmbushOpen] = useState(false);
+  useEffect(() => { setAmbushOpen(!!pendingAmbush); }, [pendingAmbush]);
+  useEffect(() => {
+    const previous = document.title;
+    document.title = pendingAmbush ? `${strings.ambush} · ${strings.gameTitle}` : strings.gameTitle;
+    return () => { document.title = previous; };
+  }, [pendingAmbush]);
   const [message, setMessage] = useState<string>(strings.moveHelp);
   const move = useCallback((direction: Direction) => {
     const result = loop.move(direction);
@@ -48,16 +57,17 @@ export function MapScreen({ store }: { store: GameStore }) {
   const zone = store.content.byId[currentCell.zoneId];
   if (!zone || !('kind' in zone) || zone.kind !== 'zone') throw new Error('현재 구역 정의가 없다');
   const stamina = state.character!.stamina;
+  const resting = state.character!.activity === 'resting';
   const recoveryHint = !session.running ? strings.recoveryPaused : stamina.current === stamina.max ? strings.recoveryFull :
-    strings.recoveryWaiting;
-  const recoveryPerTick = zone.safety === 'safe' ? store.content.timeRules.stamina.safeRegenPerTick : store.content.timeRules.stamina.waitRegenPerTick;
+    resting ? strings.recoveryResting : strings.recoveryWaiting;
+  const recoveryPerTick = zone.safety === 'safe' ? store.content.timeRules.stamina.safeRegenPerTick : resting ? store.content.timeRules.stamina.restRegenPerTick : store.content.timeRules.stamina.waitRegenPerTick;
 
   return (
     <div className="exploration-layout">
       <div className="session-controls">
-        <span data-testid="session-status" role="status">{session.running ? strings.running : strings.paused}</span>
-        <button type="button" onClick={() => loop.setPaused(session.running)}>
-          {session.running ? strings.pause : strings.resume}
+        <span data-testid="session-status" role="status">{pendingAmbush ? strings.ambushPending : session.running ? strings.running : strings.paused}</span>
+        <button type="button" onClick={() => loop.setPaused(!(session.paused || session.gapPaused))}>
+          {session.paused || session.gapPaused || !session.running && !pendingAmbush ? strings.resume : strings.pause}
         </button>
         <button type="button" onClick={() => loop.setSettingsOpen(true)}>{strings.settings}</button>
         {session.gapPaused && <p role="alert">{strings.heartbeatGap}</p>}
@@ -117,6 +127,23 @@ export function MapScreen({ store }: { store: GameStore }) {
               aria-label={strings[direction]} disabled={!session.running} onClick={() => move(direction)}>{glyph}</button>
           ))}
         </div>
+        <div className="rest-controls">
+          <button type="button" disabled={!session.running || !resting && (zone.safety !== 'danger' || stamina.current === stamina.max)}
+            onClick={() => {
+              const result = loop.setResting(!resting);
+              if (!result.ok) setMessage(strings.restUnavailable);
+              else setMessage(resting ? strings.restStopped : strings.restStarted);
+            }}>{resting ? strings.stopRest : strings.startRest}</button>
+          <span data-testid="activity">{resting ? strings.resting : strings.waiting}</span>
+        </div>
+        {zone.safety === 'danger' && <p className="rest-rules">
+          {strings.resting}: {store.content.timeRules.stamina.recoveryIntervalMs / 1000}{strings.secondsUnit} · {strings.recoveryAmount} {store.content.timeRules.stamina.restRegenPerTick}<br />
+          {strings.ambushChance}: {strings.waiting} {store.content.timeRules.ambush.waitChancePerTick * 100}% · {strings.resting} {store.content.timeRules.ambush.restChancePerTick * 100}%{strings.perTick}
+        </p>}
+        {pendingAmbush && <div className="ambush-notice" role="alert">
+          <p>{strings.ambushPending}</p>
+          <button type="button" onClick={() => setAmbushOpen(true)}>{strings.reopenAmbush}</button>
+        </div>}
         <p className="keyboard-help">{strings.keyboardHelp}</p>
         <p className="movement-status" role="status">{message}</p>
         <p className="recovery-status" data-testid="recovery-status">{recoveryHint}</p>
@@ -124,6 +151,10 @@ export function MapScreen({ store }: { store: GameStore }) {
         <p className="session-note">{strings.sessionOnly}</p>
         <p className="time-note">{strings.liveRecovery}</p>
       </aside>
+      {pendingAmbush && ambushOpen && !session.settingsOpen && <AmbushDialog
+        onClose={() => setAmbushOpen(false)} onResolve={(result) => {
+          if (loop.resolveAmbush(result).ok) setMessage(result === 'defeated' ? strings.defeatedResult : strings.escapedResult);
+        }} />}
       {session.settingsOpen && <SettingsDialog onClose={() => loop.setSettingsOpen(false)} />}
     </div>
   );

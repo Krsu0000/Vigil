@@ -1,0 +1,52 @@
+{
+  "format": "last-vigil-save",
+  "schemaVersion": 3,
+  "contentVersion": "0.2.4",
+  "saveId": "00112233-4455-4677-8899-aabbccddeeff",
+  "revision": 7,
+  "savedAt": 1700000001000,
+  "state": {
+    "meta": {
+      "campaignId": "2fb70709-35e0-4371-9912-4882bf3fe623",
+      "gameTime": 1,
+      "rngState": [
+        131395302,
+        1323665263,
+        4129823514,
+        23
+      ],
+      "lastActiveAt": 1700000000000,
+      "settledUntil": 1700000000000
+    },
+    "campaign": {
+      "exploration": {
+        "map.s1_test": {
+          "mapVersion": 1,
+          "visited": {
+            "0:1:1": true,
+            "0:2:1": true,
+            "0:3:1": true,
+            "0:3:2": true,
+            "0:3:3": true,
+            "0:4:3": true,
+            "0:5:3": true
+          }
+        }
+      }
+    },
+    "character": {
+      "position": {
+        "mapId": "map.s1_test",
+        "floor": 0,
+        "x": 5,
+        "y": 3
+      },
+      "stamina": {
+        "current": 889,
+        "max": 900
+      },
+      "movedSinceLastTick": true
+    },
+    "expedition": null
+  }
+}

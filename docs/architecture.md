@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0·S1 마감 수용, S2 두 번째 단위 구현.** 스태미나·이동 비용·전역 시간 엔진·독립 스태미나 회복·SaveFile v3와 v1/v2 변환 위에 실제 틱 루프·일시정지·설정창·하트비트·이동 간격을 연결했다. GameStore는 맵·시간 행동을 조합하고 화면에 자원·틱·진행/정지를 표시한다. 휴식·습격·IndexedDB는 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0·S1 완료, S2 세 번째 단위 구현.** 휴식·대기/휴식 습격 판정·미처리 습격 게이트·임시 팝업을 연결했다(D-029). 현재 SaveFile은 v4이며 v1~v3 변환을 지원한다. IndexedDB·실제 전투·S2 사용자 재미 판정은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -121,8 +121,11 @@ export type CharacterState = Readonly<{
   position: MapPosition | null;
   stamina: StaminaState;
   movedSinceLastTick: boolean;
+  activity: 'waiting' | 'resting';
 }>;
-export type ExpeditionState = Readonly<Record<string, never>>;
+export type ExpeditionState = Readonly<{
+  pendingAmbush: null | Readonly<{ triggeredAt: number; activityAtTrigger: 'waiting' | 'resting' }>;
+}>;
 
 export type GameState = Readonly<{
   meta: StateMeta;
@@ -141,8 +144,8 @@ export type StateMeta = Readonly<{
 ```
 
 - 현재 위치는 character에, 밟은 칸과 맵 버전은 campaign.exploration에 둔다. 현재 시야·구역의 안전 여부는 계산 값이며 저장하지 않는다. 캐릭터가 없어져도 캠페인 탐사 기록은 유지된다.
-- character가 null이면 캐릭터 없음, position이 null이면 미배치다. 이전 v1의 빈 캐릭터는 미배치로 변환한다. expedition은 아직 빈 객체 또는 null이다.
-- `stamina.current`·`max`는 안전한 정수이며 0 ≤ current ≤ max, max > 0이다. `movedSinceLastTick`은 마지막 시간 틱 이후 성공한 이동이 있었는지 표시한다. 이동 시 true, 다음 1틱에서 회복 없이 false로 바꾼다. 저장·복원은 표시를 그대로 보존한다. 캐릭터 생성·레벨·휴식 활동은 후속 단계다.
+- character가 null이면 캐릭터 없음, position이 null이면 미배치다. 이전 v1의 빈 캐릭터는 미배치로 변환한다. expedition은 null 또는 pendingAmbush를 가진 객체다. 전체 원정 수명 주기는 후속 단계에서 정의한다.
+- `stamina.current`·`max`는 안전한 정수이며 0 ≤ current ≤ max, max > 0이다. `movedSinceLastTick`은 마지막 시간 틱 이후 성공한 이동이 있었는지 표시한다. 이동 시 true, 다음 전역 틱에서 false로 바꾼다. 회복은 D-028의 독립 경로이므로 이 표시로 회복을 제외하지 않는다. 저장·복원은 표시를 그대로 보존한다. activity는 waiting/resting이며 위험지대 휴식을 나타낸다(D-029). 캐릭터 생성·레벨은 후속 단계다.
 - 상태는 JSON으로 직렬화할 수 있어야 한다. 함수, 클래스 인스턴스, `Map`, `Set`, `Date`를 넣지 않는다. 목록은 배열, 조회용 묶음은 `Record<string, T>`를 쓴다.
 - 상태는 불변 객체로 다룬다. 타입의 `Readonly`는 직접 대입을 제한하고, 테스트에서 중첩 객체를 동결해 원본 변경을 검출한다. 제품 실행마다 상태 전체를 복사·동결하는 로직은 추가하지 않는다.
 - 새 상태는 바뀐 부분만 새로 만든다. 갱신 코드는 직접 작성한다(D-009). 복잡해지면 Immer 도입을 다시 검토한다.
@@ -213,7 +216,7 @@ export const dispatch: Dispatcher; // S0에서는 게임 처리기가 없는 기
 |---|---|---|---|
 | `createCampaign(content, seed, now)` | `engine/core/campaign.ts` | 새 캠페인 초기 상태 생성 | `[구현됨]` |
 | `restoreSave(raw)` | `persistence/save-file.ts` | 형식 확인 → 버전 변환 → Zod 검증 → `GameState` | `[구현됨]` |
-| 버전 변환 체인 | `persistence/migrations/` | 이전 스키마의 세이브를 다음 버전으로 변환 | `[구현됨]` v1 → v2 → v3 |
+| 버전 변환 체인 | `persistence/migrations/` | 이전 스키마의 세이브를 다음 버전으로 변환 | `[구현됨]` v1 → v2 → v3 → v4 |
 
 - `createCampaign`은 `seedRngState(seed)`로 시드 정수 4개를 검증·초기화하고, `createUuid(rng)`로 캠페인 ID를 만든 뒤 그 이후의 난수 상태를 저장한다.
 - 초기 `gameTime`은 0, `lastActiveAt`·`settledUntil`은 전달받은 `now`, `campaign.exploration`은 빈 객체, `character`·`expedition`은 `null`이다.
@@ -254,11 +257,11 @@ export function advanceTime(state: GameState, ticks: number, ctx: EngineContext,
   { state: GameState; events: GameEvent[] };
 ```
 
-- advanceTime은 전역 게임 시간만 진행한다. 회복은 stamina/recover와 recoverStamina의 공통 계산 경로를 쓴다. S3 오프라인 정산도 두 시간 단위(전역 틱·회복 주기)를 나눠 같은 계산 경로를 조합한다.
-- advanceTime의 일괄 틱과 stamina/recover의 일괄 회복 횟수는 각각 순차 처리와 최종 상태가 같도록 검사한다. 실시간 루프는 두 종류의 마감 시각을 시간순으로 처리한다. 이후 난수/피해/습격을 도입할 때도 전체를 먼저 처리한 뒤 회복을 몰아 주지 않는다.
+- advanceTime은 전역 게임 시간을 진행하며 위험 구역의 각 틱에서 습격을 판정한다. 미처리 습격이 발생한 틱에서 멈춘다. 회복은 stamina/recover와 recoverStamina의 공통 계산 경로를 쓴다. S3 오프라인 정산도 두 시간 단위(전역 틱·회복 주기)를 나눠 같은 계산 경로를 조합한다.
+- advanceTime의 일괄 틱과 stamina/recover의 일괄 회복 횟수는 각각 순차 처리와 최종 상태가 같도록 검사한다. 실시간 루프는 두 종류의 마감 시각을 시간순으로 처리한다. 이후 지속 피해를 도입할 때도 전체를 먼저 처리한 뒤 회복을 몰아 주지 않는다.
 - 한 행동에서 시간을 두 번 진행시키지 않는다. 시간을 쓰는 행동(예: 야영지 설치)은 처리기 안에서 `advanceTime`을 한 번만 호출한다.
 - `[구현됨]` `time/advance.ts`·`actions.ts`의 time/tick은 생략 시 1틱, ticks 지정 시 양의 안전한 정수만큼 advanceTime을 한 번 호출한다. 잘못된 틱 수는 invalid_action으로 거부한다. 배치된 캐릭터가 없으면 행동을 거부한다. advanceTime은 0틱에 같은 상태 참조를 반환하고 음수·소수·게임 시간 정수 상한 초과를 오류로 처리한다.
-- `[구현됨]` advanceTime은 gameTime과 기존 이동 표시만 갱신하고 스태미나는 보존한다. time/advanced 사건의 기존 recovered 필드는 호환을 위해 유지하며 항상 0이다. 실제 회복 사건은 stamina/recovered다. movedSinceLastTick은 v3 계약을 유지하지만 회복 판정에는 쓰지 않는다(D-028).
+- `[구현됨]` advanceTime은 gameTime·이동 표시·습격 상태·소비한 난수를 갱신하고 스태미나는 보존한다. time/advanced 사건의 기존 recovered 필드는 호환을 위해 유지하며 항상 0이다. 실제 회복 사건은 stamina/recovered다. movedSinceLastTick은 회복 판정에 쓰지 않고 위험지대 대기 습격의 이동 틱 제외에 쓴다(D-028·D-029).
 - runtime/loop.ts가 실제 2초 자동 루프를 연결했다. 위험지대 휴식·습격은 다음 단위이며 현재 위험지대 대기는 독립 회복 주기의 기본 회복만 한다. time/settle은 S3다.
 
 ### 4.3 오프라인 정산 `[설계]`
@@ -287,17 +290,17 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 - runtime/loop.ts의 createGameLoop가 세션 상태(수동 정지·설정창·공백 정지)와 부분 틱·이동 간격을 관리한다. 시작/종료는 멱등이며 취소된 콜백도 세대 번호로 무효화한다. MapScreen 효과의 시작→종료→시작에서도 활성 타이머는 하나다.
 - 타이머와 입력 모두 틱 처리 전에 하트비트 유예를 검사한다. 위험지대에서 유예 초과 시 공백의 모든 미처리 틱을 제외하고 공백 정지를 표시한다. 명시적인 재개가 필요하다. 정확히 유예와 같거나 유예 이하인 지연은 틱을 중복 없이 처리한다.
 - 안전 구역의 열려 있는 세션은 단조 시계의 지연분을 전역 틱/회복 마감 시각 순서로 처리한다. 창을 닫았다 여는 오프라인 정산·24시간 상한 적용은 S3의 time/settle에서 구현한다. 이 루프는 visibilitychange만으로 정지하지 않는다.
-- 수동 정지·설정창 정지 중에는 타이머·이동이 중단된다. 설정창을 닫아도 수동/공백 정지는 유지한다. 재개 시 부분 틱을 버리고 콘텐츠의 틱 간격(현재 2초)을 새로 세며 정지 구간은 소급하지 않는다. 일반 게임 창은 정지 요청을 보내지 않는 구조이고 현재 구현된 창은 설정뿐이다.
+- 수동 정지·설정창 정지 중에는 타이머·이동이 중단된다. 설정창을 닫아도 수동/공백 정지는 유지한다. 재개 시 부분 틱을 버리고 콘텐츠의 틱 간격(현재 2초)을 새로 세며 정지 구간은 소급하지 않는다. 일반 게임 창은 정지 요청을 보내지 않는 구조다. 현재 설정창과 습격 팝업을 구현했다. 미처리 습격의 진행 제한은 팝업 열림과 독립된 엔진 상태에 따른다(D-029).
 - 성공한 이동 뒤 minimumMoveIntervalMs(임시 200ms)보다 빠른 입력은 runtime에서 cooldown으로 거부한다. 벽·자원 부족 거부는 간격을 소비하지 않는다. 키보드·모바일은 같은 loop.move를 사용한다. 세션 거부는 엔진 호출 없이 자원·위치·탐사를 유지한다.
-- 테스트에서는 가짜 Clock·Scheduler로 경계·정지·공백·시각 역행·중복 타이머를 검사한다. 세션 상태·부분 틱·이동 간격은 저장하지 않고 GameState/세이브 v3는 변경하지 않는다(D-026).
+- 테스트에서는 가짜 Clock·Scheduler로 경계·정지·공백·시각 역행·중복 타이머를 검사한다. 세션 상태·부분 틱·이동 간격은 저장하지 않는다(D-026). D-029의 활동·미처리 습격은 엔진에 저장하고 세이브 v4로 보존한다.
 
 ### 4.5 스태미나 계산 `[기본형 구현됨]`
 
 - `systems/stamina/stamina.ts`의 createStamina는 콘텐츠 최대치를 읽어 새 캐릭터의 현재치·최대치를 만든다. 기존 미배치 캐릭터를 첫 배치할 때는 저장된 자원을 유지한다.
 - getMoveCost는 이동 목적지의 안전/위험 구분을 사용한다. 안전 구역은 safeMoveCost, 위험 구역은 unexploredMoveCost를 기본값으로 하고, 이미 밟은 목적지는 exploredMoveCost/unexploredMoveCost 배율을 computeValue에 전달한다. 기본 비용 0이면 고정 증감으로 처리한다. 현재 기본값은 6/3/0이다.
 - consumeStamina·recoverStamina도 computeValue를 사용하며 비용·자원이 안전한 정수인지 확인한다. 부족한 자원은 소모하지 않고, 회복은 최대치에서 멈춘다. 매우 큰 틱 수에서도 최대치까지의 양만 더한다.
-- stamina/actions.ts의 stamina/recover { periods }는 양의 안전한 정수인 회복 횟수만 받는다. 배치된 캐릭터가 없으면 거부한다. 현재 구역의 safeRegenPerTick·waitRegenPerTick을 회복 주기당 양으로 사용한다. 기존 콘텐츠 이름은 유지하되 전역 틱에 자동 적용하지 않는다. restRegenPerTick은 아직 미사용이다.
-- 회복은 스태미나만 갱신한다. Game Time·난수·이동 표시·나머지 상태는 보존한다. stamina/recovered 사건은 periods·recovered를 담는다. 시계/DOM/타이머는 엔진에서 사용하지 않는다.
+- stamina/actions.ts의 stamina/recover { periods }는 양의 안전한 정수인 회복 횟수만 받는다. 배치된 캐릭터가 없으면 거부한다. 현재 구역과 활동의 safeRegenPerTick·waitRegenPerTick·restRegenPerTick을 회복 주기당 양으로 사용한다. 기존 콘텐츠 이름은 유지하되 전역 틱에 자동 적용하지 않는다. 미처리 습격에는 회복 행동을 거부한다.
+- 회복은 스태미나를 갱신하고 최대치에 도달하면 휴식 활동을 waiting으로 바꾼다. Game Time·난수·이동 표시·나머지 상태는 보존한다. stamina/recovered 사건은 periods·recovered를 담는다. 시계/DOM/타이머는 엔진에서 사용하지 않는다.
 - runtime의 recoveryAt을 성공한 마지막 이동 시각으로 갱신한다. 현재 recoveryIntervalMs=2000마다 회복 행동을 보낸다. 실패한 이동은 초기화하지 않는다. tickAt·heartbeatAt은 이동으로 바꾸지 않는다. 부분 회복 대기는 세션에만 있으며 시작/재개에는 전체 간격을 새로 센다.
 - 루프는 단일 타이머로 전역 틱·회복·하트비트 중 가장 가까운 시각을 예약한다. 지연 콜백의 게임 틱/회복은 시각 순서로 처리하며 동시에는 전역 틱→회복 순서다. 위험 공백 검사는 모든 효과보다 먼저 한다. 실제 지속 피해는 아직 구현하지 않았다.
 
@@ -314,7 +317,7 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 ## 6. 콘텐츠 `[구현됨]`
 
-- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 현재 버전은 `0.2.3`, 실제 JSON은 매니페스트·시간 규칙·타일·구역·맵의 5개다. 정의 파일은 `tiles.json`, `zones.json`, `maps/s1-test.json`이다.
+- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 현재 버전은 `0.2.4`, 실제 JSON은 매니페스트·시간 규칙·타일·구역·맵의 5개다. 정의 파일은 `tiles.json`, `zones.json`, `maps/s1-test.json`이다.
 - 매니페스트의 파일 목록은 명시적이다. 필수 파일 누락, 중복 파일, 매니페스트 자기 참조, 목록에 없는 JSON도 오류다. 경로는 소문자 영문·숫자·밑줄·하이픈으로 된 상대 JSON 경로만 허용한다.
 - `time-rules.json`에 D-011·D-014의 임시값을 넣었다. 시간은 ms, 스태미나는 정수 단위다. 하트비트·minimumMoveIntervalMs도 JSON 설정에서 읽는다.
 - 시간 규칙의 시간 값과 최대 스태미나는 양의 안전한 정수, 회복량·이동 비용은 0 이상의 안전한 정수다. 하트비트 유예 시간은 간격 이상이어야 한다. S2 기본 시간 진행·스태미나 계산이 이 기존 값을 읽는다. 실제 타이머·하트비트·이동 간격도 런타임에서 읽는다.
@@ -477,7 +480,7 @@ export function computeValue(base: number, mods: Modifier[], rule: ValueRule): n
 // 실제 타입은 SaveFileSchema에서 추론하며 state는 코어 GameState 계약을 사용한다.
 export type SaveFile = Readonly<{
   format: 'last-vigil-save';
-  schemaVersion: 3;         // 스태미나·틱 이후 이동 표시 추가
+  schemaVersion: 4;         // 휴식 활동·미처리 습격 추가
   contentVersion: string;   // 저장 당시 콘텐츠 버전
   saveId: string;           // UUID
   revision: number;         // 저장할 때마다 1씩 증가. 기기 간 비교에 사용
@@ -488,8 +491,8 @@ export type SaveFile = Readonly<{
 
 - 세이브에 넣지 않는 것: `ContentDb`, 세션 런타임, UI 상태.
 - 내보내기·가져오기는 같은 `SaveFile` JSON을 쓰고, 가져올 때도 같은 검증 경로를 거친다.
-- `SaveFileSchema`·`GameStateSchema`는 모든 객체에서 미정의 필드를 거부한다. UUID, 0 이상의 안전한 정수인 revision·시각·게임 시간, uint32 4개인 난수 상태와 위치·탐사 기록을 검증한다. 좌표 키는 정규 floor:x:y이고 값은 true만 허용한다. 현재 위치가 탐사 기록에 있어야 한다. v3는 스태미나 정수·최대치·상한과 이동 표시 boolean도 검증한다.
-- 구조 검증은 콘텐츠를 읽지 않는다. 실제 칸·맵 버전 대조는 복원 후 validateMapState로 수행한다. 맵 버전 변경에 따른 기록 이전은 아직 없다.
+- `SaveFileSchema`·`GameStateSchema`는 모든 객체에서 미정의 필드를 거부한다. UUID, 0 이상의 안전한 정수인 revision·시각·게임 시간, uint32 4개인 난수 상태와 위치·탐사 기록을 검증한다. 좌표 키는 정규 floor:x:y이고 값은 true만 허용한다. 현재 위치가 탐사 기록에 있어야 한다. 스태미나 정수·최대치·상한과 이동 표시 boolean을 검증한다. v4는 활동·미처리 습격 구조·발생 시각과 현재 활동의 일치도 검증한다.
+- 구조 검증은 콘텐츠를 읽지 않는다. 실제 칸·맵 버전은 validateMapState로, 휴식/미처리 습격의 위험 구역 조건은 validateActivityState로 상태 교체 전에 대조한다. 맵 버전 변경에 따른 기록 이전은 아직 없다.
 - `parseSave`는 먼저 JSON 데이터만 허용해 입력과 분리한 뒤 검증한다. 함수·Date·Map·Set·undefined·NaN·무한대를 JSON 변환으로 조용히 손실시키지 않는다. `GameStateSchema`는 기존 코어 타입과 호환되는지 TypeScript로 검사한다.
 - 콘텐츠 버전은 매니페스트와 같은 문자열 스키마로 검증하고 저장된 값을 보존한다. 콘텐츠 버전별 호환성 정책·콘텐츠 변환은 아직 없으며 구조 버전 변환과 구분한다.
 
@@ -509,10 +512,10 @@ export type SaveFile = Readonly<{
 
 ### 8.3 버전 변환 `[체인 구조 구현됨]`
 
-- `persistence/format.ts`의 현재 버전은 3다. 고정 목록에는 v1ToV2·v2ToV3가 등록돼 있다. schemas-v1.ts·schemas-v2.ts는 이전 전체 계약을 보존하고 각각 검증한 뒤 변환한다. 현재 GameStateSchema는 v2 위치·탐사 검증을 유지하며 v3 필드를 추가한다.
+- `persistence/format.ts`의 현재 버전은 4다. v1ToV2·v2ToV3·v3ToV4가 등록돼 있다. schemas-v1.ts·schemas-v2.ts·schemas-v3.ts는 이전 전체 계약을 보존한다. 현재 GameStateSchema는 기존 위치/탐사·스태미나 검증과 v4 활동/미처리 습격 검증을 수행한다.
 - `runMigrations(raw, targetVersion, migrations)`는 입력 JSON 복사본에서 fromVersion별 변환을 버전 순서대로 연결한다. 단계마다 형식·JSON 값·정확한 1버전 증가를 검사한다. 누락·중복 단계·미래 버전·잘못된 변환 결과를 거부하고 코드 예외를 숨기지 않는다.
-- `migrateSave(raw)`는 v1→v2→v3 또는 v2→v3 변환을 거친다. v1 단계는 빈 탐사 기록·미배치 위치를 추가한다. v2 단계는 기존 캐릭터에 스태미나 900/900·이동 표시 false만 추가하고 null 캐릭터와 모든 기존 필드를 보존한다. 900은 v2 당시의 호환성 고정값이며 현재 콘텐츠를 읽어 바꾸지 않는다. 변환 중 위치 배치·캐릭터 생성·시간·난수 진행은 없다.
-- fixtures의 v1 2개·v2 3개는 각 변경 전에 실제 작성 코드로 생성한 테스트 예시다. 출처·입력은 README.md에 있다. 실제 지원 형식은 v1·v2·v3이며, 변환·왕복·후속 이동/전역 틱/독립 회복·벽 안개와 자원/이동 표시 보존의 연속성을 검사한다.
+- `migrateSave(raw)`는 v1→v2→v3→v4·v2→v3→v4·v3→v4 변환을 거친다. v1 단계는 빈 탐사 기록·미배치 위치를 추가한다. v2 단계는 기존 캐릭터에 스태미나 900/900·이동 표시 false만 추가하고 null 캐릭터와 모든 기존 필드를 보존한다. 900은 v2 당시의 호환성 고정값이며 현재 콘텐츠를 읽어 바꾸지 않는다. v3→v4는 기존 캐릭터에 activity=waiting, non-null 빈 원정에 pendingAmbush=null을 추가한다. 변환 중 위치 배치·캐릭터 생성·시간·난수 진행은 없다.
+- fixtures의 v1 2개·v2 3개·v3 1개는 각각 이전 작성 코드로 생성한 테스트 예시다. 출처·입력은 README.md에 있다. 실제 지원 형식은 v1·v2·v3·v4이며, 변환·왕복·후속 이동/전역 틱/독립 회복·벽 안개와 자원/이동 표시 보존의 연속성을 검사한다.
 - 변환 함수마다 이전 버전의 실제 세이브 예시 파일과 변환 테스트를 함께 둔다.
 - 세이브 구조 변경은 사용자 승인이 필요하다.
 
@@ -520,8 +523,8 @@ export type SaveFile = Readonly<{
 
 - `GameStore`는 현재 `GameState`를 보관하고, `dispatch(action)`이 호출되면 엔진의 `dispatch`에 `ctx`를 붙여 넘긴 뒤 결과로 상태를 교체하고 구독자에게 알린다.
 - React는 `useSyncExternalStore`로 `GameStore`를 구독한다. 새 상태 관리 라이브러리는 쓰지 않는다.
-- `[구현됨]` `runtime/store.ts`가 mapHandlers·timeHandlers·staminaHandlers를 조합한다. RuntimeAction·RuntimeEvent는 세 시스템 유니온이다. 생성 때 구조·실제 맵을 검증하며, 성공한 dispatch만 상태를 교체하고 구독자에게 알린다. 거부 시 같은 스냅샷을 유지한다. getSnapshot은 상태 변경 전까지 같은 참조를 반환한다.
-- `[구현됨]` restore는 저장 형식 확인·v1/v2→v3 변환·상태 검증·실제 콘텐츠 대조를 모두 통과한 뒤 한 번 교체한다. 실패하면 기존 상태·구독을 유지한다. 복원은 시계를 호출하거나 미배치 캐릭터를 자동 배치하지 않는다.
+- `[구현됨]` `runtime/store.ts`가 mapHandlers·timeHandlers·staminaHandlers·restHandlers·ambushHandlers를 조합한다. RuntimeAction·RuntimeEvent는 다섯 시스템 유니온이다. 생성 때 구조·실제 맵을 검증하며, 성공한 dispatch만 상태를 교체하고 구독자에게 알린다. 거부 시 같은 스냅샷을 유지한다. getSnapshot은 상태 변경 전까지 같은 참조를 반환한다.
+- `[구현됨]` restore는 저장 형식 확인·v1/v2/v3→v4 변환·상태 검증·실제 콘텐츠 대조를 모두 통과한 뒤 한 번 교체한다. 실패하면 기존 상태·구독을 유지한다. 복원은 시계를 호출하거나 미배치 캐릭터를 자동 배치하지 않는다.
 - `[구현됨]` 새 게임은 콘텐츠에 맵이 정확히 1개일 때만 시작한다. ID를 하드코딩하거나 배열 첫 항목을 고르지 않는다. 이 프로토타입 제약은 시작 맵 정책 도입 시 교체한다.
 - `[구현됨]` MapScreen은 벽 유지 규칙을 포함한 A안 시야 조회로 CSS Grid를 표시한다. 미탐사 칸에는 지형 이름·기호·벽 클래스를 넣지 않는다. 확인한 벽은 시야 밖에서도 검정색으로 칸 전체를 채우며 타일 간격은 0이다. 지도 배경은 짙은 회색이다. 현재 위치·탐사 수·안전/위험 구역은 상태와 콘텐츠에서 계산한다.
 - `[구현됨]` runtime/input.ts가 방향키·WASD를 행동으로 연결하고 해제 함수를 반환한다. React 효과 정리로 중복 리스너를 방지한다. 입력 필드·편집 영역·IME·수정키 조합·이미 처리된 이벤트는 이동시키지 않는다. 모바일 버튼은 최소 44×44px다.
@@ -544,11 +547,11 @@ export type SaveFile = Readonly<{
 |---|---|---|---|---|
 | Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약·CombatLog 타입 구현됨 |
 | Content | `src/content/` | 없음(ContentDb) | S0 기반, S1 맵 정의 | 기반·맵/타일/구역·배치 검증 구현됨 |
-| Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S1/S2 확장, S3 브라우저 저장 | v3·메모리 왕복·v1/v2 변환 구현됨 |
+| Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S1/S2 확장, S3 브라우저 저장 | v4·메모리 왕복·v1/v2/v3 변환 구현됨 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign.exploration`, `character.position` | S1 | 배치·이동·A안 안개·실제 콘텐츠 대조 구현됨 |
 | Time | `src/engine/systems/time/` | `meta.gameTime`·`lastActiveAt`, 이후 `settledUntil` | S2 | advanceTime·일괄 time/tick·하트비트 구현됨. 정산은 S3 |
-| Stamina & Rest | `src/engine/systems/stamina/` | `character.stamina`, `movedSinceLastTick` | S2 | 비용·소모·독립 대기 회복 구현됨. 휴식은 후속 |
-| Ambush | `src/engine/systems/ambush/` | 없음(판정만) | S2 | 설계 |
+| Stamina & Rest | `src/engine/systems/stamina/`·`rest/` | `character.stamina`·`activity` | S2 | 비용·소모·독립 대기/휴식 회복 구현됨 |
+| Ambush/Rest | `src/engine/systems/ambush/`·`rest/` | character.activity·expedition.pendingAmbush | S2 | 판정·휴식·게이트·임시 팝업 연결됨(D-029) |
 | Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠·GameStore·입력·틱 루프·정지·공백·이동 간격 구현됨 |
 | Inventory & Items | `src/engine/systems/inventory/` | `character` 휴대품·장비, `campaign` 창고 | S4 | 설계 |
 | Combat | `src/engine/systems/combat/` | `expedition` 진행 중 전투 | S5 | 설계 |
@@ -602,3 +605,17 @@ export type SaveFile = Readonly<{
 | 스태미나 수치 | 정수 유지. 최대 900, 거점·대기 틱당 1, 휴식 틱당 5, 이동 비용 6/3/0 | D-014 (임시) |
 
 - 코어 처리기 연결은 D-017에 따라 시작 시 목록을 주입해 고정한다.
+
+
+## 14. S2 휴식·습격 연결 `[구현됨]`
+
+D-029 승인에 따라 CharacterState.activity·ExpeditionState.pendingAmbush와 세이브 v4를 연결했다.
+
+- rest/start·rest/stop은 위험지대·자원 상한·현재 활동을 검사하고 사건을 생성한다. 시작/중지는 회복 대기만 전체 간격부터 새로 센다. 전역 틱은 유지한다. 성공 이동·최대치·습격은 휴식을 중단한다. 거부 이동은 유지한다.
+- stamina/recover는 안전/대기/휴식의 회복량 1/1/5를 콘텐츠에서 읽는다. 회복 자체는 gameTime·난수를 진행하지 않는다.
+- rollAmbush는 안전 구역/이동에 비추첨, 위험 구역 대기/휴식에 콘텐츠 확률을 사용한다. 0/1은 난수 없이 확정하고 나머지는 한 번 추첨한다. 전역 틱마다 동일한 시드 난수를 쓰며 일괄 진행도 순차 진행과 같은 실제 발생 틱에서 멈춘다.
+- pendingAmbush가 있으면 time/tick·stamina/recover·move/step·rest/start를 엔진에서 거부한다. runtime의 ambushPending은 Store 상태에서 읽는 세션 표시이며 별도 게임 상태가 아니다. 발생한 틱 다음의 동시 회복·지연 틱·난수 추첨은 수행하지 않는다.
+- 임시 ambush/resolve의 defeated/escaped는 pendingAmbush만 해제하고 사건을 반환한다. 위치·자원·시간·난수는 유지한다. runtime은 해결 후 전체 간격부터 재개하고 수동/설정 정지를 유지한다.
+- Store 생성/복원은 구조·탐사·실제 위험 구역 검증을 모두 통과해야 한다. 휴식은 위치 있음·위험 구역·최대치 미만이어야 하고, 미처리 습격은 위치 있음·위험 구역·waiting·triggeredAt≤gameTime이어야 한다.
+- 팝업 열림은 React의 일시적 UI 상태다. 닫기/ESC 뒤에도 엔진 게이트·앱 안내·재열기 버튼과 탭 제목 알림이 남는다. OS 알림 권한은 사용하지 않는다.
+- 임시 확률은 time-rules.json의 대기 2%·휴식 10%/전역 틱이다. 지역별 보정·실제 전투·원정 수명 주기·IndexedDB·오프라인 정산은 후속 단계다.

@@ -4,6 +4,8 @@ import v2Unplaced from './fixtures/v2-unplaced.json' with { type: 'json' };
 import v2Explored from './fixtures/v2-explored.json' with { type: 'json' };
 import { SaveFileV2Schema } from './schemas-v2.ts';
 import { v2ToV3 } from './migrations/v2-to-v3.ts';
+import { v3ToV4 } from './migrations/v3-to-v4.ts';
+import { SaveFileV3Schema } from './schemas-v3.ts';
 import { createSaveFile, deserializeSave, parseSave, restoreSave, serializeSave } from './save-file.ts';
 import { deepFreeze } from '../engine/core/test-fixtures.ts';
 import { createGameStore } from '../runtime/store.ts';
@@ -21,9 +23,11 @@ describe('이전 코드로 생성한 v2의 v3 변환', () => {
       },
     } };
     expect(v2ToV3(input)).toEqual(expected);
-    expect(parseSave(input)).toEqual(expected);
-    expect(deserializeSave(JSON.stringify(input))).toEqual(expected);
-    expect(deserializeSave(serializeSave(parseSave(input)))).toEqual(expected);
+    expect(SaveFileV3Schema.parse(expected)).toEqual(expected);
+    const current = v3ToV4(expected);
+    expect(parseSave(input)).toEqual(current);
+    expect(deserializeSave(JSON.stringify(input))).toEqual(current);
+    expect(deserializeSave(serializeSave(parseSave(input)))).toEqual(current);
     expect(input).toEqual(before);
   });
 
@@ -31,8 +35,8 @@ describe('이전 코드로 생성한 v2의 v3 변환', () => {
     const ctx = mapContext();
     const migrated = restoreSave(v2Explored);
     const base = SaveFileV2Schema.parse(v2Explored).state;
-    const direct = { ...base, character: {
-      ...base.character!, stamina: { current: 900, max: 900 }, movedSinceLastTick: false,
+    const direct = { ...base, expedition: base.expedition === null ? null : { pendingAmbush: null }, character: {
+      ...base.character!, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const,
     } };
     expect(migrated).toEqual(direct);
     for (const legacyState of [migrated, direct]) {

@@ -1,18 +1,22 @@
+import type { AmbushResult } from '../engine/systems/ambush/actions.ts';
 import type { Direction } from '../engine/systems/map/actions.ts';
 import { currentLocation, findCell, requireZone } from '../engine/systems/map/selectors.ts';
 import type { Clock, Scheduler } from './clock.ts';
 import type { GameStore } from './store.ts';
 
 export type SessionStatus = Readonly<{
-  running: boolean; paused: boolean; settingsOpen: boolean; gapPaused: boolean;
+  running: boolean; paused: boolean; settingsOpen: boolean; gapPaused: boolean; ambushPending: boolean;
 }>;
 
 // 게임 상태는 Store만 소유한다. 이 객체는 저장하지 않는 세션의 시간·입력 제한만 관리한다.
 export function createGameLoop(store: GameStore, clock: Clock, scheduler: Scheduler) {
   const rules = store.content.timeRules;
   const listeners = new Set<() => void>();
-  let status: SessionStatus = { running: false, paused: false, settingsOpen: false, gapPaused: false };
+  let status: SessionStatus = { running: false, paused: false, settingsOpen: false, gapPaused: false, ambushPending: !!store.getSnapshot().expedition?.pendingAmbush };
   let active = false;
+  let unsubscribe: (() => void) | undefined;
+  let observedActivity = store.getSnapshot().character?.activity;
+  let pumping = false;
   let timer: unknown;
   let generation = 0;
   let tickAt = 0;
@@ -21,7 +25,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
   let nextMoveAt = -Infinity;
   const publish = (patch: Partial<SessionStatus>) => {
     const next = { ...status, ...patch };
-    next.running = active && !next.paused && !next.settingsOpen && !next.gapPaused;
+    next.running = active && !next.paused && !next.settingsOpen && !next.gapPaused && !next.ambushPending;
     if (Object.keys(next).every((key) => next[key as keyof SessionStatus] === status[key as keyof SessionStatus])) return;
     status = Object.freeze(next);
     for (const listener of [...listeners]) listener();
@@ -45,19 +49,22 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
       return;
     }
     // 마감 시각 순서로 처리한다. 동시에는 전역 틱을 먼저, 회복을 다음에 처리한다.
-    while (status.running) {
-      const nextTick = tickAt + rules.tickMs;
-      const nextRecovery = recoveryAt + rules.stamina.recoveryIntervalMs;
-      if (Math.min(nextTick, nextRecovery) > now) break;
-      if (nextTick <= nextRecovery) {
-        store.dispatch({ type: 'time/tick' });
-        tickAt = nextTick;
-      } else {
-        store.dispatch({ type: 'stamina/recover', periods: 1 });
-        recoveryAt = nextRecovery;
+    pumping = true;
+    try {
+      while (status.running) {
+        const nextTick = tickAt + rules.tickMs;
+        const nextRecovery = recoveryAt + rules.stamina.recoveryIntervalMs;
+        if (Math.min(nextTick, nextRecovery) > now) break;
+        if (nextTick <= nextRecovery) {
+          store.dispatch({ type: 'time/tick' });
+          tickAt = nextTick;
+        } else {
+          store.dispatch({ type: 'stamina/recover', periods: 1 });
+          recoveryAt = nextRecovery;
+        }
       }
-    }
-    if (now - heartbeatAt >= rules.heartbeatIntervalMs) {
+    } finally { pumping = false; }
+    if (status.running && now - heartbeatAt >= rules.heartbeatIntervalMs) {
       store.dispatch({ type: 'time/heartbeat' });
       heartbeatAt = now;
     }
@@ -76,6 +83,24 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
       schedule();
     }, delay);
   };
+  const observeStore = () => {
+    const state = store.getSnapshot();
+    const activity = state.character?.activity;
+    if (activity !== observedActivity) {
+      observedActivity = activity;
+      if (!pumping) recoveryAt = clock.monotonicNow();
+    }
+    const pending = !!state.expedition?.pendingAmbush;
+    if (pending !== status.ambushPending) {
+      const wasRunning = status.running;
+      publish({ ambushPending: pending });
+      if (status.running && !wasRunning) {
+        reanchor();
+        store.dispatch({ type: 'time/heartbeat' });
+      }
+      schedule();
+    } else if (!pumping) schedule();
+  };
   const transition = (patch: Partial<SessionStatus>) => {
     pump();
     const wasRunning = status.running;
@@ -93,14 +118,25 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
     start() {
       if (active) return;
       active = true;
+      observedActivity = store.getSnapshot().character?.activity;
+      unsubscribe = store.subscribe(observeStore);
       reanchor();
-      publish({});
+      publish({ ambushPending: !!store.getSnapshot().expedition?.pendingAmbush });
       if (status.running) store.dispatch({ type: 'time/heartbeat' });
       schedule();
     },
-    stop() { if (!active) return; active = false; cancel(); publish({}); },
+    stop() { if (!active) return; active = false; unsubscribe?.(); unsubscribe = undefined; cancel(); publish({}); },
     setPaused(paused: boolean) { transition({ paused, ...(paused ? {} : { gapPaused: false }) }); },
     setSettingsOpen(settingsOpen: boolean) { transition({ settingsOpen }); },
+    setResting(resting: boolean) {
+      pump();
+      schedule();
+      if (!status.running) return { ok: false, reason: 'paused' } as const;
+      return store.dispatch({ type: resting ? 'rest/start' : 'rest/stop' });
+    },
+    resolveAmbush(result: AmbushResult) {
+      return store.dispatch({ type: 'ambush/resolve', result });
+    },
     move(direction: Direction) {
       pump();
       schedule();

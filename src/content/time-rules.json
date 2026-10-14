@@ -5,6 +5,10 @@
   "maxOfflineMs": 86400000,
   "heartbeatIntervalMs": 15000,
   "heartbeatGraceMs": 120000,
+  "ambush": {
+    "waitChancePerTick": 0.02,
+    "restChancePerTick": 0.1
+  },
   "stamina": {
     "recoveryIntervalMs": 2000,
     "max": 900,

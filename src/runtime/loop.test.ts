@@ -44,6 +44,7 @@ function tenSecondSources() {
 }
 
 function setup(danger = false, sources = tenSecondSources()) {
+  sources['time-rules.json'].ambush = { waitChancePerTick: 0, restChancePerTick: 0 };
   const ctx = mapContext(sources); const clock = new FakeClock();
   const base = danger ? walk(startedState(ctx), ['east','east','south','south','east'], ctx) : startedState(ctx);
   const initial = { ...base, character: { ...base.character!, stamina: { current: 880, max: 900 }, movedSinceLastTick: false } };
@@ -301,5 +302,121 @@ describe('실시간 틱·세션 제어', () => {
     loop.setPaused(true); expect(notify).toHaveBeenCalledOnce();
     loop.setPaused(true); expect(notify).toHaveBeenCalledOnce();
     unsubscribe(); loop.setPaused(false); expect(notify).toHaveBeenCalledOnce();
+  });
+});
+
+function ambushSetup(wait = 0, rest = 0) {
+  const sources = mapSources();
+  sources['time-rules.json'].ambush = { waitChancePerTick: wait, restChancePerTick: rest };
+  const ctx = mapContext(sources); const clock = new FakeClock();
+  const base = walk(startedState(ctx), ['east','east','south','south','east'],ctx);
+  const store = createGameStore(ctx.content,{ ...base, character: {
+    ...base.character!, stamina: { current: 880, max: 900 }, movedSinceLastTick: false,
+  } },clock.wallNow);
+  const loop = createGameLoop(store,clock,clock); loop.start();
+  return { store, loop, clock };
+}
+
+describe('휴식·습격의 런타임 경계', () => {
+  it('휴식 시작/중지는 회복 대기만 초기화하고 전역 틱은 원래 시각에 진행한다', () => {
+    const { store, loop, clock } = ambushSetup();
+    clock.advance(1_000); expect(loop.setResting(true).ok).toBe(true);
+    clock.advance(1_999); expect(store.getSnapshot().meta.gameTime).toBe(1);
+    expect(store.getSnapshot().character!.stamina.current).toBe(880);
+    clock.advance(1); expect(store.getSnapshot().character!.stamina.current).toBe(885);
+    clock.advance(500); expect(loop.setResting(false).ok).toBe(true);
+    clock.advance(1_999); expect(store.getSnapshot().character!.stamina.current).toBe(885);
+    expect(store.getSnapshot().meta.gameTime).toBe(2);
+    clock.advance(1); expect(store.getSnapshot().character!.stamina.current).toBe(886);
+  });
+
+  it('거부 이동은 휴식 회복을 유지하고 성공 이동은 대기 회복으로 바꾼다', () => {
+    const { store, loop, clock } = ambushSetup(); loop.setResting(true);
+    clock.advance(1_999); expect(loop.move('north').ok).toBe(false);
+    clock.advance(1); expect(store.getSnapshot().character!.stamina.current).toBe(885);
+    clock.advance(500); expect(loop.move('east').ok).toBe(true);
+    const moved = store.getSnapshot().character!.stamina.current;
+    expect(store.getSnapshot().character!.activity).toBe('waiting');
+    clock.advance(1_999); expect(store.getSnapshot().character!.stamina.current).toBe(moved);
+    clock.advance(1); expect(store.getSnapshot().character!.stamina.current).toBe(moved + 1);
+  });
+
+  it('최대치 자동 종료도 늦은 콜백 처리와 타이머 하나를 보존한다', () => {
+    const { store, loop, clock } = ambushSetup(); loop.setResting(true);
+    clock.jump(12_000); clock.wake();
+    expect(store.getSnapshot().character).toMatchObject({ activity: 'waiting', stamina: { current: 900, max: 900 } });
+    expect(store.getSnapshot().meta.gameTime).toBe(6);
+    expect(clock.tasks.size).toBe(1);
+  });
+
+  it('동시 습격은 같은 시각의 회복과 이후 지연 틱을 취소하며 정지 중 난수를 보존한다', () => {
+    const { store, loop, clock } = ambushSetup(1,1); loop.setResting(true);
+    clock.jump(20_000); clock.wake();
+    expect(store.getSnapshot().meta.gameTime).toBe(1);
+    expect(store.getSnapshot().character).toMatchObject({ activity: 'waiting', stamina: { current: 880, max: 900 } });
+    expect(loop.getSnapshot()).toMatchObject({ running: false, ambushPending: true });
+    expect(clock.tasks.size).toBe(0);
+    const before = store.getSnapshot(); clock.advance(600_000);
+    expect(loop.move('east')).toEqual({ ok: false, reason: 'paused' });
+    expect(loop.setResting(true)).toEqual({ ok: false, reason: 'paused' });
+    loop.setPaused(false);
+    expect(store.getSnapshot()).toBe(before);
+    expect(loop.getSnapshot().running).toBe(false);
+    expect(clock.tasks.size).toBe(0);
+  });
+
+  it('습격 해결은 남은 부분 간격을 버리고 새 간격부터 자동 재개한다', () => {
+    const { store, loop, clock } = ambushSetup(0,1); loop.setResting(true);
+    clock.advance(2_000); clock.advance(10_500);
+    expect(loop.resolveAmbush('escaped').ok).toBe(true);
+    expect(loop.getSnapshot()).toMatchObject({ running: true, ambushPending: false });
+    const before = store.getSnapshot();
+    clock.advance(1_999); expect(store.getSnapshot()).toBe(before);
+    clock.advance(1); expect(store.getSnapshot().meta.gameTime).toBe(2);
+    expect(store.getSnapshot().character!.stamina.current).toBe(881);
+    expect(clock.tasks.size).toBe(1);
+  });
+
+  it.each(['manual','settings'] as const)('%s 정지는 습격 처리 뒤에도 유지한다', (pause) => {
+    const { store, loop, clock } = ambushSetup(0,1); loop.setResting(true); clock.advance(2_000);
+    if (pause === 'manual') loop.setPaused(true); else loop.setSettingsOpen(true);
+    loop.resolveAmbush('defeated');
+    const before = store.getSnapshot(); clock.advance(60_000);
+    expect(loop.getSnapshot().running).toBe(false);
+    expect(store.getSnapshot()).toBe(before);
+    if (pause === 'manual') loop.setPaused(false); else loop.setSettingsOpen(false);
+    clock.advance(2_000); expect(store.getSnapshot().meta.gameTime).toBe(2);
+  });
+
+  it('일시정지·설정·위험 공백은 휴식/습격 판정도 난수 소비 없이 제외한다', () => {
+    for (const kind of ['pause','settings','gap']) {
+      const { store, loop, clock } = ambushSetup(.02,.1); loop.setResting(true);
+      if (kind === 'pause') loop.setPaused(true);
+      if (kind === 'settings') loop.setSettingsOpen(true);
+      const before = store.getSnapshot();
+      clock.jump(120_001); clock.wake();
+      expect(store.getSnapshot()).toBe(before);
+      expect(loop.getSnapshot().running).toBe(false);
+      expect(before.expedition).toBeNull();
+    }
+  });
+
+  it('분수 확률도 늦은 콜백과 매 시각 처리에서 동일한 최종 상태/난수를 만든다', () => {
+    const a = ambushSetup(.02,.1); const b = ambushSetup(.02,.1);
+    a.loop.setResting(true); b.loop.setResting(true);
+    a.clock.jump(20_000); a.clock.wake(); b.clock.advance(20_000);
+    expect(a.store.getSnapshot()).toEqual(b.store.getSnapshot());
+    expect(a.loop.getSnapshot()).toEqual(b.loop.getSnapshot());
+  });
+
+  it('종료/재시작과 외부 Store의 습격 해결도 미처리 상태를 정확히 반영한다', () => {
+    const { store, loop, clock } = ambushSetup(0,1); loop.setResting(true); clock.advance(2_000);
+    loop.stop(); loop.start(); expect(clock.tasks.size).toBe(0);
+    store.dispatch({ type: 'ambush/resolve', result: 'escaped' });
+    expect(loop.getSnapshot().running).toBe(true);
+    expect(clock.tasks.size).toBe(1);
+    for (const callback of clock.cancelled) callback();
+    expect(store.getSnapshot().meta.gameTime).toBe(1);
+    clock.advance(2_000); expect(store.getSnapshot().meta.gameTime).toBe(2);
   });
 });

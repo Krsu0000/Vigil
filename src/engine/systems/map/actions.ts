@@ -40,7 +40,7 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
             [map.id]: { mapVersion: map.version, visited: { [coordinateKey(position)]: true } },
           } },
           character: state.character ? { ...state.character, position } : {
-            position, stamina: createStamina(ctx.content), movedSinceLastTick: false,
+            position, stamina: createStamina(ctx.content), movedSinceLastTick: false, activity: 'waiting',
           },
         },
         events: [{ type: 'map/started', position }],
@@ -50,6 +50,7 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
   'move/step': {
     validate: (state, action, ctx) => {
       if (!Object.hasOwn(DELTAS, action.direction)) return 'invalid_action';
+      if (state.expedition?.pendingAmbush) return 'condition_not_met';
       const location = currentLocation(state, ctx.content);
       if (!location) return 'condition_not_met';
       const to = destination(location.position, action.direction);
@@ -68,7 +69,7 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
           ...state,
           character: { ...state.character!, position: to,
             stamina: consumeStamina(state.character!.stamina, getMoveCost(state, to, ctx.content)),
-            movedSinceLastTick: true,
+            movedSinceLastTick: true, activity: 'waiting',
           },
           campaign: newlyExplored ? { ...state.campaign, exploration: {
             ...state.campaign.exploration,

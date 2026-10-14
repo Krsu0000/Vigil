@@ -27,7 +27,7 @@ describe('맵 최초 배치와 이동', () => {
 
   it('미배치 캐릭터도 첫 배치를 할 수 있다', () => {
     const ctx = mapContext();
-    const state = { ...createCampaign(ctx.content, [1, 2, 3, 4], ctx.now), character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false } };
+    const state = { ...createCampaign(ctx.content, [1, 2, 3, 4], ctx.now), character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } };
     expect(mapDispatch(state, { type: 'map/start', mapId: 'map.s1_test' }, ctx).ok).toBe(true);
   });
 
@@ -94,7 +94,7 @@ describe('맵 최초 배치와 이동', () => {
   it('캐릭터 없음·미배치·알 수 없는 방향은 변경 없이 거부한다', () => {
     const ctx = mapContext();
     const empty = createCampaign(ctx.content, [1, 2, 3, 4], ctx.now);
-    for (const state of [empty, { ...empty, character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false } }]) {
+    for (const state of [empty, { ...empty, character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } }]) {
       expect(mapDispatch(state, { type: 'move/step', direction: 'east' }, ctx).state).toBe(state);
     }
     const state = deepFreeze(startedState(ctx));

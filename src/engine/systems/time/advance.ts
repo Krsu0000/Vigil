@@ -2,12 +2,14 @@ import type { EngineContext } from '../../core/context.ts';
 import type { ExecutionResult } from '../../core/actions.ts';
 import type { Rng } from '../../core/rng.ts';
 import type { GameState } from '../../core/state.ts';
-import { currentLocation } from '../map/selectors.ts';
+import { currentLocation, findCell, requireZone } from '../map/selectors.ts';
+import { rollAmbush } from '../ambush/roll.ts';
+import type { AmbushEvent } from '../ambush/actions.ts';
 
 export type TimeEvent = Readonly<{ type: 'time/advanced'; from: number; to: number; ticks: number; recovered: number }>;
 
-// 게임 시간을 진행하는 단일 경로다. 이후 런타임·오프라인 정산도 같은 함수를 쓴다.
-export function advanceTime(state: GameState, ticks: number, ctx: EngineContext, _rng: Rng): ExecutionResult<TimeEvent> {
+// 게임 시간을 진행하는 단일 경로다. 위험 구역은 각 틱을 순서대로 판정한다.
+export function advanceTime(state: GameState, ticks: number, ctx: EngineContext, rng: Rng): ExecutionResult<TimeEvent | AmbushEvent> {
   if (!Number.isSafeInteger(state.meta.gameTime) || state.meta.gameTime < 0 ||
     !Number.isSafeInteger(ticks) || ticks < 0 || ticks > Number.MAX_SAFE_INTEGER - state.meta.gameTime) {
     throw new Error('시간은 0 이상의 안전한 정수이며 게임 시간 상한을 넘을 수 없다');
@@ -15,15 +17,29 @@ export function advanceTime(state: GameState, ticks: number, ctx: EngineContext,
   if (ticks === 0) return { state, events: [] };
   const location = currentLocation(state, ctx.content);
   if (!location) throw new Error('시간 진행에는 배치된 캐릭터가 필요하다');
+  if (state.expedition?.pendingAmbush) throw new Error('미처리 습격 중에는 시간을 진행할 수 없다');
   const character = state.character!;
-  const gameTime = state.meta.gameTime + ticks;
+  const safety = requireZone(ctx.content, findCell(location.map, location.position)!.zoneId).safety;
+  let elapsed = ticks;
+  let pending: NonNullable<GameState['expedition']>['pendingAmbush'] = null;
+  if (safety === 'danger') {
+    for (let i = 0; i < ticks; i += 1) {
+      const activity = character.activity === 'resting' ? 'resting' : i === 0 && character.movedSinceLastTick ? 'moving' : 'waiting';
+      if (rollAmbush(safety, activity, ctx.content.timeRules.ambush, rng)) {
+        elapsed = i + 1;
+        pending = { triggeredAt: state.meta.gameTime + elapsed, activityAtTrigger: character.activity };
+        break;
+      }
+    }
+  }
+  const gameTime = state.meta.gameTime + elapsed;
+  const events: (TimeEvent | AmbushEvent)[] = [{ type: 'time/advanced', from: state.meta.gameTime, to: gameTime, ticks: elapsed, recovered: 0 }];
+  if (pending) events.push({ type: 'ambush/triggered', ...pending });
   return {
-    state: { ...state, meta: { ...state.meta, gameTime },
-      character: { ...character, movedSinceLastTick: false },
+    state: { ...state, meta: { ...state.meta, gameTime, rngState: rng.getState() },
+      character: { ...character, movedSinceLastTick: false, activity: pending ? 'waiting' : character.activity },
+      expedition: pending ? { ...state.expedition, pendingAmbush: pending } : state.expedition,
     },
-    events: [{ type: 'time/advanced', from: state.meta.gameTime, to: gameTime, ticks,
-      // 기존 사건 형태를 유지한다. 스태미나 회복은 별도 행동에서만 처리한다.
-      recovered: 0,
-    }],
+    events,
   };
 }

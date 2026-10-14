@@ -15,10 +15,11 @@ describe('콘텐츠 로더', () => {
     const result = loadContent(testSources(), rejectEffects);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('기본 데이터 검증 실패');
-    expect(result.content.contentVersion).toBe('0.2.3');
+    expect(result.content.contentVersion).toBe('0.2.4');
     expect(result.content.timeRules).toMatchObject({
       id: 'rules.time', tickMs: 2_000, minimumMoveIntervalMs: 200, maxOfflineMs: 86_400_000,
       heartbeatIntervalMs: 15_000, heartbeatGraceMs: 120_000,
+      ambush: { waitChancePerTick: 0.02, restChancePerTick: 0.1 },
       stamina: { recoveryIntervalMs: 2_000, max: 900, safeRegenPerTick: 1, waitRegenPerTick: 1, restRegenPerTick: 5,
         unexploredMoveCost: 6, exploredMoveCost: 3, safeMoveCost: 0 },
     });
@@ -100,6 +101,18 @@ describe('콘텐츠 로더', () => {
   it('하트비트 간격보다 짧은 유예 시간은 실패한다', () => {
     const sources = testSources();
     sources['time-rules.json'].heartbeatGraceMs = 14_999;
+    expectFailure(loadContent(sources, rejectEffects), 'invalid_schema', 'time-rules.json');
+  });
+
+  it.each([-0.01,1.01,NaN,Infinity])('범위 밖 습격 확률 %s를 거부한다', (chance) => {
+    for (const key of ['waitChancePerTick','restChancePerTick'] as const) {
+      const sources = testSources(); sources['time-rules.json'].ambush[key] = chance;
+      expectFailure(loadContent(sources, rejectEffects), 'invalid_schema', 'time-rules.json');
+    }
+  });
+
+  it('휴식 습격 확률이 대기보다 낮으면 거부한다', () => {
+    const sources = testSources(); sources['time-rules.json'].ambush.restChancePerTick = 0.01;
     expectFailure(loadContent(sources, rejectEffects), 'invalid_schema', 'time-rules.json');
   });
 

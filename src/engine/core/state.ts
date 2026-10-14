@@ -12,9 +12,12 @@ export type CharacterState = Readonly<{
   position: MapPosition | null;
   stamina: StaminaState;
   movedSinceLastTick: boolean;
+  activity: 'waiting' | 'resting';
 }>;
-// 원정 시스템의 상태는 해당 단계에서 추가한다.
-export type ExpeditionState = Readonly<Record<string, never>>;
+// S2의 미처리 습격만 보관한다. 전체 원정 수명 주기는 후속 단계에서 정의한다.
+export type ExpeditionState = Readonly<{
+  pendingAmbush: null | Readonly<{ triggeredAt: number; activityAtTrigger: 'waiting' | 'resting' }>;
+}>;
 
 export type StateMeta = Readonly<{
   campaignId: string;
