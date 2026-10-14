@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0 진행 중.** 구현된 것은 프로젝트 뼈대(빌드·테스트 환경, 빈 화면)와 코어 기초(sfc32, `computeValue`, UUID, 엔진 순수성 검사), 코어 계약(상태·행동·사건 타입, 캠페인 생성, 행동 처리, 효과 레지스트리), 콘텐츠 기반(매니페스트·시간 규칙·로더·참조·효과 검증·CLI 연결)이다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0 진행 중.** 프로젝트 뼈대, 코어 기초·계약, 콘텐츠 기반·검증, SaveFile v1의 메모리 저장 계약·버전 변환 체인, CombatLog 타입이 구현됐다. 실제 IndexedDB·자동 저장·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -46,6 +46,7 @@ server   클라이언트 코드를 import하지 않는다. 공유 타입은 별�
 - `engine`은 `ui`, `runtime`, `persistence`, `sync`, React, DOM을 import하지 않는다.
 - `engine/core`는 `engine/systems`를 import하지 않는다. 시스템이 코어에 등록된다.
 - `content`는 같은 계층의 모듈과 JSON, Zod만 import한다. 엔진·UI·런타임 등 다른 프로젝트 계층은 import하지 않는다. 효과 검증 함수는 연결부가 인수로 전달한다.
+- `persistence`는 엔진의 상태 타입만 import한다. 저장 경계의 Zod 상태 검증은 `persistence/save-file.ts`에 두며 콘텐츠 버전 문자열은 content의 같은 스키마를 사용한다. 엔진에서 저장 계층을 역으로 import하지 않는다.
 - `ui`는 게임 상태를 바꾸는 코드를 갖지 않는다. 상태 변경은 `runtime`의 `GameStore.dispatch`를 호출한다.
 - `[구현됨]` `src/engine/purity.test.ts`가 엔진의 금지 사항을 문자열 검색으로 검사한다: `Math.random`·`Date.now`·`new Date`·`performance`·`window`·`document`·`crypto` 사용, React·`node:` import, `ui`·`runtime`·`persistence`·`sync` import, `core`에서 `systems` import. 주석에 같은 표기를 쓰면 오탐이 나므로 주석에서는 다른 표기를 쓴다.
 - `scripts`는 `content`와 `engine`을 import할 수 있다. 콘텐츠 검증은 효과 레지스트리(`engine/core`, 7.1절)도 써야 하므로 검증 CLI는 `content`가 아니라 `scripts`에 둔다. `src/` 아래 모듈은 `scripts`를 import하지 않는다.
@@ -260,13 +261,14 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 ## 5. 난수 `[설계]`
 
-`[구현됨]` 생성기와 상태 저장·복원: `src/engine/core/rng.ts`. `seedRngState(seed)`는 시드 정수 4개로 초기 상태를 만들고 처음 출력 15개를 버린다. `createRng(state)`는 `nextUint32()`, `nextFloat()`(0 이상 1 미만), `nextInt(min, max)`(양끝 포함, 치우침 없는 재추첨), `getState()`를 가진 생성기를 만들며 입력 배열을 바꾸지 않는다. 출력식은 PractRand 원본 sfc32(`tmp = a + b + counter++`)와 같고, 참조값 테스트로 고정한다. 시드 생성(런타임)과 `CombatLog`는 아직 없다.
+`[구현됨]` 생성기와 상태 저장·복원: `src/engine/core/rng.ts`. `seedRngState(seed)`는 시드 정수 4개로 초기 상태를 만들고 처음 출력 15개를 버린다. `createRng(state)`는 `nextUint32()`, `nextFloat()`(0 이상 1 미만), `nextInt(min, max)`(양끝 포함, 치우침 없는 재추첨), `getState()`를 가진 생성기를 만들며 입력 배열을 바꾸지 않는다. 출력식은 PractRand 원본 sfc32(`tmp = a + b + counter++`)와 같고, 참조값 테스트로 고정한다. 런타임 시드 생성은 아직 없다.
 
 
 - 의존성 없이 직접 구현하는 작은 시드 난수 생성기를 `src/engine/core/rng.ts`에 둔다. sfc32(내부 상태 32비트 정수 4개)를 쓴다(D-008).
 - 생성기의 내부 상태는 `meta.rngState`에 저장한다. 그래서 저장 후 불러와도 같은 난수 흐름이 이어진다.
 - 새 캠페인의 시드는 런타임이 `crypto.getRandomValues`로 만들어 `createCampaign`에 넘긴다.
 - 전투 기록(`CombatLog`)은 전투 시작 시점의 `rngState`와 플레이어가 고른 행동 목록을 담는다. 같은 콘텐츠 버전에서 재생하면 같은 결과가 나와야 한다.
+- `[구현됨]` `core/combat-log.ts`의 `CombatLog<A extends Action = Action>`는 읽기 전용 `contentVersion`, `rngState`, `actions` 타입만 정의한다. 실제 전투 행동·초기 전투 상태와 재현 실행기는 S5에서 정의한다. 지금 타입만으로 완전한 전투 재현을 제공하지 않는다.
 
 ## 6. 콘텐츠 `[구현됨]`
 
@@ -404,34 +406,47 @@ export function computeValue(base: number, mods: Modifier[], rule: ValueRule): n
 
 ## 8. 저장
 
-### 8.1 세이브 형식 `[설계]`
+### 8.1 세이브 형식 `[구현됨]`
 
 ```ts
 // src/persistence/save-file.ts
-export type SaveFile = {
+// 실제 타입은 SaveFileSchema에서 추론하며 state는 코어 GameState 계약을 사용한다.
+export type SaveFile = Readonly<{
   format: 'last-vigil-save';
-  schemaVersion: number;    // 세이브 구조 버전. 구조를 바꾸면 올린다
+  schemaVersion: 1;         // 최초 형식. 구조를 바꾸면 승인 후 올린다
   contentVersion: string;   // 저장 당시 콘텐츠 버전
   saveId: string;           // UUID
   revision: number;         // 저장할 때마다 1씩 증가. 기기 간 비교에 사용
   savedAt: number;          // Wall-clock ms
   state: GameState;
-};
+}>;
 ```
 
 - 세이브에 넣지 않는 것: `ContentDb`, 세션 런타임, UI 상태.
 - 내보내기·가져오기는 같은 `SaveFile` JSON을 쓰고, 가져올 때도 같은 검증 경로를 거친다.
+- `SaveFileSchema`·`GameStateSchema`는 모든 객체에서 미정의 필드를 거부한다. UUID, 0 이상의 안전한 정수인 revision·시각·게임 시간, uint32 4개인 난수 상태를 검증한다. 현재 시스템 상태는 빈 객체이며 character·expedition은 null도 허용한다.
+- `parseSave`는 먼저 JSON 데이터만 허용해 입력과 분리한 뒤 검증한다. 함수·Date·Map·Set·undefined·NaN·무한대를 JSON 변환으로 조용히 손실시키지 않는다. `GameStateSchema`는 기존 코어 타입과 호환되는지 TypeScript로 검사한다.
+- 콘텐츠 버전은 매니페스트와 같은 문자열 스키마로 검증하고 저장된 값을 보존한다. 콘텐츠 버전별 호환성 정책·콘텐츠 변환은 아직 없으며 구조 버전 변환과 구분한다.
 
-### 8.2 저장과 불러오기 `[설계]`
+### 8.2 저장과 불러오기 `[메모리 계약 구현됨 / 브라우저 저장 설계]`
+
+- `createSaveFile(state, metadata)`: contentVersion·saveId·revision·savedAt을 호출부에서 받아 검증된 독립 스냅샷을 만든다. ID나 시간을 내부에서 생성하지 않으며 게임 난수를 소비하지 않는다.
+- `serializeSave(save)`·`deserializeSave(json)`: 같은 검증 경로로 JSON 문자열을 쓰고 읽는다. `parseSave(raw)`는 객체를 받고, `restoreSave(raw)`는 객체 또는 JSON 문자열에서 `GameState`만 반환한다.
+- 객체·JSON 불러오기 순서: JSON 데이터·형식 확인 → 버전 변환 → 최종 Zod 검증. 실패하면 예외를 내고 부분 상태를 반환하지 않는다.
+- 저장·복원은 gameTime·lastActiveAt·settledUntil·rngState·revision·savedAt을 그대로 보존한다. 실제 저장마다 revision을 증가시키는 책임은 S3의 호출부에 있다. 왕복만으로 revision을 올리지 않는다.
+
+다음은 S3에서 연결할 브라우저 저장 규칙이다. 현재 IndexedDB·자동 저장·백업·GameStore·오프라인 정산 연결은 없다.
 
 - 저장 시점: 행동이 처리될 때마다 짧은 지연(디바운스)을 두고 저장하고, 화면이 가려질 때(`visibilitychange`) 즉시 저장한다. 지연 시간은 임시값 1초다(D-010).
 - 새 세이브를 쓰기 전에 직전 세이브를 백업 슬롯 하나에 보관한다. 새 세이브를 읽지 못하면 백업을 불러온다(D-010).
 - 불러오기 순서: 형식 확인 → 버전 변환 → Zod 검증 → `GameStore` 초기화 → `time/settle` 1회.
 - 저장과 불러오기 자체는 게임 시간을 바꾸지 않는다. 시간 변화는 그 뒤의 `time/settle`에서만 일어난다.
 
-### 8.3 버전 변환 `[설계]`
+### 8.3 버전 변환 `[체인 구조 구현됨]`
 
-- `persistence/migrations/`에 `v1ToV2`, `v2ToV3`처럼 한 단계씩 변환하는 순수 함수를 둔다. 불러올 때 현재 버전까지 차례로 적용한다.
+- `persistence/migrations/index.ts`의 현재 버전은 1, 실제 변환 목록은 빈 배열이다. 최초 형식이므로 이전 버전을 만들어 지원한다고 표시하지 않는다.
+- `runMigrations(raw, targetVersion, migrations)`는 입력 JSON 복사본에서 fromVersion별 변환을 버전 순서대로 연결한다. 단계마다 형식·JSON 값·정확한 1버전 증가를 검사한다. 누락·중복 단계·미래 버전·잘못된 변환 결과를 거부하고 코드 예외를 숨기지 않는다.
+- `migrateSave(raw)`는 제품의 현재 버전·고정 목록을 사용한다. 앞으로 `v1ToV2`, `v2ToV3`처럼 한 단계씩 변환하는 순수 함수를 추가한다. 현재 체인 테스트의 버전 2·3은 테스트용이며 제품 지원 버전이 아니다.
 - 변환 함수마다 이전 버전의 실제 세이브 예시 파일과 변환 테스트를 함께 둔다.
 - 세이브 구조 변경은 사용자 승인이 필요하다.
 
@@ -457,7 +472,7 @@ export type SaveFile = {
 |---|---|---|---|---|
 | Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약 구현됨 |
 | Content | `src/content/` | 없음(ContentDb) | S0 | 기반·검증 구현됨 |
-| Persistence | `src/persistence/` | 없음(SaveFile) | S0 설계, S3 구현 | 설계 |
+| Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S3 브라우저 저장 | v1 스키마·메모리 왕복·변환 체인 구현됨 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign` 탐사 기록·길 지식, `character` 위치 | S1 | 설계 |
 | Time | `src/engine/systems/time/` | `meta.gameTime`, `meta.lastActiveAt`, `meta.settledUntil` | S2 | 설계 |
 | Stamina & Rest | `src/engine/systems/stamina/` | `character` 스태미나, 현재 활동 | S2 | 설계 |
@@ -483,7 +498,7 @@ export type SaveFile = {
 | INV-03 | `meta.gameTime`은 `advanceTime`으로만 증가하고, 한 행동에서 두 번 진행되지 않는다 | 확정 | `time/advance.test.ts` |
 | INV-04 | 같은 상태, 같은 행동, 같은 `ctx`에서 `dispatch`는 같은 결과를 돌려준다 | 확정 | `[구현됨]` `core/dispatch.test.ts` |
 | INV-05 | `GameState`는 JSON 직렬화 후 복원해도 같다 | 확정 | `[구현됨]` `core/state.test.ts` |
-| INV-06 | 저장 후 불러오기 왕복 시 상태가 같고, 게임 시간이 바뀌지 않는다 | 확정 | `persistence/*.test.ts` |
+| INV-06 | 저장 후 불러오기 왕복 시 상태가 같고, 게임 시간이 바뀌지 않는다 | 확정 | `[구현됨]` `persistence/save-file.test.ts` |
 | INV-07 | 오프라인 정산은 멱등이다. 같은 `to`로 두 번 정산해도 결과는 한 번 정산한 것과 같다 | 확정 | `time/settle.test.ts` |
 | INV-08 | 기기 시각이 뒤로 가도 자원, 타이머, 게임 시간이 줄거나 늘지 않는다 | 확정 | `time/settle.test.ts` |
 | INV-09 | 위험지대에서 실행되지 않은 시간(창 닫힘, 하트비트 공백)에는 회복도 습격 판정도 없다 | 확정 | `time/settle.test.ts`, `runtime/*.test.ts` |
