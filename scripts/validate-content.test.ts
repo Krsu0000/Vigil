@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { testSources } from '../src/content/test-fixtures.ts';
+import { mapSources, testSources } from '../src/content/test-fixtures.ts';
 import { createEffectRegistry, defineEffect } from '../src/engine/core/effects.ts';
 import { z } from 'zod';
 import { checkContentFiles } from './validate-content.ts';
@@ -35,15 +35,13 @@ describe('checkContentFiles와 실제 CLI', () => {
   });
 
   it('하위 폴더 JSON을 검사하고 코드 파일은 읽지 않는다', () => {
-    const sources = testSources();
-    sources['manifest.json'].definitionFiles.push('maps/test.json');
-    sources['maps/test.json'] = [{ id: 'map.test', references: ['rules.time'] }];
+    const sources = mapSources();
     writePack(sources);
     writeFileSync(join(rootDir, 'schema.ts'), 'export {};');
     const result = checkContentFiles(rootDir);
-    expect(result.checkedFiles).toEqual(['manifest.json', join('maps', 'test.json'), 'time-rules.json']);
+    expect(result.checkedFiles).toEqual(['manifest.json', join('maps', 's1-test.json'), 'tiles.json', 'time-rules.json', 'zones.json']);
     expect(result.errors).toEqual([]);
-    expect(result.content?.byId['map.test']).toMatchObject({ id: 'map.test' });
+    expect(result.content?.byId['map.s1_test']).toMatchObject({ kind: 'map', version: 1 });
   });
 
   it('구문 오류를 파일별로 보고하고 DB를 반환하지 않는다', () => {
@@ -91,5 +89,23 @@ describe('checkContentFiles와 실제 CLI', () => {
     expect(bad.status).toBe(1);
     expect(bad.stderr).toContain('missing_reference');
     expect(bad.stderr).toContain('definitions.json');
+  });
+
+  it('실제 CLI도 맵의 타일 참조와 시작 위치 오류를 보고하고 1로 종료한다', () => {
+    const script = fileURLToPath(new URL('./validate-content.ts', import.meta.url));
+    const sources = mapSources();
+    writePack(sources);
+    const good = spawnSync(process.execPath, [script, rootDir], { encoding: 'utf8' });
+    expect(good.status).toBe(0);
+    expect(good.stdout).toContain('JSON 파일 5개, 오류 0개');
+    const map = sources['maps/s1-test.json'][0]!;
+    map.floors[0]!.cells[0]!.tileId = 'tile.missing';
+    map.start = { floor: 0, x: 0, y: 1 };
+    writePack(sources);
+    const bad = spawnSync(process.execPath, [script, rootDir], { encoding: 'utf8' });
+    expect(bad.status).toBe(1);
+    expect(bad.stderr).toContain('missing_reference');
+    expect(bad.stderr).toContain('invalid_start');
+    expect(bad.stderr).toContain('maps/s1-test.json');
   });
 });

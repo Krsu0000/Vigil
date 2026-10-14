@@ -1,5 +1,8 @@
 import manifest from './manifest.json' with { type: 'json' };
 import timeRules from './time-rules.json' with { type: 'json' };
+import tiles from './tiles.json' with { type: 'json' };
+import zones from './zones.json' with { type: 'json' };
+import maps from './maps/s1-test.json' with { type: 'json' };
 import type { EffectValidator } from './types.ts';
 
 export const rejectEffects: EffectValidator = () => ({
@@ -18,4 +21,15 @@ export function testSources(definitions?: unknown[]) {
     sources['definitions.json'] = definitions;
   }
   return sources;
+}
+
+export function mapSources() {
+  const sources = testSources();
+  sources['manifest.json'].definitionFiles = [...manifest.definitionFiles];
+  return {
+    ...sources,
+    'tiles.json': structuredClone(tiles),
+    'zones.json': structuredClone(zones),
+    'maps/s1-test.json': structuredClone(maps),
+  };
 }

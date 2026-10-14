@@ -1,0 +1,4 @@
+[
+  { "kind": "zone", "id": "zone.camp", "name": "임시 거점", "description": "이동 검증을 시작하는 안전 구역이다.", "safety": "safe" },
+  { "kind": "zone", "id": "zone.ruins", "name": "폐허 통로", "description": "거점과 이어진 위험 구역이다.", "safety": "danger" }
+]

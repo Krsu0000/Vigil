@@ -1,0 +1,4 @@
+[
+  { "kind": "tile", "id": "tile.wall", "name": "벽", "glyph": "#", "walkable": false, "blocksSight": true },
+  { "kind": "tile", "id": "tile.floor", "name": "바닥", "glyph": "·", "walkable": true, "blocksSight": false }
+]
