@@ -40,7 +40,7 @@ class FakeClock implements Clock, Scheduler {
 
 // 이전 10초 경계도 회귀 검사한다. 실제 2초 설정은 아래 매개변수 검사에서 사용한다.
 function tenSecondSources() {
-  const sources = mapSources(); sources['time-rules.json'].tickMs = 10_000; return sources;
+  const sources = mapSources(); sources['time-rules.json'].tickMs = 10_000; sources['time-rules.json'].stamina.recoveryIntervalMs = 10_000; return sources;
 }
 
 function setup(danger = false, sources = tenSecondSources()) {
@@ -54,30 +54,95 @@ function setup(danger = false, sources = tenSecondSources()) {
 }
 
 describe('실시간 틱·세션 제어', () => {
-  it.each([2_000, 10_000])('%ims 틱에서 이동 후 1→2틱의 대기는 회복한다', (tickMs) => {
+  it('연속 이동은 회복 대기만 초기화하고 전역 틱의 시각은 유지한다', () => {
+    const { store, loop, clock } = setup(true, mapSources());
+    const ticks: { time: number; at: number }[] = [];
+    let observed = 0;
+    store.subscribe(() => {
+      const time = store.getSnapshot().meta.gameTime;
+      if (time !== observed) { ticks.push({ time, at: clock.mono }); observed = time; }
+    });
+    for (const direction of ['east', 'west', 'east'] as const) {
+      clock.advance(ticks.length === 0 && clock.mono === 0 ? 1_000 : 2_000);
+      expect(loop.move(direction).ok).toBe(true);
+    }
+    const current = store.getSnapshot().character!.stamina.current;
+    clock.advance(1_999);
+    expect(store.getSnapshot().character!.stamina.current).toBe(current);
+    clock.advance(1); expect(store.getSnapshot().character!.stamina.current).toBe(current + 1);
+    expect(ticks).toEqual([{ time: 1, at: 2_000 }, { time: 2, at: 4_000 }, { time: 3, at: 6_000 }]);
+  });
+
+  it('벽 충돌과 이동 간격 거부는 회복 대기를 초기화하지 않는다', () => {
+    const wall = setup(true, mapSources()); wall.clock.advance(1_999);
+    expect(wall.loop.move('north').ok).toBe(false); wall.clock.advance(1);
+    expect(wall.store.getSnapshot().character!.stamina.current).toBe(881);
+    const cooldown = setup(true, mapSources()); cooldown.clock.advance(1_000);
+    expect(cooldown.loop.move('east').ok).toBe(true); const current = cooldown.store.getSnapshot().character!.stamina.current;
+    cooldown.clock.advance(100); expect(cooldown.loop.move('west')).toEqual({ ok: false, reason: 'cooldown' });
+    cooldown.clock.advance(1_899); expect(cooldown.store.getSnapshot().character!.stamina.current).toBe(current);
+    cooldown.clock.advance(1); expect(cooldown.store.getSnapshot().character!.stamina.current).toBe(current + 1);
+  });
+
+  it.each([[10_000,2_000],[2_000,5_000]])('전역 틱 %ims와 회복 간격 %ims는 서로 독립적이다', (tickMs, recoveryIntervalMs) => {
     const sources = mapSources(); sources['time-rules.json'].tickMs = tickMs;
+    sources['time-rules.json'].stamina.recoveryIntervalMs = recoveryIntervalMs;
+    const { loop, store, clock } = setup(true, sources); clock.advance(1_000);
+    expect(loop.move('east').ok).toBe(true); const current = store.getSnapshot().character!.stamina.current;
+    clock.advance(recoveryIntervalMs - 1); expect(store.getSnapshot().character!.stamina.current).toBe(current);
+    clock.advance(1); expect(store.getSnapshot().character!.stamina.current).toBe(current + 1);
+    expect(store.getSnapshot().meta.gameTime).toBe(Math.floor(clock.mono / tickMs));
+    clock.advance(recoveryIntervalMs); expect(store.getSnapshot().character!.stamina.current).toBe(current + 2);
+    expect(store.getSnapshot().meta.gameTime).toBe(Math.floor(clock.mono / tickMs));
+  });
+
+  it('늦게 도착한 콜백도 시각 순서로 처리하고 동시에는 전역 틱 다음 회복이다', () => {
+    const { store, loop, clock } = setup(true, mapSources()); loop.stop();
+    const dispatch = vi.fn(store.dispatch);
+    const controlled = createGameLoop({ ...store, dispatch }, clock, clock); controlled.start();
+    clock.jump(6_000); clock.wake();
+    expect(dispatch.mock.calls.map(([action]) => action.type)).toEqual([
+      'time/heartbeat', 'time/tick', 'stamina/recover', 'time/tick', 'stamina/recover', 'time/tick', 'stamina/recover',
+    ]);
+    expect(store.getSnapshot().meta.gameTime).toBe(3);
+    expect(store.getSnapshot().character!.stamina.current).toBe(883);
+    expect(clock.tasks.size).toBe(1);
+  });
+  it.each([999, 1_999, 2_001])('틱 경계와 무관하게 %ims에 이동한 뒤 정확히 2초 후 회복한다', (moveAt) => {
+    const { store, loop, clock } = setup(true, mapSources());
+    clock.advance(moveAt);
+    expect(loop.move('east').ok).toBe(true);
+    const current = store.getSnapshot().character!.stamina.current;
+    clock.advance(1_999);
+    expect(store.getSnapshot().character!.stamina.current).toBe(current);
+    clock.advance(1);
+    expect(store.getSnapshot().character!.stamina.current).toBe(current + 1);
+    expect(store.getSnapshot().meta.gameTime).toBe(Math.floor((moveAt + 2_000) / 2_000));
+  });
+  it.each([2_000, 10_000])('%ims 회복 간격이면 이동 후 한 주기마다 회복한다', (tickMs) => {
+    const sources = mapSources(); sources['time-rules.json'].tickMs = tickMs; sources['time-rules.json'].stamina.recoveryIntervalMs = tickMs;
     const { store, loop, clock } = setup(true, sources);
     expect(loop.move('east').ok).toBe(true);
     clock.advance(tickMs - 1); expect(store.getSnapshot().meta.gameTime).toBe(0);
     clock.advance(1);
     expect(store.getSnapshot().meta.gameTime).toBe(1);
-    expect(store.getSnapshot().character?.stamina.current).toBe(874);
+    expect(store.getSnapshot().character?.stamina.current).toBe(875);
     clock.advance(tickMs);
     expect(store.getSnapshot().meta.gameTime).toBe(2);
-    expect(store.getSnapshot().character?.stamina.current).toBe(875);
+    expect(store.getSnapshot().character?.stamina.current).toBe(876);
   });
 
-  it.each([2_000, 10_000])('%ims 틱에서 1틱 뒤 이동하면 2틱은 회복 없이, 3틱은 회복한다', (tickMs) => {
-    const sources = mapSources(); sources['time-rules.json'].tickMs = tickMs;
+  it.each([2_000, 10_000])('%ims 경계 직후 이동해도 그때부터 한 주기 뒤 회복한다', (tickMs) => {
+    const sources = mapSources(); sources['time-rules.json'].tickMs = tickMs; sources['time-rules.json'].stamina.recoveryIntervalMs = tickMs;
     const { store, loop, clock } = setup(true, sources);
     clock.advance(tickMs); expect(store.getSnapshot().meta.gameTime).toBe(1);
     expect(loop.move('east').ok).toBe(true);
     clock.advance(tickMs);
     expect(store.getSnapshot().meta.gameTime).toBe(2);
-    expect(store.getSnapshot().character?.stamina.current).toBe(875);
+    expect(store.getSnapshot().character?.stamina.current).toBe(876);
     clock.advance(tickMs);
     expect(store.getSnapshot().meta.gameTime).toBe(3);
-    expect(store.getSnapshot().character?.stamina.current).toBe(876);
+    expect(store.getSnapshot().character?.stamina.current).toBe(877);
   });
   it('10초 경계마다 한 틱과 회복을 적용하고 하트비트는 별도로 갱신한다', () => {
     const { store, clock } = setup(); const rng = store.getSnapshot().meta.rngState;
@@ -91,12 +156,12 @@ describe('실시간 틱·세션 제어', () => {
     expect(clock.tasks.size).toBe(1);
   });
 
-  it('이동한 첫 자동 틱은 회복하지 않고 다음 틱부터 회복한다', () => {
+  it('이동 후 첫 회복 주기부터 회복하고 이후 주기도 같은 양을 회복한다', () => {
     const { store, loop, clock } = setup(true);
     expect(loop.move('east').ok).toBe(true);
     expect(store.getSnapshot().character?.stamina.current).toBe(874);
-    clock.advance(10_000); expect(store.getSnapshot().character?.stamina.current).toBe(874);
     clock.advance(10_000); expect(store.getSnapshot().character?.stamina.current).toBe(875);
+    clock.advance(10_000); expect(store.getSnapshot().character?.stamina.current).toBe(876);
   });
 
   it('일시정지는 틱·회복·난수를 보존하고 입력도 막으며 재개 시 소급하지 않는다', () => {

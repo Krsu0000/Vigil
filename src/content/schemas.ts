@@ -19,6 +19,7 @@ export const TimeRulesSchema = z.strictObject({
   heartbeatIntervalMs: positiveInteger,
   heartbeatGraceMs: positiveInteger,
   stamina: z.strictObject({
+    recoveryIntervalMs: positiveInteger,
     max: positiveInteger,
     safeRegenPerTick: nonnegativeInteger,
     waitRegenPerTick: nonnegativeInteger,

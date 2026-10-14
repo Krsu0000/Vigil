@@ -8,11 +8,13 @@ import type { MapAction, MapEvent } from '../engine/systems/map/actions.ts';
 import { timeHandlers } from '../engine/systems/time/actions.ts';
 import type { TimeAction } from '../engine/systems/time/actions.ts';
 import type { TimeEvent } from '../engine/systems/time/advance.ts';
+import { staminaHandlers } from '../engine/systems/stamina/actions.ts';
+import type { StaminaAction, StaminaEvent } from '../engine/systems/stamina/actions.ts';
 import { validateMapState } from '../engine/systems/map/selectors.ts';
 import { GameStateSchema, restoreSave } from '../persistence/save-file.ts';
 
-export type RuntimeAction = MapAction | TimeAction;
-export type RuntimeEvent = MapEvent | TimeEvent;
+export type RuntimeAction = MapAction | TimeAction | StaminaAction;
+export type RuntimeEvent = MapEvent | TimeEvent | StaminaEvent;
 
 export type GameStore = Readonly<{
   content: ContentDb;
@@ -25,7 +27,7 @@ export type GameStore = Readonly<{
 export function createGameStore(content: ContentDb, initial: GameState, now: () => number): GameStore {
   let state: GameState = GameStateSchema.parse(initial);
   validateMapState(state, content);
-  const run = createDispatcher<RuntimeAction, RuntimeEvent>({ ...mapHandlers, ...timeHandlers });
+  const run = createDispatcher<RuntimeAction, RuntimeEvent>({ ...mapHandlers, ...timeHandlers, ...staminaHandlers });
   const listeners = new Set<() => void>();
   const publish = (next: GameState) => {
     state = next;

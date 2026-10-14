@@ -2,8 +2,7 @@ import type { EngineContext } from '../../core/context.ts';
 import type { ExecutionResult } from '../../core/actions.ts';
 import type { Rng } from '../../core/rng.ts';
 import type { GameState } from '../../core/state.ts';
-import { currentLocation, findCell, requireZone } from '../map/selectors.ts';
-import { recoverStamina } from '../stamina/stamina.ts';
+import { currentLocation } from '../map/selectors.ts';
 
 export type TimeEvent = Readonly<{ type: 'time/advanced'; from: number; to: number; ticks: number; recovered: number }>;
 
@@ -16,19 +15,15 @@ export function advanceTime(state: GameState, ticks: number, ctx: EngineContext,
   if (ticks === 0) return { state, events: [] };
   const location = currentLocation(state, ctx.content);
   if (!location) throw new Error('시간 진행에는 배치된 캐릭터가 필요하다');
-  const cell = findCell(location.map, location.position)!;
-  const safe = requireZone(ctx.content, cell.zoneId).safety === 'safe';
-  const rules = ctx.content.timeRules.stamina;
   const character = state.character!;
-  const recoveryTicks = ticks - (character.movedSinceLastTick ? 1 : 0);
-  const stamina = recoverStamina(character.stamina, recoveryTicks, safe ? rules.safeRegenPerTick : rules.waitRegenPerTick);
   const gameTime = state.meta.gameTime + ticks;
   return {
     state: { ...state, meta: { ...state.meta, gameTime },
-      character: { ...character, stamina, movedSinceLastTick: false },
+      character: { ...character, movedSinceLastTick: false },
     },
     events: [{ type: 'time/advanced', from: state.meta.gameTime, to: gameTime, ticks,
-      recovered: stamina.current - character.stamina.current,
+      // 기존 사건 형태를 유지한다. 스태미나 회복은 별도 행동에서만 처리한다.
+      recovered: 0,
     }],
   };
 }

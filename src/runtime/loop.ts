@@ -17,6 +17,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
   let generation = 0;
   let tickAt = 0;
   let heartbeatAt = 0;
+  let recoveryAt = 0;
   let nextMoveAt = -Infinity;
   const publish = (patch: Partial<SessionStatus>) => {
     const next = { ...status, ...patch };
@@ -30,7 +31,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
     if (timer !== undefined) scheduler.cancel(timer);
     timer = undefined;
   };
-  const reanchor = () => { tickAt = heartbeatAt = clock.monotonicNow(); };
+  const reanchor = () => { tickAt = heartbeatAt = recoveryAt = clock.monotonicNow(); };
   const pump = () => {
     if (!status.running) return;
     const now = clock.monotonicNow();
@@ -43,10 +44,18 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
       publish({ gapPaused: true });
       return;
     }
-    const ticks = Math.floor((now - tickAt) / rules.tickMs);
-    if (ticks > 0) {
-      store.dispatch({ type: 'time/tick', ticks });
-      tickAt += ticks * rules.tickMs;
+    // 마감 시각 순서로 처리한다. 동시에는 전역 틱을 먼저, 회복을 다음에 처리한다.
+    while (status.running) {
+      const nextTick = tickAt + rules.tickMs;
+      const nextRecovery = recoveryAt + rules.stamina.recoveryIntervalMs;
+      if (Math.min(nextTick, nextRecovery) > now) break;
+      if (nextTick <= nextRecovery) {
+        store.dispatch({ type: 'time/tick' });
+        tickAt = nextTick;
+      } else {
+        store.dispatch({ type: 'stamina/recover', periods: 1 });
+        recoveryAt = nextRecovery;
+      }
     }
     if (now - heartbeatAt >= rules.heartbeatIntervalMs) {
       store.dispatch({ type: 'time/heartbeat' });
@@ -58,7 +67,8 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
     if (!status.running) return;
     const token = generation;
     const now = clock.monotonicNow();
-    const delay = Math.max(0, Math.min(tickAt + rules.tickMs, heartbeatAt + rules.heartbeatIntervalMs) - now);
+    const delay = Math.max(0, Math.min(tickAt + rules.tickMs, heartbeatAt + rules.heartbeatIntervalMs,
+      recoveryAt + rules.stamina.recoveryIntervalMs) - now);
     timer = scheduler.schedule(() => {
       if (token !== generation || !active) return;
       timer = undefined;
@@ -98,7 +108,12 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
       const now = clock.monotonicNow();
       if (now < nextMoveAt) return { ok: false, reason: 'cooldown' } as const;
       const result = store.dispatch({ type: 'move/step', direction });
-      if (result.ok) nextMoveAt = now + rules.minimumMoveIntervalMs;
+      if (result.ok) {
+        nextMoveAt = now + rules.minimumMoveIntervalMs;
+        // 성공한 이동만 회복 대기를 다시 센다. 전역 틱과 하트비트는 유지한다.
+        recoveryAt = now;
+        schedule();
+      }
       return result;
     },
   });

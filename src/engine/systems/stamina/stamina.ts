@@ -51,6 +51,6 @@ export function recoverStamina(stamina: StaminaState, ticks: number, perTick: nu
   // 최대치까지 필요한 양만 더해 많은 틱에서도 정수 정밀도를 보존한다.
   const amount = Math.min(stamina.max - stamina.current, ticks * perTick);
   return { ...stamina, current: computeValue(stamina.current, [
-    { target: 'stamina', op: 'add', value: amount, source: 'time/tick' },
+    { target: 'stamina', op: 'add', value: amount, source: 'stamina/recover' },
   ], { round: 'round', min: 0, max: stamina.max }) };
 }

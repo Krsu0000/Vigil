@@ -72,6 +72,6 @@ describe('App', () => {
     expect(html).toContain(strings.settings);
     expect(html).toContain(strings.resume);
     expect(html).toContain(strings.recoveryPaused);
-    expect(textHtml).toContain('틱 간격 2초 · 틱당 회복 1');
+    expect(textHtml).toContain('틱 간격 2초 · 회복 간격 2초 · 회복량 1');
   });
 });

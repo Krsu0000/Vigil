@@ -8,12 +8,14 @@ import { mapSources } from '../../../content/test-fixtures.ts';
 import { mapHandlers } from '../map/actions.ts';
 import type { MapAction, MapEvent } from '../map/actions.ts';
 import { mapContext, startedState, walk } from '../map/test-fixtures.ts';
+import { staminaHandlers } from '../stamina/actions.ts';
+import type { StaminaAction, StaminaEvent } from '../stamina/actions.ts';
 import { timeHandlers } from './actions.ts';
 import type { TimeAction } from './actions.ts';
 import { advanceTime } from './advance.ts';
 import type { TimeEvent } from './advance.ts';
 
-const dispatch = createDispatcher<MapAction | TimeAction, MapEvent | TimeEvent>({ ...mapHandlers, ...timeHandlers });
+const dispatch = createDispatcher<MapAction | TimeAction | StaminaAction, MapEvent | TimeEvent | StaminaEvent>({ ...mapHandlers, ...timeHandlers, ...staminaHandlers });
 
 describe('기본 시간 엔진', () => {
   it('지연된 실시간 틱의 일괄 행동은 한 틱씩 처리와 같은 최종 상태를 만든다', () => {
@@ -23,7 +25,7 @@ describe('기본 시간 엔진', () => {
     for (let i = 0; i < 6; i += 1) single = dispatch(single, { type: 'time/tick' }, ctx).state;
     expect(batch.state).toEqual(single);
     expect(batch.state.meta.gameTime).toBe(6);
-    expect(batch.state.character?.stamina.current).toBe(899);
+    expect(batch.state.character?.stamina.current).toBe(894);
   });
 
   it.each([0, -1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])('잘못된 틱 행동 %s는 같은 참조로 거부한다', (ticks) => {
@@ -44,21 +46,25 @@ describe('기본 시간 엔진', () => {
     const ctx = mapContext(); const state = startedState(ctx);
     expect(dispatch(state, { type: 'time/heartbeat' }, { ...ctx, now })).toEqual({ ok: false, state, reason: 'invalid_action' });
   });
-  it('한 틱은 시간만 한 번 진행하며 회복·사건·난수·원본 보존을 지킨다', () => {
+  it('전역 틱은 시간만 한 번 진행하며 회복은 별도 행동에서만 적용한다', () => {
     const ctx = deepFreeze(mapContext()); const initial = startedState(ctx);
     const state = deepFreeze({ ...initial, character: { ...initial.character!, stamina: { current: 899, max: 900 } } });
     const result = dispatch(state, { type: 'time/tick' }, ctx);
     expect(result.ok).toBe(true);
     expect(result.state.meta).toEqual({ ...state.meta, gameTime: 1 });
-    expect(result.state.character?.stamina.current).toBe(900);
+    expect(result.state.character?.stamina.current).toBe(899);
+    expect(result.state.character?.stamina).toBe(state.character?.stamina);
+    const recovered = dispatch(result.state, { type: 'stamina/recover', periods: 1 }, ctx);
+    expect(recovered.state.character?.stamina.current).toBe(900);
+    expect(recovered.state.meta).toEqual(result.state.meta);
     expect(result.state.campaign).toBe(state.campaign);
     if (!result.ok) throw new Error('시간 진행 실패');
-    expect(result.events).toEqual([{ type: 'time/advanced', from: 0, to: 1, ticks: 1, recovered: 1 }]);
+    expect(result.events).toEqual([{ type: 'time/advanced', from: 0, to: 1, ticks: 1, recovered: 0 }]);
     expect(state.character?.stamina.current).toBe(899);
     expect(result).toEqual(dispatch(state, { type: 'time/tick' }, ctx));
   });
 
-  it('같은 틱의 여러 이동은 시간 진행 없이 비용만 소모하고 첫 틱은 회복하지 않는다', () => {
+  it('같은 틱의 여러 이동은 비용만 소모하고 전역 틱 자체는 회복하지 않는다', () => {
     const ctx = mapContext();
     const moved = deepFreeze(walk(startedState(ctx), ['east', 'east', 'south', 'south', 'east', 'east'], ctx));
     expect(moved.meta.gameTime).toBe(0);
@@ -69,25 +75,26 @@ describe('기본 시간 엔진', () => {
     expect(first.character?.movedSinceLastTick).toBe(false);
     const second = dispatch(first, { type: 'time/tick' }, ctx).state;
     expect(second.meta.gameTime).toBe(2);
-    expect(second.character?.stamina.current).toBe(889);
+    expect(second.character?.stamina.current).toBe(888);
+    expect(dispatch(second, { type: 'stamina/recover', periods: 1 }, ctx).state.character?.stamina.current).toBe(889);
   });
 
-  it('실패한 이동은 다음 틱의 회복을 막지 않는다', () => {
+  it('실패한 이동은 별도로 주입한 대기 회복을 막지 않는다', () => {
     const ctx = mapContext(); const initial = startedState(ctx);
     const state = { ...initial, character: { ...initial.character!, stamina: { current: 0, max: 900 } } };
     const refused = dispatch(state, { type: 'move/step', direction: 'north' }, ctx);
     expect(refused.state).toBe(state);
-    const next = dispatch(refused.state, { type: 'time/tick' }, ctx).state;
+    const next = dispatch(refused.state, { type: 'stamina/recover', periods: 1 }, ctx).state;
     expect(next.character?.stamina.current).toBe(1);
   });
 
-  it('안전/위험 구역의 대기 회복 값을 콘텐츠에서 읽는다', () => {
+  it('별도 회복 행동이 안전/위험 구역의 회복량을 콘텐츠에서 읽는다', () => {
     const sources = mapSources();
     Object.assign(sources['time-rules.json'].stamina, { safeRegenPerTick: 2, waitRegenPerTick: 3 });
     const ctx = mapContext(sources);
     for (const [base, expected] of [[startedState(ctx), 2], [walk(startedState(ctx), ['east','east','south','south','east'],ctx), 3]] as const) {
       const state = { ...base, character: { ...base.character!, stamina: { current: 0, max: 900 }, movedSinceLastTick: false } };
-      expect(dispatch(state, { type: 'time/tick' }, ctx).state.character?.stamina.current).toBe(expected);
+      expect(dispatch(state, { type: 'stamina/recover', periods: 1 }, ctx).state.character?.stamina.current).toBe(expected);
     }
   });
 
@@ -100,7 +107,7 @@ describe('기본 시간 엔진', () => {
     for (let i = 0; i < 10; i += 1) sequential = dispatch(sequential, { type: 'time/tick' }, ctx).state;
     expect(batch.state).toEqual(sequential);
     expect(rng.getState()).toEqual(state.meta.rngState);
-    expect(batch.events).toEqual([{ type: 'time/advanced', from: 0, to: 10, ticks: 10, recovered: 5 }]);
+    expect(batch.events).toEqual([{ type: 'time/advanced', from: 0, to: 10, ticks: 10, recovered: 0 }]);
   });
 
   it('0틱은 같은 참조를 반환하고 이동 표시를 소비하지 않는다', () => {

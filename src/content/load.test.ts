@@ -15,11 +15,11 @@ describe('콘텐츠 로더', () => {
     const result = loadContent(testSources(), rejectEffects);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('기본 데이터 검증 실패');
-    expect(result.content.contentVersion).toBe('0.2.2');
+    expect(result.content.contentVersion).toBe('0.2.3');
     expect(result.content.timeRules).toMatchObject({
       id: 'rules.time', tickMs: 2_000, minimumMoveIntervalMs: 200, maxOfflineMs: 86_400_000,
       heartbeatIntervalMs: 15_000, heartbeatGraceMs: 120_000,
-      stamina: { max: 900, safeRegenPerTick: 1, waitRegenPerTick: 1, restRegenPerTick: 5,
+      stamina: { recoveryIntervalMs: 2_000, max: 900, safeRegenPerTick: 1, waitRegenPerTick: 1, restRegenPerTick: 5,
         unexploredMoveCost: 6, exploredMoveCost: 3, safeMoveCost: 0 },
     });
     expect(result.content.definitions).toEqual([]);
@@ -93,6 +93,8 @@ describe('콘텐츠 로더', () => {
     const zero = testSources();
     zero['time-rules.json'].stamina.max = 0;
     expectFailure(loadContent(zero, rejectEffects), 'invalid_schema', 'time-rules.json');
+    const zeroInterval = testSources(); zeroInterval['time-rules.json'].stamina.recoveryIntervalMs = 0;
+    expectFailure(loadContent(zeroInterval, rejectEffects), 'invalid_schema', 'time-rules.json');
   });
 
   it('하트비트 간격보다 짧은 유예 시간은 실패한다', () => {
