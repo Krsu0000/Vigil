@@ -1,0 +1,25 @@
+{
+  "format": "last-vigil-save",
+  "schemaVersion": 1,
+  "contentVersion": "0.2.0",
+  "saveId": "00112233-4455-4677-8899-aabbccddeeff",
+  "revision": 7,
+  "savedAt": 1700000001000,
+  "state": {
+    "meta": {
+      "campaignId": "2fb70709-35e0-4371-9912-4882bf3fe623",
+      "gameTime": 123,
+      "rngState": [
+        131395302,
+        1323665263,
+        4129823514,
+        23
+      ],
+      "lastActiveAt": 1700000000000,
+      "settledUntil": 1699999999900
+    },
+    "campaign": {},
+    "character": null,
+    "expedition": null
+  }
+}
