@@ -8,7 +8,7 @@ const browserSources: ContentSources = Object.fromEntries(
     .map(([path, data]) => [path.slice('../content/'.length), data]),
 );
 
-// 로더와 엔진의 효과 검증을 연결한다. 게임 상태 보관과 시간 처리는 아직 하지 않는다.
+// 로더와 엔진의 효과 검증을 연결한다. 상태 보관은 store.ts가 맡고 시간 처리는 후속 단계다.
 export function loadGameContent(sources: ContentSources = browserSources): ContentLoadResult {
   return loadContent(sources, effectRegistry.validate);
 }

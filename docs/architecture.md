@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0 완료, S1 진행 중.** 맵 콘텐츠·배치 검증에 이어 위치·탐사 기록·이동·A안 안개 조회와 SaveFile v2·v1 변환이 구현됐다. GameStore·맵 UI·조작 연결, IndexedDB·자동 저장·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0 완료, S1 진행 중.** 맵 콘텐츠·배치 검증에 이어 위치·탐사 기록·이동·A안 안개 조회와 SaveFile v2·v1 변환이 구현됐다. GameStore·React 구독·격자 맵·키보드/모바일 조작도 구현됐다. IndexedDB·자동 저장·시간 루프·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -222,7 +222,7 @@ export const dispatch: Dispatcher; // S0에서는 게임 처리기가 없는 기
 - `move/step { direction }`은 north·south·east·west로 한 칸 이동한다. 캐릭터 없음·미배치·벽·경계는 condition_not_met, 잘못된 방향은 invalid_action으로 거부한다. 거부 시 같은 상태 참조·자원·난수 상태를 보존한다.
 - 성공하면 위치와 처음 밟은 칸의 기록을 갱신하고 move/stepped 사건에 from·to·newlyExplored를 담는다. S1에서는 시간·스태미나·난수를 소비하지 않는다. 비용·시간 연결은 S2다.
 - `getTileVisibility(state, target, content)`는 visible·explored·unexplored를 반환한다. 현재 칸·상하좌우 인접 칸은 visible, 그 밖의 밟은 칸은 explored, 나머지는 unexplored다. 벽·보기만 한 칸·다른 맵/층을 영구 탐사로 만들지 않는다. 조회는 상태를 변경하지 않는다.
-- `validateMapState(state, content)`는 복원 후 맵 존재·버전·탐사 칸·현재 위치를 실제 콘텐츠와 대조한다. 좌표·맵 버전 불일치는 코드/호환성 오류로 던지며 재배치·기록 삭제·일반 이동 거부로 숨기지 않는다. GameStore 연결은 다음 단위다.
+- `validateMapState(state, content)`는 복원 후 맵 존재·버전·탐사 칸·현재 위치를 실제 콘텐츠와 대조한다. 좌표·맵 버전 불일치는 코드/호환성 오류로 던지며 재배치·기록 삭제·일반 이동 거부로 숨기지 않는다. GameStore 생성·복원 경계에서 호출한다.
 
 ## 4. 시간
 
@@ -349,7 +349,7 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
 실행 환경의 연결:
 
 - 브라우저의 `runtime/content.ts`는 Vite의 JSON 수집 기능으로 `src/content/` 아래 전체 JSON을 모아 `loadContent`에 전달하고, 제품의 효과 레지스트리 검증 함수를 주입한다. 파일 추가 시 엔진 코드를 수정하지 않는다.
-- React 진입점은 콘텐츠를 먼저 검증한다. 성공하면 기존 화면을 표시하고, 파싱된 데이터의 검증이 실패하면 파일·필드 위치가 포함된 오류 안내를 표시한다. 브라우저용 JSON 구문 오류는 Vite 변환·빌드 단계에서 차단된다. 아직 GameStore나 플레이 상태를 생성하지 않는다.
+- React 진입점은 콘텐츠를 먼저 검증한다. 성공하면 새 GameStore를 생성·최초 배치해 맵을 표시하고, 파싱된 데이터의 검증이 실패하면 파일·필드 위치가 포함된 오류 안내를 표시한다. 브라우저용 JSON 구문 오류는 Vite 변환·빌드 단계에서 차단된다. GameStore 초기화 실패도 별도 오류 안내로 표시한다. 초기화는 StrictMode 밖에서 한 번 수행한다.
 - `scripts/validate-content.ts`는 파일 시스템에서 전체 JSON을 읽어 구문을 검사한 뒤 같은 로더와 제품 효과 검증 함수를 쓴다. 오류 시 종료 코드는 1, 성공 시 0이다. 선택 인수로 검사할 콘텐츠 디렉터리를 받을 수 있다.
 - `npm run validate:content`는 구문뿐 아니라 스키마·ID·참조·의존·효과 검증을 모두 수행한다. 브라우저와 CLI의 파일 읽기만 다르고 검증 로직은 같다.
 - 버튼 문구·콘텐츠 실패 안내 같은 UI 시스템 문구는 `src/ui/strings/`에 둔다.
@@ -475,7 +475,7 @@ export type SaveFile = Readonly<{
 - 객체·JSON 불러오기 순서: JSON 데이터·형식 확인 → 버전 변환 → 최종 Zod 검증. 실패하면 예외를 내고 부분 상태를 반환하지 않는다.
 - 저장·복원은 gameTime·lastActiveAt·settledUntil·rngState·revision·savedAt을 그대로 보존한다. 실제 저장마다 revision을 증가시키는 책임은 S3의 호출부에 있다. 왕복만으로 revision을 올리지 않는다.
 
-다음은 S3에서 연결할 브라우저 저장 규칙이다. 현재 IndexedDB·자동 저장·백업·GameStore·오프라인 정산 연결은 없다.
+다음은 S3에서 연결할 브라우저 저장 규칙이다. 현재 GameStore의 메모리 복원 경로는 구현됐다. IndexedDB·자동 저장·백업·오프라인 정산 연결은 없다.
 
 - 저장 시점: 행동이 처리될 때마다 짧은 지연(디바운스)을 두고 저장하고, 화면이 가려질 때(`visibilitychange`) 즉시 저장한다. 지연 시간은 임시값 1초다(D-010).
 - 새 세이브를 쓰기 전에 직전 세이브를 백업 슬롯 하나에 보관한다. 새 세이브를 읽지 못하면 백업을 불러온다(D-010).
@@ -491,11 +491,16 @@ export type SaveFile = Readonly<{
 - 변환 함수마다 이전 버전의 실제 세이브 예시 파일과 변환 테스트를 함께 둔다.
 - 세이브 구조 변경은 사용자 승인이 필요하다.
 
-## 9. 런타임과 UI 연결 `[설계]`
+## 9. 런타임과 UI 연결 `[최소 구현됨]`
 
 - `GameStore`는 현재 `GameState`를 보관하고, `dispatch(action)`이 호출되면 엔진의 `dispatch`에 `ctx`를 붙여 넘긴 뒤 결과로 상태를 교체하고 구독자에게 알린다.
 - React는 `useSyncExternalStore`로 `GameStore`를 구독한다. 새 상태 관리 라이브러리는 쓰지 않는다.
-- 엔진이 돌려준 사건은 UI의 기록창과 알림에 쓴다. UI는 사건을 보고 게임 상태를 따로 고치지 않는다.
+- `[구현됨]` `runtime/store.ts`가 mapHandlers를 조합한다. 생성 때 구조·실제 맵을 검증하며, 성공한 dispatch만 상태를 교체하고 구독자에게 알린다. 거부 시 같은 스냅샷을 유지한다. getSnapshot은 상태 변경 전까지 같은 참조를 반환한다.
+- `[구현됨]` restore는 저장 형식 확인·v1→v2 변환·상태 검증·실제 콘텐츠 대조를 모두 통과한 뒤 한 번 교체한다. 실패하면 기존 상태·구독을 유지한다. 복원은 시계를 호출하거나 미배치 캐릭터를 자동 배치하지 않는다.
+- `[구현됨]` 새 게임은 콘텐츠에 맵이 정확히 1개일 때만 시작한다. ID를 하드코딩하거나 배열 첫 항목을 고르지 않는다. 이 프로토타입 제약은 시작 맵 정책 도입 시 교체한다.
+- `[구현됨]` MapScreen은 A안 시야 조회로 CSS Grid를 표시한다. 미탐사 칸에는 지형 이름·기호·벽 클래스를 넣지 않는다. 벽은 칸 전체를 채우며 타일 간격은 0이다. 현재 위치·탐사 수·안전/위험 구역은 상태와 콘텐츠에서 계산한다.
+- `[구현됨]` runtime/input.ts가 방향키·WASD를 행동으로 연결하고 해제 함수를 반환한다. React 효과 정리로 중복 리스너를 방지한다. 입력 필드·편집 영역·IME·수정키 조합·이미 처리된 이벤트는 이동시키지 않는다. 모바일 버튼은 최소 44×44px다.
+- 이동 사건으로 일시 안내를 표시하며 UI는 게임 상태를 복제하거나 직접 고치지 않는다. 기록창·틱 루프·자동 저장·시간 정산은 후속 단계다. 새로고침하면 새 게임이 시작된다는 안내를 표시한다.
 - 게임 내 창(코덱스, 인벤토리 등)이 열려 있어도 틱 루프는 멈추지 않는다. 일시정지 버튼과 설정창만 런타임의 일시정지 플래그를 켠다.
 
 ## 10. 서버 경계 `[설계]`
@@ -518,7 +523,7 @@ export type SaveFile = Readonly<{
 | Time | `src/engine/systems/time/` | `meta.gameTime`, `meta.lastActiveAt`, `meta.settledUntil` | S2 | 설계 |
 | Stamina & Rest | `src/engine/systems/stamina/` | `character` 스태미나, 현재 활동 | S2 | 설계 |
 | Ambush | `src/engine/systems/ambush/` | 없음(판정만) | S2 | 설계 |
-| Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠 연결만 구현됨. GameStore(S1)·시간 루프(S2)는 설계 |
+| Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠·GameStore·키보드 입력 연결 구현됨. 시간 루프(S2)는 설계 |
 | Inventory & Items | `src/engine/systems/inventory/` | `character` 휴대품·장비, `campaign` 창고 | S4 | 설계 |
 | Combat | `src/engine/systems/combat/` | `expedition` 진행 중 전투 | S5 | 설계 |
 | Character & Corruption | `src/engine/systems/character/` | `character` 능력치·오염·정신력 | S6 | 설계 |

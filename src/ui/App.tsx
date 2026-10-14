@@ -1,10 +1,15 @@
 import { strings } from './strings/index.ts';
 import type { ContentError } from '../content/types.ts';
+import type { GameStore } from '../runtime/store.ts';
+import { MapScreen } from './MapScreen.tsx';
+import './styles.css';
 
-export function App({ contentErrors = [] }: { contentErrors?: readonly ContentError[] }) {
+export function App({ contentErrors = [], store, startupError = false }: {
+  contentErrors?: readonly ContentError[]; store?: GameStore; startupError?: boolean;
+}) {
   return (
     <main>
-      <h1>{strings.gameTitle}</h1>
+      <header className="app-header"><h1>{strings.gameTitle}</h1><span>{strings.exploration}</span></header>
       {contentErrors.length > 0 && (
         <section role="alert">
           <h2>{strings.contentLoadFailed}</h2>
@@ -16,6 +21,10 @@ export function App({ contentErrors = [] }: { contentErrors?: readonly ContentEr
           </ul>
         </section>
       )}
+      {contentErrors.length === 0 && startupError && (
+        <section className="error-panel" role="alert"><h2>{strings.startupFailed}</h2><p>{strings.startupHelp}</p></section>
+      )}
+      {contentErrors.length === 0 && !startupError && store && <MapScreen store={store} />}
     </main>
   );
 }
