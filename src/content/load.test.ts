@@ -15,7 +15,7 @@ describe('콘텐츠 로더', () => {
     const result = loadContent(testSources(), rejectEffects);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('기본 데이터 검증 실패');
-    expect(result.content.contentVersion).toBe('0.1.0');
+    expect(result.content.contentVersion).toBe('0.2.0');
     expect(result.content.timeRules).toMatchObject({
       id: 'rules.time', tickMs: 10_000, maxOfflineMs: 86_400_000,
       heartbeatIntervalMs: 15_000, heartbeatGraceMs: 120_000,

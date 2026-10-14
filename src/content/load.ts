@@ -1,4 +1,5 @@
 import { DefinitionsSchema, ManifestSchema, TimeRulesSchema } from './schemas.ts';
+import { validateMaps } from './map-validation.ts';
 import type { ContentDefinition } from './schemas.ts';
 import type { ContentDb, ContentEntry, ContentError, ContentLoadResult, EffectValidator } from './types.ts';
 
@@ -107,6 +108,8 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
       if (!result.ok) errors.push({ file, path: `${index}.effects.${position}`, code: result.reason, message: result.message });
     });
   }
+  if (errors.length > 0) return { ok: false, errors };
+  errors.push(...validateMaps(located));
   if (errors.length > 0) return { ok: false, errors };
   const cycle = dependencyCycle(located);
   if (cycle !== null) {

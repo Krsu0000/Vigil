@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0 완료, S1 미착수.** 프로젝트 뼈대, 코어 기초·계약, 콘텐츠 기반·검증, SaveFile v1의 메모리 저장 계약·버전 변환 체인, CombatLog 타입이 구현됐다. PR #1~#5 병합 후 전체 완료 기준과 문서를 점검했다. 실제 IndexedDB·자동 저장·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0 완료, S1 진행 중.** S0의 코어·콘텐츠·저장 계약에 이어 S1 첫 단위의 맵·타일·구역 콘텐츠와 배치 검증이 구현됐다. 이동·안개·맵 UI, 실제 IndexedDB·자동 저장·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -272,11 +272,11 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 ## 6. 콘텐츠 `[구현됨]`
 
-- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 초기 버전은 `0.1.0`, 실제 JSON은 매니페스트와 시간 규칙 2개다.
+- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 현재 버전은 `0.2.0`, 실제 JSON은 매니페스트·시간 규칙·타일·구역·맵의 5개다. 정의 파일은 `tiles.json`, `zones.json`, `maps/s1-test.json`이다.
 - 매니페스트의 파일 목록은 명시적이다. 필수 파일 누락, 중복 파일, 매니페스트 자기 참조, 목록에 없는 JSON도 오류다. 경로는 소문자 영문·숫자·밑줄·하이픈으로 된 상대 JSON 경로만 허용한다.
 - `time-rules.json`에 D-011·D-014의 임시값을 넣었다. 시간은 ms, 스태미나는 정수 단위다. 하트비트 값도 JSON 설정으로 저장하며 런타임이 도입되면 여기서 읽는다.
 - 시간 규칙의 시간 값과 최대 스태미나는 양의 안전한 정수, 회복량·이동 비용은 0 이상의 안전한 정수다. 하트비트 유예 시간은 간격 이상이어야 한다. 실제 시간 진행·스태미나 계산은 S2다.
-- `schemas.ts`의 Zod 스키마가 매니페스트·시간 규칙·공통 정의 외피의 기준이며 TypeScript 타입은 스키마에서 추론한다. `resolveJsonModule` 설정을 켜 JSON import 타입 검사도 수행한다.
+- `schemas.ts`의 Zod 스키마가 매니페스트·시간 규칙·공통 외피·맵·타일·구역의 기준이며 TypeScript 타입은 스키마에서 추론한다. `resolveJsonModule` 설정을 켜 JSON import 타입 검사도 수행한다.
 
 ```ts
 // src/content/types.ts
@@ -313,12 +313,14 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
 2. 시간 규칙과 각 정의 파일의 배열 스키마를 검증한다.
 3. 모든 ID를 모으고 중복·누락 참조를 검증한다.
 4. 모든 효과를 주입된 검증 함수로 확인한다. 로딩 중 효과를 실행하지 않는다.
-5. 선행 의존 목록의 순환을 검사한다. 깊은 관계도 호출 스택을 늘리지 않는 방식으로 검사한다.
-6. 모두 통과한 경우에만 읽기 전용 ContentDb를 만든다. 하나라도 실패하면 오류 목록만 반환하고 부분 DB는 반환하지 않는다.
+5. 맵의 실제 배치 참조·층·좌표·시작 위치를 검증한다.
+6. 선행 의존 목록의 순환을 검사한다. 깊은 관계도 호출 스택을 늘리지 않는 방식으로 검사한다.
+7. 모두 통과한 경우에만 읽기 전용 ContentDb를 만든다. 하나라도 실패하면 오류 목록만 반환하고 부분 DB는 반환하지 않는다.
 
 공통 정의 외피와 검증:
 
-- S0의 정의 파일은 `{ id, references?, dependsOn?, effects? }`의 배열이다. 생략한 목록은 빈 배열로 만든다. 구체적인 맵·아이템·몬스터 필드와 스키마는 각 시스템 도입 시 추가한다.
+- 정의 파일은 배열이며 `{ id, references?, dependsOn?, effects? }` 공통 외피를 유지한다. 생략한 목록은 빈 배열로 만든다. S1의 맵·타일·구역에는 kind와 구체적인 필드가 추가됐다. 다른 종류는 S0 공통 외피만 지원하며 실제 스키마는 각 시스템에서 추가한다.
+- `ContentDefinitionSchema`는 kind로 구체 스키마를 선택한다. kind가 없는 공통 외피는 map·tile·zone ID를 사용할 수 없다. 구체 정의의 누락된 필드가 공통 외피로 처리되어 검증을 우회하지 못하게 한다.
 - `references`는 존재 확인용 일반 참조다. 상호 참조도 허용한다. `dependsOn`은 순환을 허용하지 않는 선행 의존 목록이다. 둘 다 실제 존재하는 ID만 가리켜야 한다(D-019).
 - 효과 외피는 `{ type, params }`다. 매개변수는 JSON 값이어야 하며 복사해 입력과 객체를 공유하지 않는다. 실제 매개변수 제약은 엔진의 효과 스키마가 검증한다.
 - 콘텐츠 ID는 `종류.이름` 형식의 소문자 영문·숫자·밑줄이다 (예: `item.dried_ration`, `monster.genlock`). 각 부분은 영문자로 시작한다. 시간 규칙은 `rules.` 종류를 쓴다.
@@ -334,6 +336,26 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
 - `scripts/validate-content.ts`는 파일 시스템에서 전체 JSON을 읽어 구문을 검사한 뒤 같은 로더와 제품 효과 검증 함수를 쓴다. 오류 시 종료 코드는 1, 성공 시 0이다. 선택 인수로 검사할 콘텐츠 디렉터리를 받을 수 있다.
 - `npm run validate:content`는 구문뿐 아니라 스키마·ID·참조·의존·효과 검증을 모두 수행한다. 브라우저와 CLI의 파일 읽기만 다르고 검증 로직은 같다.
 - 버튼 문구·콘텐츠 실패 안내 같은 UI 시스템 문구는 `src/ui/strings/`에 둔다.
+
+### 6.1 맵·타일·구역 계약 `[구현됨]`
+
+`schemas.ts`의 `MapDefinition`·`TileDefinition`·`ZoneDefinition`은 해당 Zod 스키마에서 추론한다(D-021). GameState·SaveFile 구조와 구분하며 현재 게임 상태에는 복사하지 않는다.
+
+| 정의 | 주요 필드 |
+|---|---|
+| 타일 | kind: tile, tile.* ID, name, glyph, walkable, blocksSight |
+| 구역 | kind: zone, zone.* ID, name, description, safety: safe 또는 danger |
+| 맵 | kind: map, map.* ID, name, description, 양의 정수 version, start, floors |
+| 시작 위치 | floor, x, y. 소속 맵 ID는 맵 정의에서 정해진다 |
+| 층 | floor, width, height, cells |
+| 배치 칸 | x, y, tileId, zoneId |
+
+- x·y는 좌상단 (0, 0)부터 시작하며 width·height 미만인 0 이상의 안전한 정수다. 층 번호는 음수를 포함한 안전한 정수다. 공통 위치는 맵 ID·층·x·y의 조합으로 식별하며 배열 순서를 좌표로 사용하지 않는다.
+- 각 층의 직사각형 전체를 한 번씩 배치한다. 벽도 명시한다. `map-validation.ts`는 층·좌표 중복, 범위 밖·누락 칸, 안전한 정수 범위를 넘는 칸 수를 거부한다. 실제 칸 수에 비례해 검사하고 전체 범위만큼 반복하거나 메모리를 할당하지 않는다.
+- 실제 tileId·zoneId의 존재와 종류를 검증한다. 제작자가 같은 ID를 references에 다시 적을 필요는 없다. 시작 위치는 존재하는 층·칸이어야 하고 타일의 walkable이 true여야 한다.
+- 이동 가능 여부와 시야 차단 여부는 독립 속성이다. 이번에는 데이터를 검증하며 실제 이동·시야 계산·안전/위험 효과를 실행하지 않는다.
+- 수동 맵 `map.s1_test`는 version 1, 0층 9×7, 시작 (1, 1)이다. 타일 2개·구역 2개를 참조한다. 시작점에서 안전·위험 구역 모두 상하좌우로 도달할 수 있음을 콘텐츠 테스트에서 확인했다. 맵 크기·기호·배치는 테스트용이며 최종 레벨 디자인이 아니다.
+- Vite 콘텐츠 연결과 실제 Node CLI가 같은 검증을 사용한다. 실패 시 파일·필드 위치와 오류 코드를 보고하고 부분 DB를 반환하지 않는다. 성공한 맵·층·칸도 입력과 분리해 중첩까지 동결한다.
 
 ## 7. 효과와 수정치
 
@@ -471,7 +493,7 @@ export type SaveFile = Readonly<{
 | 모듈 | 경로 | 소유하는 상태 | 도입 단계 | 상태 |
 |---|---|---|---|---|
 | Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약·CombatLog 타입 구현됨 |
-| Content | `src/content/` | 없음(ContentDb) | S0 | 기반·검증 구현됨 |
+| Content | `src/content/` | 없음(ContentDb) | S0 기반, S1 맵 정의 | 기반·맵/타일/구역·배치 검증 구현됨 |
 | Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S3 브라우저 저장 | v1 스키마·메모리 왕복·변환 체인 구현됨 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign` 탐사 기록·길 지식, `character` 위치 | S1 | 설계 |
 | Time | `src/engine/systems/time/` | `meta.gameTime`, `meta.lastActiveAt`, `meta.settledUntil` | S2 | 설계 |
@@ -507,7 +529,7 @@ export type SaveFile = Readonly<{
 | INV-12 | 방치 작업의 결과로 영구 사망이 일어나지 않는다 | 확정 | `idle/*.test.ts` |
 | INV-13 | 오염도는 명세된 효과 외에는 감소하지 않는다 | 확정 | `character/*.test.ts` |
 | INV-14 | 캐릭터가 사망해도 `campaign` 영역(지도, 거점, 채집지, 코덱스)은 유지된다 | 확정 | `character/*.test.ts` |
-| INV-15 | 콘텐츠의 모든 ID 참조는 존재하는 대상을 가리킨다 | 확정 | `[구현됨]` `content/load.test.ts`, 검증 CLI 테스트. 구체적인 게임 정의 참조는 각 시스템에서 추가 |
+| INV-15 | 콘텐츠의 모든 ID 참조는 존재하는 대상을 가리킨다 | 확정 | `[구현됨]` `content/load.test.ts`, `content/map-validation.test.ts`, 검증 CLI 테스트. 맵의 실제 배치 참조 포함. 다른 정의 참조는 각 시스템에서 추가 |
 | INV-16 | 등록되지 않은 효과 유형이나 잘못된 매개변수는 콘텐츠 검증에서 실패한다 | 확정 | `[구현됨]` `core/effects.test.ts`, `runtime/content.test.ts`, 검증 CLI 테스트 |
 | INV-17 | `src/engine/`은 브라우저 API 없이 Node 테스트 환경에서 실행된다 | 확정 | `[구현됨]` 전체 엔진 테스트(Node 환경), `engine/purity.test.ts` |
 | INV-18 | 같은 수정치 목록이면 순서와 상관없이 `computeValue` 결과가 같다 | 확정 | `[구현됨]` `core/modifiers.test.ts` |

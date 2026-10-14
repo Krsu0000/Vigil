@@ -43,9 +43,64 @@ export const DefinitionSchema = z.strictObject({
   dependsOn: z.array(ContentIdSchema).default([]),
   effects: z.array(ContentEffectSchema).default([]),
 });
-export const DefinitionsSchema = z.array(DefinitionSchema);
+
+const namedId = (kind: string) => ContentIdSchema.refine(
+  (id) => id.startsWith(`${kind}.`), `${kind} 정의의 ID는 ${kind}.로 시작해야 한다`,
+);
+const text = z.string().refine((value) => value.trim().length > 0, '빈 문구는 사용할 수 없다');
+const floorNumber = z.number().int().min(Number.MIN_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER);
+
+export const TileDefinitionSchema = DefinitionSchema.extend({
+  kind: z.literal('tile'),
+  id: namedId('tile'),
+  name: text,
+  glyph: text,
+  walkable: z.boolean(),
+  blocksSight: z.boolean(),
+});
+
+export const ZoneDefinitionSchema = DefinitionSchema.extend({
+  kind: z.literal('zone'),
+  id: namedId('zone'),
+  name: text,
+  description: text,
+  safety: z.enum(['safe', 'danger']),
+});
+
+export const MapDefinitionSchema = DefinitionSchema.extend({
+  kind: z.literal('map'),
+  id: namedId('map'),
+  name: text,
+  description: text,
+  version: positiveInteger,
+  start: z.strictObject({ floor: floorNumber, x: nonnegativeInteger, y: nonnegativeInteger }),
+  floors: z.array(z.strictObject({
+    floor: floorNumber,
+    width: positiveInteger,
+    height: positiveInteger,
+    cells: z.array(z.strictObject({
+      x: nonnegativeInteger,
+      y: nonnegativeInteger,
+      tileId: namedId('tile'),
+      zoneId: namedId('zone'),
+    })).min(1),
+  })).min(1),
+});
+
+// 구체적인 맵 정의가 S0 공통 외피로 처리되어 검증을 우회하지 못하게 한다.
+const GenericDefinitionSchema = DefinitionSchema.extend({ kind: z.undefined().optional() }).refine(
+  (definition) => !/^(map|tile|zone)\./.test(definition.id),
+  { message: 'map·tile·zone ID에는 해당 종류의 구체적인 정의가 필요하다', path: ['id'] },
+);
+export const ContentDefinitionSchema = z.discriminatedUnion('kind', [
+  MapDefinitionSchema, TileDefinitionSchema, ZoneDefinitionSchema, GenericDefinitionSchema,
+]);
+export const DefinitionsSchema = z.array(ContentDefinitionSchema);
 
 export type ContentManifest = z.infer<typeof ManifestSchema>;
 export type TimeRules = z.infer<typeof TimeRulesSchema>;
-export type ContentDefinition = z.infer<typeof DefinitionSchema>;
+export type ContentDefinition = z.infer<typeof ContentDefinitionSchema>;
 export type ContentEffect = z.infer<typeof ContentEffectSchema>;
+export type MapDefinition = z.infer<typeof MapDefinitionSchema>;
+export type TileDefinition = z.infer<typeof TileDefinitionSchema>;
+export type ZoneDefinition = z.infer<typeof ZoneDefinitionSchema>;
