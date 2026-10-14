@@ -46,4 +46,17 @@ describe('App', () => {
     expect(hidden).not.toContain('벽');
     expect(hidden).not.toContain('tile.wall');
   });
+
+  it('이동 후 확인한 벽은 표시하고 탐사한 칸 수에는 추가하지 않는다', () => {
+    const ctx = mapContext();
+    const store = createNewGameStore(ctx.content, [1, 2, 3, 4], () => ctx.now);
+    store.dispatch({ type: 'move/step', direction: 'east' });
+    store.dispatch({ type: 'move/step', direction: 'east' });
+    const html = renderToString(<App store={store} />);
+    const wall = html.match(/<div role="gridcell"[^>]*data-x="1"[^>]*data-y="0"[^>]*>.*?<\/div>/)?.[0];
+    expect(wall).toBeDefined();
+    expect(wall).toContain('is-explored is-wall');
+    expect(wall).toContain('벽 (1, 0)');
+    expect(Object.keys(store.getSnapshot().campaign.exploration['map.s1_test']!.visited)).toHaveLength(3);
+  });
 });
