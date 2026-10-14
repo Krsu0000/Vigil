@@ -16,6 +16,34 @@ import type { TimeEvent } from './advance.ts';
 const dispatch = createDispatcher<MapAction | TimeAction, MapEvent | TimeEvent>({ ...mapHandlers, ...timeHandlers });
 
 describe('기본 시간 엔진', () => {
+  it('지연된 실시간 틱의 일괄 행동은 한 틱씩 처리와 같은 최종 상태를 만든다', () => {
+    const ctx = mapContext(); const initial = walk(startedState(ctx), ['east','east','south','south','east'], ctx);
+    const batch = dispatch(initial, { type: 'time/tick', ticks: 6 }, ctx);
+    let single = initial;
+    for (let i = 0; i < 6; i += 1) single = dispatch(single, { type: 'time/tick' }, ctx).state;
+    expect(batch.state).toEqual(single);
+    expect(batch.state.meta.gameTime).toBe(6);
+    expect(batch.state.character?.stamina.current).toBe(899);
+  });
+
+  it.each([0, -1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])('잘못된 틱 행동 %s는 같은 참조로 거부한다', (ticks) => {
+    const ctx = mapContext(); const state = startedState(ctx);
+    expect(dispatch(state, { type: 'time/tick', ticks }, ctx)).toEqual({ ok: false, state, reason: 'invalid_action' });
+  });
+
+  it('하트비트는 기존 메타데이터만 갱신하고 게임 시간·자원·난수를 진행하지 않는다', () => {
+    const ctx = mapContext(); const state = deepFreeze(startedState(ctx));
+    const result = dispatch(state, { type: 'time/heartbeat' }, { ...ctx, now: ctx.now + 15_000 });
+    expect(result.state.meta).toEqual({ ...state.meta, lastActiveAt: ctx.now + 15_000 });
+    expect(result.state.character).toBe(state.character);
+    expect(result.state.campaign).toBe(state.campaign);
+    expect(dispatch(result.state, { type: 'time/heartbeat' }, { ...ctx, now: ctx.now - 1 }).state).toEqual(result.state);
+  });
+
+  it.each([-1, NaN, Infinity, 1.5])('잘못된 시각 %s의 하트비트는 거부한다', (now) => {
+    const ctx = mapContext(); const state = startedState(ctx);
+    expect(dispatch(state, { type: 'time/heartbeat' }, { ...ctx, now })).toEqual({ ok: false, state, reason: 'invalid_action' });
+  });
   it('한 틱은 시간만 한 번 진행하며 회복·사건·난수·원본 보존을 지킨다', () => {
     const ctx = deepFreeze(mapContext()); const initial = startedState(ctx);
     const state = deepFreeze({ ...initial, character: { ...initial.character!, stamina: { current: 899, max: 900 } } });

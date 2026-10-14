@@ -232,7 +232,7 @@ export const dispatch: Dispatcher; // S0에서는 게임 처리기가 없는 기
 
 ## 4. 시간
 
-### 4.1 두 종류의 시간 `[설계]`
+### 4.1 두 종류의 시간 `[실시간 구현됨 / 오프라인 설계]`
 
 | 시간 | 단위 | 저장 위치 | 바꾸는 곳 | 쓰임 |
 |---|---|---|---|---|
@@ -257,9 +257,9 @@ export function advanceTime(state: GameState, ticks: number, ctx: EngineContext,
 - 실시간 틱과 오프라인 정산이 같은 함수를 쓴다. 오프라인 전용 계산을 따로 만들지 않는다.
 - 많은 틱을 한꺼번에 처리할 때, 난수가 없는 구간(거점의 회복)은 한 번에 계산하고 난수가 있는 구간(위험지대 습격 판정)만 틱 단위로 처리한다. 두 방식의 결과가 같다는 것을 테스트로 고정한다.
 - 한 행동에서 시간을 두 번 진행시키지 않는다. 시간을 쓰는 행동(예: 야영지 설치)은 처리기 안에서 `advanceTime`을 한 번만 호출한다.
-- `[구현됨]` `time/advance.ts`·`actions.ts`의 time/tick은 1틱을 진행한다. 배치된 캐릭터가 없으면 행동을 거부한다. advanceTime은 0틱에 같은 상태 참조를 반환하고 음수·소수·게임 시간 정수 상한 초과를 오류로 처리한다.
+- `[구현됨]` `time/advance.ts`·`actions.ts`의 time/tick은 생략 시 1틱, ticks 지정 시 양의 안전한 정수만큼 advanceTime을 한 번 호출한다. 잘못된 틱 수는 invalid_action으로 거부한다. 배치된 캐릭터가 없으면 행동을 거부한다. advanceTime은 0틱에 같은 상태 참조를 반환하고 음수·소수·게임 시간 정수 상한 초과를 오류로 처리한다.
 - `[구현됨]` 이동 표시가 있으면 첫 틱의 회복을 제외하고 이후 틱에는 현재 구역의 기본 회복을 적용한다. 시간·회복 외 메타데이터와 난수는 보존한다. 여러 틱과 한 틱씩 처리의 최종 상태가 같으며 time/advanced 사건은 해당 호출의 from·to·ticks·recovered를 요약한다.
-- 위험지대 휴식·습격과 실제 10초 자동 루프는 다음 단위다. 첫 단위의 위험지대 대기 회복은 계산 경로만 있고 습격 판정은 아직 없다. time/settle은 S3다.
+- runtime/loop.ts가 실제 10초 자동 루프를 연결했다. 위험지대 휴식·습격은 다음 단위이며 현재 위험지대 대기는 기본 회복만 한다. time/settle은 S3다.
 
 ### 4.3 오프라인 정산 `[설계]`
 
@@ -274,7 +274,7 @@ export function advanceTime(state: GameState, ticks: number, ctx: EngineContext,
 
 같은 `to`로 두 번 호출해도 두 번째는 아무것도 하지 않는다(멱등). 과도한 시간 점프는 3번의 상한으로 제한한다.
 
-### 4.4 런타임의 시간 처리 `[설계]`
+### 4.4 런타임의 시간 처리 `[구현됨]`
 
 ```ts
 // src/runtime/clock.ts
@@ -283,7 +283,13 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 - 실시간 틱은 `monotonicNow()`(= `performance.now()`) 차이로 센다.
 - 하트비트: 실행 중에는 일정 간격(임시값 15초)으로 `lastActiveAt`을 갱신하는 행동을 보낸다. 다음 하트비트까지의 간격이 유예 시간(임시값 2분)보다 길면, 위험지대에서는 그 공백을 정지로 처리하고 틱을 보내지 않는다(D-011).
-- 테스트에서는 가짜 `Clock`을 주입한다.
+- runtime/clock.ts의 Clock·Scheduler를 주입한다. Store의 ctx.now 공급자와 루프는 같은 Clock을 사용한다. 하트비트 행동은 기존 lastActiveAt만 갱신하며 시각 역행 때는 이전 값을 유지한다. settledUntil은 S3 정산용으로 남겨 둔다.
+- runtime/loop.ts의 createGameLoop가 세션 상태(수동 정지·설정창·공백 정지)와 부분 틱·이동 간격을 관리한다. 시작/종료는 멱등이며 취소된 콜백도 세대 번호로 무효화한다. MapScreen 효과의 시작→종료→시작에서도 활성 타이머는 하나다.
+- 타이머와 입력 모두 틱 처리 전에 하트비트 유예를 검사한다. 위험지대에서 유예 초과 시 공백의 모든 미처리 틱을 제외하고 공백 정지를 표시한다. 명시적인 재개가 필요하다. 정확히 유예와 같거나 유예 이하인 지연은 틱을 중복 없이 처리한다.
+- 안전 구역의 열려 있는 세션은 단조 시계의 지연분을 일괄 time/tick으로 처리한다. 창을 닫았다 여는 오프라인 정산·24시간 상한 적용은 S3의 time/settle에서 구현한다. 이 루프는 visibilitychange만으로 정지하지 않는다.
+- 수동 정지·설정창 정지 중에는 타이머·이동이 중단된다. 설정창을 닫아도 수동/공백 정지는 유지한다. 재개 시 부분 틱을 버리고 10초를 새로 세며 정지 구간은 소급하지 않는다. 일반 게임 창은 정지 요청을 보내지 않는 구조이고 현재 구현된 창은 설정뿐이다.
+- 성공한 이동 뒤 minimumMoveIntervalMs(임시 200ms)보다 빠른 입력은 runtime에서 cooldown으로 거부한다. 벽·자원 부족 거부는 간격을 소비하지 않는다. 키보드·모바일은 같은 loop.move를 사용한다. 세션 거부는 엔진 호출 없이 자원·위치·탐사를 유지한다.
+- 테스트에서는 가짜 Clock·Scheduler로 경계·정지·공백·시각 역행·중복 타이머를 검사한다. 세션 상태·부분 틱·이동 간격은 저장하지 않고 GameState/세이브 v3는 변경하지 않는다(D-026).
 
 ### 4.5 스태미나 계산 `[기본형 구현됨]`
 
@@ -305,10 +311,10 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 ## 6. 콘텐츠 `[구현됨]`
 
-- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 현재 버전은 `0.2.0`, 실제 JSON은 매니페스트·시간 규칙·타일·구역·맵의 5개다. 정의 파일은 `tiles.json`, `zones.json`, `maps/s1-test.json`이다.
+- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 현재 버전은 `0.2.1`, 실제 JSON은 매니페스트·시간 규칙·타일·구역·맵의 5개다. 정의 파일은 `tiles.json`, `zones.json`, `maps/s1-test.json`이다.
 - 매니페스트의 파일 목록은 명시적이다. 필수 파일 누락, 중복 파일, 매니페스트 자기 참조, 목록에 없는 JSON도 오류다. 경로는 소문자 영문·숫자·밑줄·하이픈으로 된 상대 JSON 경로만 허용한다.
-- `time-rules.json`에 D-011·D-014의 임시값을 넣었다. 시간은 ms, 스태미나는 정수 단위다. 하트비트 값도 JSON 설정으로 저장하며 런타임이 도입되면 여기서 읽는다.
-- 시간 규칙의 시간 값과 최대 스태미나는 양의 안전한 정수, 회복량·이동 비용은 0 이상의 안전한 정수다. 하트비트 유예 시간은 간격 이상이어야 한다. S2 기본 시간 진행·스태미나 계산이 이 기존 값을 읽는다. 실제 타이머와 하트비트 연결은 다음 단위다.
+- `time-rules.json`에 D-011·D-014의 임시값을 넣었다. 시간은 ms, 스태미나는 정수 단위다. 하트비트·minimumMoveIntervalMs도 JSON 설정에서 읽는다.
+- 시간 규칙의 시간 값과 최대 스태미나는 양의 안전한 정수, 회복량·이동 비용은 0 이상의 안전한 정수다. 하트비트 유예 시간은 간격 이상이어야 한다. S2 기본 시간 진행·스태미나 계산이 이 기존 값을 읽는다. 실제 타이머·하트비트·이동 간격도 런타임에서 읽는다.
 - `schemas.ts`의 Zod 스키마가 매니페스트·시간 규칙·공통 외피·맵·타일·구역의 기준이며 TypeScript 타입은 스키마에서 추론한다. `resolveJsonModule` 설정을 켜 JSON import 타입 검사도 수행한다.
 
 ```ts
@@ -516,9 +522,9 @@ export type SaveFile = Readonly<{
 - `[구현됨]` 새 게임은 콘텐츠에 맵이 정확히 1개일 때만 시작한다. ID를 하드코딩하거나 배열 첫 항목을 고르지 않는다. 이 프로토타입 제약은 시작 맵 정책 도입 시 교체한다.
 - `[구현됨]` MapScreen은 벽 유지 규칙을 포함한 A안 시야 조회로 CSS Grid를 표시한다. 미탐사 칸에는 지형 이름·기호·벽 클래스를 넣지 않는다. 확인한 벽은 시야 밖에서도 검정색으로 칸 전체를 채우며 타일 간격은 0이다. 지도 배경은 짙은 회색이다. 현재 위치·탐사 수·안전/위험 구역은 상태와 콘텐츠에서 계산한다.
 - `[구현됨]` runtime/input.ts가 방향키·WASD를 행동으로 연결하고 해제 함수를 반환한다. React 효과 정리로 중복 리스너를 방지한다. 입력 필드·편집 영역·IME·수정키 조합·이미 처리된 이벤트는 이동시키지 않는다. 모바일 버튼은 최소 44×44px다.
-- 이동 사건으로 일시 안내를 표시하며 UI는 게임 상태를 복제하거나 직접 고치지 않는다. 기록창·틱 루프·자동 저장·시간 정산은 후속 단계다. 새로고침하면 새 게임이 시작된다는 안내를 표시한다.
-- 스태미나·게임 틱은 엔진 스냅샷에서 표시하고 부족한 자원은 별도 안내한다. 실제 자동 시간 루프가 없으므로 화면의 게임 시간은 주입된 시간 행동이 없으면 0틱이며 자동 회복 미지원 안내를 표시한다. 테스트 버튼이나 임시 자원 조작 UI는 넣지 않는다.
-- 게임 내 창(코덱스, 인벤토리 등)이 열려 있어도 틱 루프는 멈추지 않는다. 일시정지 버튼과 설정창만 런타임의 일시정지 플래그를 켠다.
+- 이동 사건으로 일시 안내를 표시하며 UI는 게임 상태를 복제하거나 직접 고치지 않는다. 틱 루프는 연결됐고 기록창·자동 저장·시간 정산은 후속 단계다. 새로고침하면 새 게임이 시작된다는 안내를 표시한다.
+- 스태미나·게임 틱은 엔진 스냅샷에서 표시하고 부족한 자원은 별도 안내한다. 자동 시간 루프·진행/정지 표시·일시정지·설정창을 연결했고 기본 대기 회복과 휴식/습격 미구현 안내를 표시한다. 테스트 버튼이나 임시 자원 조작 UI는 넣지 않는다.
+- 게임 내 창(코덱스, 인벤토리 등)이 열려 있어도 틱 루프는 멈추지 않는다. 일시정지 버튼·설정창·위험지대 공백만 세션의 정지를 요청한다.
 
 ## 10. 서버 경계 `[설계]`
 
@@ -537,10 +543,10 @@ export type SaveFile = Readonly<{
 | Content | `src/content/` | 없음(ContentDb) | S0 기반, S1 맵 정의 | 기반·맵/타일/구역·배치 검증 구현됨 |
 | Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S1/S2 확장, S3 브라우저 저장 | v3·메모리 왕복·v1/v2 변환 구현됨 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign.exploration`, `character.position` | S1 | 배치·이동·A안 안개·실제 콘텐츠 대조 구현됨 |
-| Time | `src/engine/systems/time/` | `meta.gameTime`, 이후 `lastActiveAt`·`settledUntil` | S2 | advanceTime·time/tick 구현됨. 정산·하트비트는 후속 |
+| Time | `src/engine/systems/time/` | `meta.gameTime`·`lastActiveAt`, 이후 `settledUntil` | S2 | advanceTime·일괄 time/tick·하트비트 구현됨. 정산은 S3 |
 | Stamina & Rest | `src/engine/systems/stamina/` | `character.stamina`, `movedSinceLastTick` | S2 | 비용·소모·대기 회복 구현됨. 휴식은 후속 |
 | Ambush | `src/engine/systems/ambush/` | 없음(판정만) | S2 | 설계 |
-| Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠·GameStore·키보드 입력 연결 구현됨. 시간 루프(S2)는 설계 |
+| Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠·GameStore·입력·틱 루프·정지·공백·이동 간격 구현됨 |
 | Inventory & Items | `src/engine/systems/inventory/` | `character` 휴대품·장비, `campaign` 창고 | S4 | 설계 |
 | Combat | `src/engine/systems/combat/` | `expedition` 진행 중 전투 | S5 | 설계 |
 | Character & Corruption | `src/engine/systems/character/` | `character` 능력치·오염·정신력 | S6 | 설계 |

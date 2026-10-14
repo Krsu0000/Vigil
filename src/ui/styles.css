@@ -8,6 +8,14 @@ main { max-width: 980px; margin: auto; padding: 32px 24px 40px; }
 .app-header h1 { margin: 0; font: 500 clamp(24px, 4vw, 32px) Georgia, serif; letter-spacing: -.5px; }
 .app-header > span { color: #999aa2; font-size: 13px; white-space: nowrap; }
 .exploration-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; }
+.session-controls { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.session-controls > span { margin-right: auto; }
+.session-controls button, .settings-dialog button { min-height: 44px; padding: 0 16px; border: 1px solid #575963; border-radius: 8px; background: #292b33; }
+.session-controls > p { flex-basis: 100%; margin: 0; font-size: 13px; line-height: 1.7; }
+.settings-dialog { width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; border: 1px solid #575963; border-radius: 12px; padding: 24px; background: #18191e; color: #e9e9ea; }
+.settings-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.settings-dialog p { font-size: 14px; line-height: 1.8; color: #babbc2; }
+.movement-controls button:disabled { opacity: .45; cursor: default; }
 .map-panel, .travel-panel, .error-panel, .unplaced { min-width: 0; border: 1px solid #35363d; border-radius: 12px; background: #18191e; padding: 24px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .eyebrow { margin: 0 0 8px; color: #a8a9b0; font-size: 12px; letter-spacing: .08em; }
@@ -65,4 +73,12 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
   .movement-status { grid-column: 1 / -1; min-height: 22px; margin: 8px 0 4px; }
   .session-note { grid-column: 1 / -1; padding-top: 10px; }
   .time-note { grid-column: 1 / -1; margin: 0; }
+}
+@media (max-width: 360px) {
+  main { padding: 16px 12px 20px; }
+  .app-header { padding-bottom: 12px; margin-bottom: 12px; }
+  .exploration-layout { gap: 12px; }
+  .map-panel { padding: 16px; }
+  .map-viewport { min-height: 200px; margin-top: 12px; padding: 12px 0; }
+  .map-legend { margin-top: 12px; gap: 10px; }
 }

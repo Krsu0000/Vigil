@@ -14,6 +14,7 @@ export const ManifestSchema = z.strictObject({
 export const TimeRulesSchema = z.strictObject({
   id: ContentIdSchema.refine((id) => id.startsWith('rules.'), '시간 규칙 ID는 rules.로 시작해야 한다'),
   tickMs: positiveInteger,
+  minimumMoveIntervalMs: positiveInteger,
   maxOfflineMs: positiveInteger,
   heartbeatIntervalMs: positiveInteger,
   heartbeatGraceMs: positiveInteger,

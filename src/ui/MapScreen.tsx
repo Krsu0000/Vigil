@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { CSSProperties } from 'react';
 import type { GameStore } from '../runtime/store.ts';
 import { initialMapId } from '../runtime/store.ts';
 import { bindMovementKeys } from '../runtime/input.ts';
+import { browserClock, browserScheduler } from '../runtime/clock.ts';
+import { createGameLoop } from '../runtime/loop.ts';
+import { SettingsDialog } from './SettingsDialog.tsx';
 import type { Direction } from '../engine/systems/map/actions.ts';
 import { currentLocation, requireTile } from '../engine/systems/map/selectors.ts';
 import { getTileVisibility } from '../engine/systems/map/visibility.ts';
@@ -15,15 +18,19 @@ const controls: readonly { direction: Direction; glyph: string }[] = [
 
 export function MapScreen({ store }: { store: GameStore }) {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const loop = useMemo(() => createGameLoop(store, browserClock, browserScheduler), [store]);
+  const session = useSyncExternalStore(loop.subscribe, loop.getSnapshot, loop.getSnapshot);
+  useEffect(() => { loop.start(); return () => loop.stop(); }, [loop]);
   const [message, setMessage] = useState<string>(strings.moveHelp);
   const move = useCallback((direction: Direction) => {
-    const result = store.dispatch({ type: 'move/step', direction });
-    if (!result.ok) setMessage(result.reason === 'insufficient_resources' ? strings.insufficientStamina : strings.blocked);
+    const result = loop.move(direction);
+    if (!result.ok) setMessage(result.reason === 'insufficient_resources' ? strings.insufficientStamina :
+      result.reason === 'paused' ? strings.pausedMove : result.reason === 'cooldown' ? strings.moveCooldown : strings.blocked);
     else {
       const event = result.events.find((entry) => entry.type === 'move/stepped');
       setMessage(event?.newlyExplored ? strings.newPath : strings.knownPath);
     }
-  }, [store]);
+  }, [loop]);
   useEffect(() => bindMovementKeys(window, move), [move]);
   const location = currentLocation(state, store.content);
   if (!location) return (
@@ -43,6 +50,14 @@ export function MapScreen({ store }: { store: GameStore }) {
 
   return (
     <div className="exploration-layout">
+      <div className="session-controls">
+        <span data-testid="session-status" role="status">{session.running ? strings.running : strings.paused}</span>
+        <button type="button" onClick={() => loop.setPaused(session.running)}>
+          {session.running ? strings.pause : strings.resume}
+        </button>
+        <button type="button" onClick={() => loop.setSettingsOpen(true)}>{strings.settings}</button>
+        {session.gapPaused && <p role="alert">{strings.heartbeatGap}</p>}
+      </div>
       <section className="map-panel" aria-labelledby="map-heading">
         <div className="panel-heading">
           <div><p className="eyebrow">{strings.map}</p><h2 id="map-heading">{map.name}</h2></div>
@@ -95,14 +110,15 @@ export function MapScreen({ store }: { store: GameStore }) {
         <div className="movement-controls" role="group" aria-label={strings.move}>
           {controls.map(({ direction, glyph }) => (
             <button type="button" className={`move-${direction}`} key={direction}
-              aria-label={strings[direction]} onClick={() => move(direction)}>{glyph}</button>
+              aria-label={strings[direction]} disabled={!session.running} onClick={() => move(direction)}>{glyph}</button>
           ))}
         </div>
         <p className="keyboard-help">{strings.keyboardHelp}</p>
         <p className="movement-status" role="status">{message}</p>
         <p className="session-note">{strings.sessionOnly}</p>
-        <p className="time-note">{strings.timeEngineOnly}</p>
+        <p className="time-note">{strings.liveRecovery}</p>
       </aside>
+      {session.settingsOpen && <SettingsDialog onClose={() => loop.setSettingsOpen(false)} />}
     </div>
   );
 }

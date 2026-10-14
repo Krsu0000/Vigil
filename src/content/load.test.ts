@@ -15,9 +15,9 @@ describe('콘텐츠 로더', () => {
     const result = loadContent(testSources(), rejectEffects);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('기본 데이터 검증 실패');
-    expect(result.content.contentVersion).toBe('0.2.0');
+    expect(result.content.contentVersion).toBe('0.2.1');
     expect(result.content.timeRules).toMatchObject({
-      id: 'rules.time', tickMs: 10_000, maxOfflineMs: 86_400_000,
+      id: 'rules.time', tickMs: 10_000, minimumMoveIntervalMs: 200, maxOfflineMs: 86_400_000,
       heartbeatIntervalMs: 15_000, heartbeatGraceMs: 120_000,
       stamina: { max: 900, safeRegenPerTick: 1, waitRegenPerTick: 1, restRegenPerTick: 5,
         unexploredMoveCost: 6, exploredMoveCost: 3, safeMoveCost: 0 },
@@ -73,7 +73,7 @@ describe('콘텐츠 로더', () => {
   });
 
   it('시간 규칙의 단위 값은 양의 안전한 정수여야 한다', () => {
-    for (const key of ['tickMs', 'maxOfflineMs', 'heartbeatIntervalMs', 'heartbeatGraceMs'] as const) {
+    for (const key of ['tickMs', 'minimumMoveIntervalMs', 'maxOfflineMs', 'heartbeatIntervalMs', 'heartbeatGraceMs'] as const) {
       for (const invalid of [0, -1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
         const sources = testSources();
         sources['time-rules.json'][key] = invalid;

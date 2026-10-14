@@ -1,6 +1,7 @@
 {
   "id": "rules.time",
   "tickMs": 10000,
+  "minimumMoveIntervalMs": 200,
   "maxOfflineMs": 86400000,
   "heartbeatIntervalMs": 15000,
   "heartbeatGraceMs": 120000,
