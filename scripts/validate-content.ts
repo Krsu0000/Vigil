@@ -1,53 +1,58 @@
 // npm run validate:content — Node 내장 TypeScript 실행으로 돌린다 (D-016).
-// 지금은 src/content/ 아래 JSON 파일의 구문만 검사한다.
-// Zod 스키마 검증과 교차 참조 검증은 S0 콘텐츠 단위에서 같은 검증 코드를 호출하도록 바꾼다 (architecture 6장).
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-export type ContentFileError = { file: string; message: string };
+import { loadContent } from '../src/content/load.ts';
+import type { ContentDb, ContentError, EffectValidator } from '../src/content/types.ts';
+import { effectRegistry } from '../src/engine/core/effects.ts';
 
 export type ContentCheckResult = {
-  checkedFiles: string[]; // rootDir 기준 상대 경로, 정렬됨
-  errors: ContentFileError[];
+  checkedFiles: string[];
+  errors: ContentError[];
+  content?: ContentDb;
 };
 
-export function checkContentFiles(rootDir: string): ContentCheckResult {
-  // 콘텐츠 폴더가 아직 없으면 검사할 파일이 없는 것으로 본다 (콘텐츠 단위 전까지)
-  if (!existsSync(rootDir)) {
-    return { checkedFiles: [], errors: [] };
+export function checkContentFiles(
+  rootDir: string,
+  validateEffect: EffectValidator = effectRegistry.validate,
+): ContentCheckResult {
+  let checkedFiles: string[];
+  try {
+    checkedFiles = readdirSync(rootDir, { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith('.json'))
+      .sort();
+  } catch (error) {
+    return {
+      checkedFiles: [],
+      errors: [{ file: 'manifest.json', path: '', code: 'read_error', message: error instanceof Error ? error.message : String(error) }],
+    };
   }
 
-  const checkedFiles = readdirSync(rootDir, { recursive: true, encoding: 'utf8' })
-    .filter((file) => file.endsWith('.json'))
-    .sort();
-
-  const errors: ContentFileError[] = [];
-  for (const file of checkedFiles) {
+  const errors: ContentError[] = [];
+  const sources: Record<string, unknown> = {};
+  for (const relativePath of checkedFiles) {
+    const file = relativePath.replaceAll('\\', '/');
     try {
-      JSON.parse(readFileSync(join(rootDir, file), 'utf8'));
+      sources[file] = JSON.parse(readFileSync(join(rootDir, relativePath), 'utf8'));
     } catch (error) {
-      errors.push({ file, message: error instanceof Error ? error.message : String(error) });
+      errors.push({ file, path: '', code: 'invalid_json', message: error instanceof Error ? error.message : String(error) });
     }
   }
-
-  return { checkedFiles, errors };
+  if (errors.length > 0) return { checkedFiles, errors };
+  const loaded = loadContent(sources, validateEffect);
+  return loaded.ok
+    ? { checkedFiles, errors: [], content: loaded.content }
+    : { checkedFiles, errors: loaded.errors };
 }
 
 function main(): void {
-  const contentDir = fileURLToPath(new URL('../src/content/', import.meta.url));
+  const contentDir = process.argv[2] ?? fileURLToPath(new URL('../src/content/', import.meta.url));
   const result = checkContentFiles(contentDir);
-
   for (const error of result.errors) {
-    console.error(`오류: ${error.file}: ${error.message}`);
+    console.error(`오류: ${error.file}${error.path ? ` (${error.path})` : ''}: [${error.code}] ${error.message}`);
   }
   console.log(`콘텐츠 검증: JSON 파일 ${result.checkedFiles.length}개, 오류 ${result.errors.length}개`);
-
-  if (result.errors.length > 0) {
-    process.exitCode = 1;
-  }
+  if (result.errors.length > 0) process.exitCode = 1;
 }
 
-if (import.meta.main) {
-  main();
-}
+if (import.meta.main) main();

@@ -1,14 +1,17 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './ui/App.tsx';
+import { loadGameContent } from './runtime/content.ts';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('#root 요소가 없다');
 }
 
+const contentResult = loadGameContent();
+
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <App contentErrors={contentResult.ok ? [] : contentResult.errors} />
   </StrictMode>,
 );
