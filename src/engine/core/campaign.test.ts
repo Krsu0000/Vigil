@@ -7,7 +7,7 @@ import { content, ctx, deepFreeze, seed } from './test-fixtures.ts';
 describe('새 캠페인', () => {
   it('상태 영역과 정산 시각을 초기화한다', () => {
     const state = createCampaign(content, seed, ctx.now);
-    expect(state.campaign).toEqual({});
+    expect(state.campaign).toEqual({ exploration: {} });
     expect(state.character).toBeNull();
     expect(state.expedition).toBeNull();
     expect(state.meta.gameTime).toBe(0);

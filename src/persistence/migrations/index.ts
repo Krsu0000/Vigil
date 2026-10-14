@@ -1,15 +1,17 @@
 import { z } from 'zod';
+import { CURRENT_SCHEMA_VERSION, SAVE_FORMAT } from '../format.ts';
+import { v1ToV2 } from './v1-to-v2.ts';
 
-export const SAVE_FORMAT = 'last-vigil-save';
-export const CURRENT_SCHEMA_VERSION = 1;
+export { CURRENT_SCHEMA_VERSION, SAVE_FORMAT } from '../format.ts';
 
 export type SaveMigration = Readonly<{
   fromVersion: number;
   migrate: (save: Readonly<Record<string, unknown>>) => unknown;
 }>;
 
-// 최초 형식이므로 실제 이전 버전 변환은 없다. 형식 변경 승인 후 여기에 추가한다.
-export const SAVE_MIGRATIONS: readonly SaveMigration[] = Object.freeze([]);
+export const SAVE_MIGRATIONS: readonly SaveMigration[] = Object.freeze([
+  Object.freeze({ fromVersion: 1, migrate: v1ToV2 }),
+]);
 
 const EnvelopeSchema = z.looseObject({
   format: z.literal(SAVE_FORMAT),

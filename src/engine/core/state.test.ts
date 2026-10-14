@@ -21,8 +21,8 @@ describe('GameState JSON 왕복 (INV-05)', () => {
       .toEqual(engine.dispatch(first.state, rollAction, ctx));
   });
 
-  it('캐릭터·원정의 빈 객체와 null을 모두 보존한다', () => {
-    const state: GameState = { ...initialState(), character: {}, expedition: {} };
+  it('미배치 캐릭터·빈 원정 객체와 null을 보존한다', () => {
+    const state: GameState = { ...initialState(), character: { position: null }, expedition: {} };
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
   });
 });

@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0 완료, S1 진행 중.** S0의 코어·콘텐츠·저장 계약에 이어 S1 첫 단위의 맵·타일·구역 콘텐츠와 배치 검증이 구현됐다. 이동·안개·맵 UI, 실제 IndexedDB·자동 저장·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0 완료, S1 진행 중.** 맵 콘텐츠·배치 검증에 이어 위치·탐사 기록·이동·A안 안개 조회와 SaveFile v2·v1 변환이 구현됐다. GameStore·맵 UI·조작 연결, IndexedDB·자동 저장·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -104,12 +104,19 @@ IndexedDB ──▶ persistence(형식 확인 → 버전 변환 → Zod 검증) 
 
 ### 2.2 상태 타입의 최소형 `[구현됨]`
 
-S0에서는 아래 뼈대만 만든다. 각 시스템의 필드는 그 시스템이 도입되는 단계에서 추가한다.
+S0의 뼈대에 S1의 위치·탐사 기록을 추가했다(D-022). 다른 시스템의 필드는 해당 단계에서 추가한다.
 
 ```ts
 // src/engine/core/state.ts
-export type CampaignState = Readonly<Record<string, never>>;
-export type CharacterState = Readonly<Record<string, never>>;
+export type MapPosition = Readonly<{ mapId: string; floor: number; x: number; y: number }>;
+export type MapExploration = Readonly<{
+  mapVersion: number;
+  visited: Readonly<Record<string, true>>; // 정규 좌표 키 floor:x:y
+}>;
+export type CampaignState = Readonly<{
+  exploration: Readonly<Record<string, MapExploration>>;
+}>;
+export type CharacterState = Readonly<{ position: MapPosition | null }>;
 export type ExpeditionState = Readonly<Record<string, never>>;
 
 export type GameState = Readonly<{
@@ -128,7 +135,8 @@ export type StateMeta = Readonly<{
 }>;
 ```
 
-- 빈 상태 타입은 임의의 필드가 들어가지 못하게 한다. 시스템 도입 시 실제 필드를 추가한다.
+- 현재 위치는 character에, 밟은 칸과 맵 버전은 campaign.exploration에 둔다. 현재 시야·구역의 안전 여부는 계산 값이며 저장하지 않는다. 캐릭터가 없어져도 캠페인 탐사 기록은 유지된다.
+- character가 null이면 캐릭터 없음, position이 null이면 미배치다. 이전 v1의 빈 캐릭터는 미배치로 변환한다. expedition은 아직 빈 객체 또는 null이다.
 - 상태는 JSON으로 직렬화할 수 있어야 한다. 함수, 클래스 인스턴스, `Map`, `Set`, `Date`를 넣지 않는다. 목록은 배열, 조회용 묶음은 `Record<string, T>`를 쓴다.
 - 상태는 불변 객체로 다룬다. 타입의 `Readonly`는 직접 대입을 제한하고, 테스트에서 중첩 객체를 동결해 원본 변경을 검출한다. 제품 실행마다 상태 전체를 복사·동결하는 로직은 추가하지 않는다.
 - 새 상태는 바뀐 부분만 새로 만든다. 갱신 코드는 직접 작성한다(D-009). 복잡해지면 Immer 도입을 다시 검토한다.
@@ -199,13 +207,22 @@ export const dispatch: Dispatcher; // S0에서는 게임 처리기가 없는 기
 |---|---|---|---|
 | `createCampaign(content, seed, now)` | `engine/core/campaign.ts` | 새 캠페인 초기 상태 생성 | `[구현됨]` |
 | `restoreSave(raw)` | `persistence/save-file.ts` | 형식 확인 → 버전 변환 → Zod 검증 → `GameState` | `[구현됨]` |
-| 버전 변환 체인 | `persistence/migrations/` | 이전 스키마의 세이브를 다음 버전으로 변환 | 체인 `[구현됨]`, 실제 이전 버전·변환 함수 없음 |
+| 버전 변환 체인 | `persistence/migrations/` | 이전 스키마의 세이브를 다음 버전으로 변환 | `[구현됨]` v1 → v2 포함 |
 
 - `createCampaign`은 `seedRngState(seed)`로 시드 정수 4개를 검증·초기화하고, `createUuid(rng)`로 캠페인 ID를 만든 뒤 그 이후의 난수 상태를 저장한다.
-- 초기 `gameTime`은 0, `lastActiveAt`·`settledUntil`은 전달받은 `now`, `campaign`은 빈 객체, `character`·`expedition`은 `null`이다.
+- 초기 `gameTime`은 0, `lastActiveAt`·`settledUntil`은 전달받은 `now`, `campaign.exploration`은 빈 객체, `character`·`expedition`은 `null`이다.
 - `now`는 0 이상의 안전한 정수(epoch ms)여야 한다. 잘못된 입력은 예외로 처리한다.
-- S0에서는 초기 캐릭터·장소 데이터가 없으므로 `content`를 초기화 계산에 사용하지 않는다. 콘텐츠 정의는 상태에 복사하지 않는다.
+- `createCampaign`은 content를 초기화 계산에 사용하지 않는다. 최초 프로토타입 배치는 아래 map/start 행동으로 한다. 콘텐츠 정의는 상태에 복사하지 않는다.
 - 새 캐릭터 생성은 이후 게임 안의 행동으로 구현하며 `dispatch`를 거친다.
+
+### 3.3 맵 배치·이동·A안 안개 `[구현됨]`
+
+- `engine/systems/map/actions.ts`의 mapHandlers를 연결부가 `createDispatcher<MapAction, MapEvent>`에 주입한다. 코어가 시스템을 import하지 않으며 기본 dispatch의 빈 목록은 유지한다.
+- `map/start { mapId }`는 최초 프로토타입 배치 행동이다. 캐릭터가 없거나 미배치이며 탐사 기록이 비어 있을 때만 허용한다. 콘텐츠의 start에 배치하고 그 칸만 기록한다. 기존 위치·기록을 초기화하거나 캐릭터를 부활시키지 않는다.
+- `move/step { direction }`은 north·south·east·west로 한 칸 이동한다. 캐릭터 없음·미배치·벽·경계는 condition_not_met, 잘못된 방향은 invalid_action으로 거부한다. 거부 시 같은 상태 참조·자원·난수 상태를 보존한다.
+- 성공하면 위치와 처음 밟은 칸의 기록을 갱신하고 move/stepped 사건에 from·to·newlyExplored를 담는다. S1에서는 시간·스태미나·난수를 소비하지 않는다. 비용·시간 연결은 S2다.
+- `getTileVisibility(state, target, content)`는 visible·explored·unexplored를 반환한다. 현재 칸·상하좌우 인접 칸은 visible, 그 밖의 밟은 칸은 explored, 나머지는 unexplored다. 벽·보기만 한 칸·다른 맵/층을 영구 탐사로 만들지 않는다. 조회는 상태를 변경하지 않는다.
+- `validateMapState(state, content)`는 복원 후 맵 존재·버전·탐사 칸·현재 위치를 실제 콘텐츠와 대조한다. 좌표·맵 버전 불일치는 코드/호환성 오류로 던지며 재배치·기록 삭제·일반 이동 거부로 숨기지 않는다. GameStore 연결은 다음 단위다.
 
 ## 4. 시간
 
@@ -353,7 +370,7 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
 - x·y는 좌상단 (0, 0)부터 시작하며 width·height 미만인 0 이상의 안전한 정수다. 층 번호는 음수를 포함한 안전한 정수다. 공통 위치는 맵 ID·층·x·y의 조합으로 식별하며 배열 순서를 좌표로 사용하지 않는다.
 - 각 층의 직사각형 전체를 한 번씩 배치한다. 벽도 명시한다. `map-validation.ts`는 층·좌표 중복, 범위 밖·누락 칸, 안전한 정수 범위를 넘는 칸 수를 거부한다. 실제 칸 수에 비례해 검사하고 전체 범위만큼 반복하거나 메모리를 할당하지 않는다.
 - 실제 tileId·zoneId의 존재와 종류를 검증한다. 제작자가 같은 ID를 references에 다시 적을 필요는 없다. 시작 위치는 존재하는 층·칸이어야 하고 타일의 walkable이 true여야 한다.
-- 이동 가능 여부와 시야 차단 여부는 독립 속성이다. 이번에는 데이터를 검증하며 실제 이동·시야 계산·안전/위험 효과를 실행하지 않는다.
+- 이동 가능 여부와 시야 차단 여부는 독립 속성이다. 콘텐츠 로더는 데이터를 검증하며 이동·시야 계산·안전/위험 효과를 실행하지 않는다. 이동·안개 조회는 3.3절의 맵 시스템이 담당한다.
 - 수동 맵 `map.s1_test`는 version 1, 0층 9×7, 시작 (1, 1)이다. 타일 2개·구역 2개를 참조한다. 시작점에서 안전·위험 구역 모두 상하좌우로 도달할 수 있음을 콘텐츠 테스트에서 확인했다. 맵 크기·기호·배치는 테스트용이며 최종 레벨 디자인이 아니다.
 - Vite 콘텐츠 연결과 실제 Node CLI가 같은 검증을 사용한다. 실패 시 파일·필드 위치와 오류 코드를 보고하고 부분 DB를 반환하지 않는다. 성공한 맵·층·칸도 입력과 분리해 중첩까지 동결한다.
 
@@ -435,7 +452,7 @@ export function computeValue(base: number, mods: Modifier[], rule: ValueRule): n
 // 실제 타입은 SaveFileSchema에서 추론하며 state는 코어 GameState 계약을 사용한다.
 export type SaveFile = Readonly<{
   format: 'last-vigil-save';
-  schemaVersion: 1;         // 최초 형식. 구조를 바꾸면 승인 후 올린다
+  schemaVersion: 2;         // 위치·캠페인 탐사 기록 추가
   contentVersion: string;   // 저장 당시 콘텐츠 버전
   saveId: string;           // UUID
   revision: number;         // 저장할 때마다 1씩 증가. 기기 간 비교에 사용
@@ -446,7 +463,8 @@ export type SaveFile = Readonly<{
 
 - 세이브에 넣지 않는 것: `ContentDb`, 세션 런타임, UI 상태.
 - 내보내기·가져오기는 같은 `SaveFile` JSON을 쓰고, 가져올 때도 같은 검증 경로를 거친다.
-- `SaveFileSchema`·`GameStateSchema`는 모든 객체에서 미정의 필드를 거부한다. UUID, 0 이상의 안전한 정수인 revision·시각·게임 시간, uint32 4개인 난수 상태를 검증한다. 현재 시스템 상태는 빈 객체이며 character·expedition은 null도 허용한다.
+- `SaveFileSchema`·`GameStateSchema`는 모든 객체에서 미정의 필드를 거부한다. UUID, 0 이상의 안전한 정수인 revision·시각·게임 시간, uint32 4개인 난수 상태와 위치·탐사 기록을 검증한다. 좌표 키는 정규 floor:x:y이고 값은 true만 허용한다. 현재 위치가 탐사 기록에 있어야 한다.
+- 구조 검증은 콘텐츠를 읽지 않는다. 실제 칸·맵 버전 대조는 복원 후 validateMapState로 수행한다. 맵 버전 변경에 따른 기록 이전은 아직 없다.
 - `parseSave`는 먼저 JSON 데이터만 허용해 입력과 분리한 뒤 검증한다. 함수·Date·Map·Set·undefined·NaN·무한대를 JSON 변환으로 조용히 손실시키지 않는다. `GameStateSchema`는 기존 코어 타입과 호환되는지 TypeScript로 검사한다.
 - 콘텐츠 버전은 매니페스트와 같은 문자열 스키마로 검증하고 저장된 값을 보존한다. 콘텐츠 버전별 호환성 정책·콘텐츠 변환은 아직 없으며 구조 버전 변환과 구분한다.
 
@@ -466,9 +484,10 @@ export type SaveFile = Readonly<{
 
 ### 8.3 버전 변환 `[체인 구조 구현됨]`
 
-- `persistence/migrations/index.ts`의 현재 버전은 1, 실제 변환 목록은 빈 배열이다. 최초 형식이므로 이전 버전을 만들어 지원한다고 표시하지 않는다.
+- `persistence/format.ts`의 현재 버전은 2다. 고정 변환 목록에는 v1ToV2가 등록돼 있다. `schemas-v1.ts`는 공개된 v1 계약을 보존하며 v1 전체를 검증한 뒤 변환한다.
 - `runMigrations(raw, targetVersion, migrations)`는 입력 JSON 복사본에서 fromVersion별 변환을 버전 순서대로 연결한다. 단계마다 형식·JSON 값·정확한 1버전 증가를 검사한다. 누락·중복 단계·미래 버전·잘못된 변환 결과를 거부하고 코드 예외를 숨기지 않는다.
-- `migrateSave(raw)`는 제품의 현재 버전·고정 목록을 사용한다. 앞으로 `v1ToV2`, `v2ToV3`처럼 한 단계씩 변환하는 순수 함수를 추가한다. 현재 체인 테스트의 버전 2·3은 테스트용이며 제품 지원 버전이 아니다.
+- `migrateSave(raw)`는 v1을 현재 v2로 변환하고 v2는 그대로 검증 경로에 넘긴다. v1의 campaign은 exploration: {}로, 빈 character는 position: null로 바꾸며 null character·expedition과 모든 기존 메타데이터를 보존한다. 변환 중 캐릭터 생성·위치 배치·시간 진행은 없다.
+- `fixtures/v1-empty.json`·`v1-placeholders.json`은 v2 변경 전 main의 v1 작성 코드로 생성한 테스트 예시다. 출처·입력은 fixtures/README.md에 기록했다. 변환·난수 보존·v2 저장 왕복·후속 이동·안개 동일성을 검사한다. 실제 지원 형식은 v1·v2이며 버전 3 체인 예시는 테스트용이다.
 - 변환 함수마다 이전 버전의 실제 세이브 예시 파일과 변환 테스트를 함께 둔다.
 - 세이브 구조 변경은 사용자 승인이 필요하다.
 
@@ -494,8 +513,8 @@ export type SaveFile = Readonly<{
 |---|---|---|---|---|
 | Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약·CombatLog 타입 구현됨 |
 | Content | `src/content/` | 없음(ContentDb) | S0 기반, S1 맵 정의 | 기반·맵/타일/구역·배치 검증 구현됨 |
-| Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S3 브라우저 저장 | v1 스키마·메모리 왕복·변환 체인 구현됨 |
-| Map & Visibility | `src/engine/systems/map/` | `campaign` 탐사 기록·길 지식, `character` 위치 | S1 | 설계 |
+| Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S1 확장, S3 브라우저 저장 | v2 스키마·메모리 왕복·v1 변환 구현됨 |
+| Map & Visibility | `src/engine/systems/map/` | `campaign.exploration`, `character.position` | S1 | 배치·이동·A안 안개·실제 콘텐츠 대조 구현됨 |
 | Time | `src/engine/systems/time/` | `meta.gameTime`, `meta.lastActiveAt`, `meta.settledUntil` | S2 | 설계 |
 | Stamina & Rest | `src/engine/systems/stamina/` | `character` 스태미나, 현재 활동 | S2 | 설계 |
 | Ambush | `src/engine/systems/ambush/` | 없음(판정만) | S2 | 설계 |
@@ -520,7 +539,7 @@ export type SaveFile = Readonly<{
 | INV-03 | `meta.gameTime`은 `advanceTime`으로만 증가하고, 한 행동에서 두 번 진행되지 않는다 | 확정 | `time/advance.test.ts` |
 | INV-04 | 같은 상태, 같은 행동, 같은 `ctx`에서 `dispatch`는 같은 결과를 돌려준다 | 확정 | `[구현됨]` `core/dispatch.test.ts` |
 | INV-05 | `GameState`는 JSON 직렬화 후 복원해도 같다 | 확정 | `[구현됨]` `core/state.test.ts` |
-| INV-06 | 저장 후 불러오기 왕복 시 상태가 같고, 게임 시간이 바뀌지 않는다 | 확정 | `[구현됨]` `persistence/save-file.test.ts` |
+| INV-06 | 저장 후 불러오기 왕복 시 상태가 같고, 게임 시간이 바뀌지 않는다 | 확정 | `[구현됨]` `persistence/save-file.test.ts`, `migration-roundtrip.test.ts` |
 | INV-07 | 오프라인 정산은 멱등이다. 같은 `to`로 두 번 정산해도 결과는 한 번 정산한 것과 같다 | 확정 | `time/settle.test.ts` |
 | INV-08 | 기기 시각이 뒤로 가도 자원, 타이머, 게임 시간이 줄거나 늘지 않는다 | 확정 | `time/settle.test.ts` |
 | INV-09 | 위험지대에서 실행되지 않은 시간(창 닫힘, 하트비트 공백)에는 회복도 습격 판정도 없다 | 확정 | `time/settle.test.ts`, `runtime/*.test.ts` |

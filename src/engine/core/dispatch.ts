@@ -43,5 +43,5 @@ export function createDispatcher<A extends Action, E extends GameEvent = GameEve
   };
 }
 
-// 아직 게임 시스템은 없다. S1부터 연결부가 처리기를 전달해 전용 dispatch를 만든다.
+// 기본 함수는 빈 목록을 사용한다. 연결부가 처리기를 주입해 전용 dispatch를 만든다.
 export const dispatch: Dispatcher = createDispatcher<Action>({});

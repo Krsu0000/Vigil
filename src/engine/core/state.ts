@@ -1,7 +1,14 @@
-// 시스템별 상태 필드는 그 시스템을 도입할 때 추가한다 (architecture 2.2절).
-// 빈 상태에 임의의 필드나 JSON으로 저장할 수 없는 값을 넣지 못하게 한다.
-export type CampaignState = Readonly<Record<string, never>>;
-export type CharacterState = Readonly<Record<string, never>>;
+export type MapPosition = Readonly<{ mapId: string; floor: number; x: number; y: number }>;
+export type MapExploration = Readonly<{
+  mapVersion: number;
+  visited: Readonly<Record<string, true>>; // 정규 좌표 키 floor:x:y
+}>;
+export type CampaignState = Readonly<{
+  exploration: Readonly<Record<string, MapExploration>>;
+}>;
+// 이전 세이브의 빈 캐릭터는 위치가 없는 상태로 유지한다.
+export type CharacterState = Readonly<{ position: MapPosition | null }>;
+// 원정 시스템의 상태는 해당 단계에서 추가한다.
 export type ExpeditionState = Readonly<Record<string, never>>;
 
 export type StateMeta = Readonly<{

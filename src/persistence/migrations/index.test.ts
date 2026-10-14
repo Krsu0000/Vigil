@@ -1,14 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CURRENT_SCHEMA_VERSION, migrateSave, runMigrations, SAVE_FORMAT, SAVE_MIGRATIONS } from './index.ts';
 import type { SaveMigration } from './index.ts';
+import v1 from '../fixtures/v1-empty.json' with { type: 'json' };
 
 const initial = { format: SAVE_FORMAT, schemaVersion: 1, value: 5 };
 
 describe('세이브 버전 변환 체인', () => {
-  it('제품은 버전 1이고 실제 변환 목록은 비어 있다', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(1);
-    expect(SAVE_MIGRATIONS).toEqual([]);
-    expect(migrateSave(initial)).toEqual(initial);
+  it('제품은 버전 2이며 실제 v1 → v2 변환이 등록돼 있다', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+    expect(SAVE_MIGRATIONS.map((step) => step.fromVersion)).toEqual([1]);
+    expect(migrateSave(v1)).toMatchObject({ schemaVersion: 2, state: { campaign: { exploration: {} } } });
   });
 
   it('단계 목록 순서와 관계없이 버전 순서대로 연결한다', () => {
