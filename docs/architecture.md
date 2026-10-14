@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0·S1 완료, S2 세 번째 단위 구현.** 휴식·대기/휴식 습격 판정·미처리 습격 게이트·임시 팝업을 연결했다(D-029). 현재 SaveFile은 v4이며 v1~v3 변환을 지원한다. IndexedDB·실제 전투·S2 사용자 재미 판정은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0·S1 완료, S2 세 번째 단위 구현.** 휴식·대기/휴식 습격 판정·미처리 습격 게이트·임시 팝업을 연결했다(D-029). 현재 SaveFile은 v4이며 v1~v3 변환을 지원한다. S3 첫 단위의 IndexedDB·자동 저장·백업·시작 복원을 연결했다(D-030). 오프라인 정산·실제 전투·S2 사용자 재미 판정은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -496,19 +496,25 @@ export type SaveFile = Readonly<{
 - `parseSave`는 먼저 JSON 데이터만 허용해 입력과 분리한 뒤 검증한다. 함수·Date·Map·Set·undefined·NaN·무한대를 JSON 변환으로 조용히 손실시키지 않는다. `GameStateSchema`는 기존 코어 타입과 호환되는지 TypeScript로 검사한다.
 - 콘텐츠 버전은 매니페스트와 같은 문자열 스키마로 검증하고 저장된 값을 보존한다. 콘텐츠 버전별 호환성 정책·콘텐츠 변환은 아직 없으며 구조 버전 변환과 구분한다.
 
-### 8.2 저장과 불러오기 `[메모리 계약 구현됨 / 브라우저 저장 설계]`
+### 8.2 저장과 불러오기 `[메모리·브라우저 저장 구현됨 / 오프라인 정산 설계]`
 
 - `createSaveFile(state, metadata)`: contentVersion·saveId·revision·savedAt을 호출부에서 받아 검증된 독립 스냅샷을 만든다. ID나 시간을 내부에서 생성하지 않으며 게임 난수를 소비하지 않는다.
 - `serializeSave(save)`·`deserializeSave(json)`: 같은 검증 경로로 JSON 문자열을 쓰고 읽는다. `parseSave(raw)`는 객체를 받고, `restoreSave(raw)`는 객체 또는 JSON 문자열에서 `GameState`만 반환한다.
 - 객체·JSON 불러오기 순서: JSON 데이터·형식 확인 → 버전 변환 → 최종 Zod 검증. 실패하면 예외를 내고 부분 상태를 반환하지 않는다.
 - 저장·복원은 gameTime·lastActiveAt·settledUntil·rngState·revision·savedAt을 그대로 보존한다. 실제 저장마다 revision을 증가시키는 책임은 S3의 호출부에 있다. 왕복만으로 revision을 올리지 않는다.
 
-다음은 S3에서 연결할 브라우저 저장 규칙이다. 현재 GameStore의 메모리 복원 경로는 구현됐다. IndexedDB·자동 저장·백업·오프라인 정산 연결은 없다.
+S3 첫 단위에서 다음 브라우저 저장/복원 규칙을 연결했다(D-030). 오프라인 time/settle과 파일 이동 UI는 아직 없다.
 
 - 저장 시점: 행동이 처리될 때마다 짧은 지연(디바운스)을 두고 저장하고, 화면이 가려질 때(`visibilitychange`) 즉시 저장한다. 지연 시간은 임시값 1초다(D-010).
 - 새 세이브를 쓰기 전에 직전 세이브를 백업 슬롯 하나에 보관한다. 새 세이브를 읽지 못하면 백업을 불러온다(D-010).
-- 불러오기 순서: 형식 확인 → 버전 변환 → Zod 검증 → `GameStore` 초기화 → `time/settle` 1회.
-- 저장과 불러오기 자체는 게임 시간을 바꾸지 않는다. 시간 변화는 그 뒤의 `time/settle`에서만 일어난다.
+- 현재 불러오기 순서: 저장소 읽기 → primary/backup 후보의 형식/변환/구조/콘텐츠 검증 → `GameStore` 초기화 → 실제 루프 시작. time/settle 1회는 다음 단위에서 별도로 연결한다.
+- 저장과 불러오기 자체는 게임 시간을 바꾸지 않는다. 다음 단위의 오프라인 시간 변화는 time/settle에서 별도로 처리한다.
+- persistence/browser-repository.ts는 DB last-vigil(구조 버전 1), save-slots의 primary/backup/generation을 다룬다. read는 같은 읽기 트랜잭션의 슬롯/세대를 반환한다. write는 세대 확인 뒤 새 primary·검증된 backup·다음 세대를 하나의 트랜잭션으로 커밋한다. 오류/다른 탭 충돌은 전체 취소한다.
+- persistence/load-slots.ts는 primary를 먼저 검증하고 손상/콘텐츠 불일치면 backup을 검사한다. 두 슬롯 모두 없을 때만 새 게임이다. 둘 다 오류 또는 미래 버전이면 기존 데이터를 유지하고 실패한다. 미래 버전을 이전 백업으로 되돌려 덮어쓰지 않는다.
+- runtime/startup.ts는 검증된 저장을 복원하거나 빈 저장소에서 새 캠페인을 만든다. 복원은 새 시드/ID/현재 시각을 생성하지 않는다. IndexedDB 연결 불가 시 메모리 플레이와 저장 불가 안내를 제공한다.
+- runtime/auto-save.ts는 Store 구독·1초 디바운스·숨김 이벤트·쓰기 직렬화·revision/savedAt/saveId·저장 상태 구독을 담당한다. 성공 쓰기 뒤에만 revision/세대/직전 유효 문자열을 갱신한다. 실패는 UI에 알리고 명시적 재시도까지 자동 반복을 멈춘다. StrictMode 효과 정리는 즉시 저장 조건이 아니다.
+- ui/SaveStatus.tsx는 저장 상태·백업 복원 안내·재시도를 표시한다. 오프라인 회복 미지원 안내를 유지한다. 부분 틱/수동 정지/팝업 열림은 저장하지 않는다.
+- 오프라인 연결 시 savedAt과 settledUntil을 기준으로 실제 저장 이후 구간만 정산해 실시간 진행 중복 지급을 막아야 한다. 아직 이를 구현한 것으로 표시하지 않는다.
 
 ### 8.3 버전 변환 `[체인 구조 구현됨]`
 
@@ -528,7 +534,7 @@ export type SaveFile = Readonly<{
 - `[구현됨]` 새 게임은 콘텐츠에 맵이 정확히 1개일 때만 시작한다. ID를 하드코딩하거나 배열 첫 항목을 고르지 않는다. 이 프로토타입 제약은 시작 맵 정책 도입 시 교체한다.
 - `[구현됨]` MapScreen은 벽 유지 규칙을 포함한 A안 시야 조회로 CSS Grid를 표시한다. 미탐사 칸에는 지형 이름·기호·벽 클래스를 넣지 않는다. 확인한 벽은 시야 밖에서도 검정색으로 칸 전체를 채우며 타일 간격은 0이다. 지도 배경은 짙은 회색이다. 현재 위치·탐사 수·안전/위험 구역은 상태와 콘텐츠에서 계산한다.
 - `[구현됨]` runtime/input.ts가 방향키·WASD를 행동으로 연결하고 해제 함수를 반환한다. React 효과 정리로 중복 리스너를 방지한다. 입력 필드·편집 영역·IME·수정키 조합·이미 처리된 이벤트는 이동시키지 않는다. 모바일 버튼은 최소 44×44px다.
-- 이동 사건으로 일시 안내를 표시하며 UI는 게임 상태를 복제하거나 직접 고치지 않는다. 틱 루프는 연결됐고 기록창·자동 저장·시간 정산은 후속 단계다. 새로고침하면 새 게임이 시작된다는 안내를 표시한다.
+- 이동 사건으로 일시 안내를 표시하며 UI는 게임 상태를 복제하거나 직접 고치지 않는다. 틱 루프는 연결됐고 기록창·시간 정산은 후속 단계다. 자동 저장과 시작 복원을 연결했으며 저장 불가 메모리 모드에서는 새로고침 초기화 안내를 표시한다.
 - 스태미나·게임 틱은 엔진 스냅샷에서 표시하고 부족한 자원은 별도 안내한다. 자동 시간 루프·진행/정지 표시·일시정지·설정창을 연결했다. 회복 안내는 자원 최대치·세션 정지와 마지막 이동 이후 대기 규칙을 표시한다. 전역 틱 간격·독립 회복 간격·구역의 회복량을 콘텐츠에서 읽으며 UI에 자원/타이머를 중복 저장하지 않는다. 테스트 버튼이나 임시 자원 조작 UI는 넣지 않는다.
 - 게임 내 창(코덱스, 인벤토리 등)이 열려 있어도 틱 루프는 멈추지 않는다. 일시정지 버튼·설정창·위험지대 공백만 세션의 정지를 요청한다.
 
@@ -547,7 +553,7 @@ export type SaveFile = Readonly<{
 |---|---|---|---|---|
 | Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약·CombatLog 타입 구현됨 |
 | Content | `src/content/` | 없음(ContentDb) | S0 기반, S1 맵 정의 | 기반·맵/타일/구역·배치 검증 구현됨 |
-| Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S1/S2 확장, S3 브라우저 저장 | v4·메모리 왕복·v1/v2/v3 변환 구현됨 |
+| Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S1/S2 확장, S3 브라우저 저장 | v4·메모리/IndexedDB·v1/v2/v3 변환·자동 저장/백업 구현됨 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign.exploration`, `character.position` | S1 | 배치·이동·A안 안개·실제 콘텐츠 대조 구현됨 |
 | Time | `src/engine/systems/time/` | `meta.gameTime`·`lastActiveAt`, 이후 `settledUntil` | S2 | advanceTime·일괄 time/tick·하트비트 구현됨. 정산은 S3 |
 | Stamina & Rest | `src/engine/systems/stamina/`·`rest/` | `character.stamina`·`activity` | S2 | 비용·소모·독립 대기/휴식 회복 구현됨 |

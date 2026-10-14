@@ -96,3 +96,7 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
   .rest-controls, .ambush-notice { grid-column: 1 / -1; }
 }
 .rest-rules { grid-column: 1 / -1; font-size: 11px; line-height: 1.7; color: #a3a4ad; margin: 8px 0; }
+
+.save-status { margin-bottom: 16px; padding: 10px 14px; border: 1px solid #35363d; border-radius: 8px; font-size: 12px; line-height: 1.7; }
+.save-status p { margin: 0; }
+.save-status button { min-height: 44px; margin-top: 8px; padding: 0 16px; border: 1px solid #575963; border-radius: 8px; background: #292b33; }

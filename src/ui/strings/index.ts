@@ -1,5 +1,16 @@
 // UI 시스템 문구. 게임 콘텐츠 텍스트는 src/content/에 둔다 (architecture 6장).
 export const strings = {
+  browserSave: '브라우저 저장', loadingSave: '저장한 탐험을 불러오는 중입니다.',
+  saveLoadFailed: '저장한 탐험을 불러오지 못했습니다.',
+  saveLoadHelp: '기존 저장 데이터는 보존했습니다. 다른 창을 닫거나 다시 접속해 주세요.',
+  backupRecovered: '최근 세이브를 읽지 못해 이전 백업에서 복구했습니다.',
+  retrySave: '저장 다시 시도',
+  saveErrorHelp: '최근 변경이 저장되지 않았습니다. 저장 공간을 확인한 뒤 다시 시도해 주세요. 다른 창에서 저장했다면 새로고침해 최신 기록을 불러오세요.',
+  noOfflineYet: '현재 브라우저에 자동 저장됩니다. 창을 닫은 동안의 회복은 아직 적용하지 않습니다.',
+  savePhases: {
+    idle: '자동 저장 준비', saving: '저장 중…', saved: '자동 저장 완료',
+    error: '자동 저장 실패', unavailable: '브라우저 저장을 사용할 수 없습니다. 새로고침하면 초기화됩니다.',
+  },
   gameTitle: 'The Last Vigil',
   contentLoadFailed: '콘텐츠를 불러오지 못했습니다.',
   contentLoadHelp: '콘텐츠 파일을 확인한 뒤 다시 실행해 주세요.',
