@@ -22,7 +22,7 @@ describe('GameState JSON 왕복 (INV-05)', () => {
   });
 
   it('미배치 캐릭터·빈 원정 객체와 null을 보존한다', () => {
-    const state: GameState = { ...initialState(), character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false }, expedition: {} };
+    const state: GameState = { ...initialState(), character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const }, expedition: { pendingAmbush: null } };
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
   });
 });

@@ -7,15 +7,21 @@ import type { GameState } from '../../core/state.ts';
 import { mapSources } from '../../../content/test-fixtures.ts';
 import { mapHandlers } from '../map/actions.ts';
 import type { MapAction, MapEvent } from '../map/actions.ts';
-import { mapContext, startedState, walk } from '../map/test-fixtures.ts';
+import { mapContext as originalMapContext, startedState, walk } from '../map/test-fixtures.ts';
 import { staminaHandlers } from '../stamina/actions.ts';
 import type { StaminaAction, StaminaEvent } from '../stamina/actions.ts';
 import { timeHandlers } from './actions.ts';
 import type { TimeAction } from './actions.ts';
 import { advanceTime } from './advance.ts';
 import type { TimeEvent } from './advance.ts';
+import type { AmbushEvent } from '../ambush/actions.ts';
 
-const dispatch = createDispatcher<MapAction | TimeAction | StaminaAction, MapEvent | TimeEvent | StaminaEvent>({ ...mapHandlers, ...timeHandlers, ...staminaHandlers });
+function mapContext(sources = mapSources()) {
+  sources['time-rules.json'].ambush = { waitChancePerTick: 0, restChancePerTick: 0 };
+  return originalMapContext(sources);
+}
+
+const dispatch = createDispatcher<MapAction | TimeAction | StaminaAction, MapEvent | TimeEvent | StaminaEvent | AmbushEvent>({ ...mapHandlers, ...timeHandlers, ...staminaHandlers });
 
 describe('기본 시간 엔진', () => {
   it('지연된 실시간 틱의 일괄 행동은 한 틱씩 처리와 같은 최종 상태를 만든다', () => {
@@ -120,7 +126,7 @@ describe('기본 시간 엔진', () => {
 
   it('미배치·캐릭터 없음은 틱을 거부하며 아무 상태도 변경하지 않는다', () => {
     const ctx = mapContext(); const initial = createCampaign(ctx.content, [1,2,3,4],ctx.now);
-    for (const state of [initial, { ...initial, character: { position: null, stamina: { current: 0, max: 900 }, movedSinceLastTick: false } }]) {
+    for (const state of [initial, { ...initial, character: { position: null, stamina: { current: 0, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } }]) {
       expect(dispatch(deepFreeze(state), { type: 'time/tick' }, ctx)).toEqual({ ok: false, state, reason: 'condition_not_met' });
       expect(() => advanceTime(state, 1, ctx, createRng(state.meta.rngState))).toThrow('배치');
     }

@@ -75,3 +75,29 @@ describe('App', () => {
     expect(textHtml).toContain('틱 간격 2초 · 회복 간격 2초 · 회복량 1');
   });
 });
+
+describe('휴식·습격 표시', () => {
+  it('휴식 중 상태와 중지 버튼·회복량 5를 엔진 상태에서 표시한다', () => {
+    const ctx = mapContext(); const store = createNewGameStore(ctx.content,[1,2,3,4],() => ctx.now);
+    for (const direction of ['east','east','south','south','east'] as const) store.dispatch({ type: 'move/step', direction });
+    store.dispatch({ type: 'rest/start' });
+    const html = renderToString(<App store={store} />).replaceAll('<!-- -->','');
+    expect(html).toContain(strings.stopRest);
+    expect(html).toContain('data-testid="activity">휴식 중');
+    expect(html).toContain('회복량 5');
+  });
+
+  it('미처리 습격은 안내·재열기 버튼을 유지하고 모든 이동 버튼을 비활성화한다', () => {
+    const ctx = mapContext(); const store = createNewGameStore(ctx.content,[1,2,3,4],() => ctx.now);
+    for (const direction of ['east','east','south','south','east'] as const) store.dispatch({ type: 'move/step', direction });
+    const state = store.getSnapshot();
+    const pending = { ...state, character: { ...state.character!, activity: 'waiting' as const },
+      expedition: { pendingAmbush: { triggeredAt: 0, activityAtTrigger: 'resting' as const } } };
+    const save = { format: 'last-vigil-save',schemaVersion: 4,contentVersion: '0.2.4',saveId: state.meta.campaignId,revision: 0,savedAt: ctx.now,state: pending };
+    store.restore(save);
+    const html = renderToString(<App store={store} />);
+    expect(html).toContain(strings.ambushPending);
+    expect(html).toContain(strings.reopenAmbush);
+    for (const direction of ['north','south','east','west']) expect(html).toMatch(new RegExp(`class="move-${direction}"[^>]*disabled`));
+  });
+});

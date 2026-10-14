@@ -10,16 +10,16 @@ export const staminaHandlers: ActionHandlers<StaminaAction, StaminaEvent> = {
   'stamina/recover': {
     validate(state, action, ctx) {
       if (!Number.isSafeInteger(action.periods) || action.periods < 1) return 'invalid_action';
-      return currentLocation(state, ctx.content) ? null : 'condition_not_met';
+      return !state.expedition?.pendingAmbush && currentLocation(state, ctx.content) ? null : 'condition_not_met';
     },
     execute(state, action, ctx) {
       const location = currentLocation(state, ctx.content)!;
       const safe = requireZone(ctx.content, findCell(location.map, location.position)!.zoneId).safety === 'safe';
       const rules = ctx.content.timeRules.stamina;
       const character = state.character!;
-      const stamina = recoverStamina(character.stamina, action.periods, safe ? rules.safeRegenPerTick : rules.waitRegenPerTick);
+      const stamina = recoverStamina(character.stamina, action.periods, safe ? rules.safeRegenPerTick : character.activity === 'resting' ? rules.restRegenPerTick : rules.waitRegenPerTick);
       return {
-        state: { ...state, character: { ...character, stamina } },
+        state: { ...state, character: { ...character, stamina, activity: stamina.current === stamina.max ? 'waiting' : character.activity } },
         events: [{ type: 'stamina/recovered', periods: action.periods, recovered: stamina.current - character.stamina.current }],
       };
     },

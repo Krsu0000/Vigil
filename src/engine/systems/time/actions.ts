@@ -2,14 +2,15 @@ import type { ActionHandlers } from '../../core/actions.ts';
 import { currentLocation } from '../map/selectors.ts';
 import { advanceTime } from './advance.ts';
 import type { TimeEvent } from './advance.ts';
+import type { AmbushEvent } from '../ambush/actions.ts';
 
 export type TimeAction = Readonly<{ type: 'time/tick'; ticks?: number }> | Readonly<{ type: 'time/heartbeat' }>;
-export const timeHandlers: ActionHandlers<TimeAction, TimeEvent> = {
+export const timeHandlers: ActionHandlers<TimeAction, TimeEvent | AmbushEvent> = {
   'time/tick': {
     validate: (state, action, ctx) => {
       const ticks = action.ticks ?? 1;
       if (!Number.isSafeInteger(ticks) || ticks < 1) return 'invalid_action';
-      return currentLocation(state, ctx.content) ? null : 'condition_not_met';
+      return !state.expedition?.pendingAmbush && currentLocation(state, ctx.content) ? null : 'condition_not_met';
     },
     execute: (state, action, ctx, rng) => advanceTime(state, action.ticks ?? 1, ctx, rng),
   },

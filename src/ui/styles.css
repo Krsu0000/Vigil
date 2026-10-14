@@ -85,3 +85,14 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
   .map-viewport { min-height: 200px; margin-top: 12px; padding: 12px 0; }
   .map-legend { margin-top: 12px; gap: 10px; }
 }
+
+.rest-controls { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.rest-controls button, .ambush-notice button, .ambush-actions button { min-height: 44px; padding: 8px 14px; }
+.rest-controls button:disabled { opacity: .45; cursor: default; }
+.ambush-notice { border: 1px solid #aaa; padding: 12px; margin-top: 16px; }
+.ambush-notice p { margin-top: 0; }
+.ambush-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 680px) {
+  .rest-controls, .ambush-notice { grid-column: 1 / -1; }
+}
+.rest-rules { grid-column: 1 / -1; font-size: 11px; line-height: 1.7; color: #a3a4ad; margin: 8px 0; }
