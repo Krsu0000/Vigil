@@ -140,6 +140,9 @@ describe('GameStore', () => {
     expect(store.getSnapshot()).toBe(before);
     expect(notify).not.toHaveBeenCalled();
     store.dispatch({ type: 'time/tick' });
+    expect(store.getSnapshot().character?.stamina.current).toBe(5);
+    store.dispatch({ type: 'stamina/recover', periods: 1 });
+    expect(store.getSnapshot().meta.gameTime).toBe(1);
     expect(store.getSnapshot().character?.stamina.current).toBe(6);
     expect(store.dispatch({ type: 'move/step', direction: 'east' }).ok).toBe(true);
   });

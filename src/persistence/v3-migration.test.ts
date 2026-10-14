@@ -42,7 +42,7 @@ describe('이전 코드로 생성한 v2의 v3 변환', () => {
     const a = createGameStore(ctx.content, migrated, () => ctx.now);
     const b = createGameStore(ctx.content, direct, () => ctx.now);
     for (const action of [
-      { type: 'move/step', direction: 'east' }, { type: 'time/tick' }, { type: 'time/tick' },
+      { type: 'move/step', direction: 'east' }, { type: 'time/tick' }, { type: 'stamina/recover', periods: 1 }, { type: 'time/tick' },
       { type: 'move/step', direction: 'west' }, { type: 'time/tick' },
     ] as const) expect(a.dispatch(action)).toEqual(b.dispatch(action));
     for (let x = 0; x < 9; x += 1) for (let y = 0; y < 7; y += 1) {
@@ -51,7 +51,7 @@ describe('이전 코드로 생성한 v2의 v3 변환', () => {
     }
   });
 
-  it('실제로 이동한 v3를 저장/복원해도 첫 틱 회복 제외가 보존된다', () => {
+  it('실제로 이동한 v3를 저장/복원해도 이동 표시와 독립적인 시간/회복 결과가 보존된다', () => {
     const ctx = mapContext(); const original = createGameStore(ctx.content, restoreSave(v2Explored), () => ctx.now);
     original.dispatch({ type: 'move/step', direction: 'east' });
     const moved = original.getSnapshot();
@@ -60,7 +60,10 @@ describe('이전 코드로 생성한 v2의 v3 변환', () => {
     const restored = createGameStore(ctx.content, restoreSave(serializeSave(save)), () => ctx.now);
     expect(restored.getSnapshot()).toEqual(moved);
     expect(restored.getSnapshot().character?.movedSinceLastTick).toBe(true);
-    for (let i = 0; i < 3; i += 1) expect(restored.dispatch({ type: 'time/tick' })).toEqual(original.dispatch({ type: 'time/tick' }));
+    for (let i = 0; i < 3; i += 1) {
+      expect(restored.dispatch({ type: 'time/tick' })).toEqual(original.dispatch({ type: 'time/tick' }));
+      expect(restored.dispatch({ type: 'stamina/recover', periods: 1 })).toEqual(original.dispatch({ type: 'stamina/recover', periods: 1 }));
+    }
   });
 
   it.each([

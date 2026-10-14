@@ -1,5 +1,5 @@
 {
-  "contentVersion": "0.2.0",
+  "contentVersion": "0.2.3",
   "timeRulesFile": "time-rules.json",
   "definitionFiles": ["tiles.json", "zones.json", "maps/s1-test.json"]
 }

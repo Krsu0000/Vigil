@@ -1,10 +1,12 @@
 {
   "id": "rules.time",
-  "tickMs": 10000,
+  "tickMs": 2000,
+  "minimumMoveIntervalMs": 200,
   "maxOfflineMs": 86400000,
   "heartbeatIntervalMs": 15000,
   "heartbeatGraceMs": 120000,
   "stamina": {
+    "recoveryIntervalMs": 2000,
     "max": 900,
     "safeRegenPerTick": 1,
     "waitRegenPerTick": 1,
