@@ -18,6 +18,12 @@ export const TimeRulesSchema = z.strictObject({
   maxOfflineMs: positiveInteger,
   heartbeatIntervalMs: positiveInteger,
   heartbeatGraceMs: positiveInteger,
+  ambush: z.strictObject({
+    waitChancePerTick: z.number().min(0).max(1),
+    restChancePerTick: z.number().min(0).max(1),
+  }).refine((rules) => rules.restChancePerTick >= rules.waitChancePerTick, {
+    message: '휴식 습격 확률은 대기 확률 이상이어야 한다', path: ['restChancePerTick'],
+  }),
   stamina: z.strictObject({
     recoveryIntervalMs: positiveInteger,
     max: positiveInteger,

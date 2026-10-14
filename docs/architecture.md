@@ -142,7 +142,7 @@ export type StateMeta = Readonly<{
 
 - 현재 위치는 character에, 밟은 칸과 맵 버전은 campaign.exploration에 둔다. 현재 시야·구역의 안전 여부는 계산 값이며 저장하지 않는다. 캐릭터가 없어져도 캠페인 탐사 기록은 유지된다.
 - character가 null이면 캐릭터 없음, position이 null이면 미배치다. 이전 v1의 빈 캐릭터는 미배치로 변환한다. expedition은 아직 빈 객체 또는 null이다.
-- `stamina.current`·`max`는 안전한 정수이며 0 ≤ current ≤ max, max > 0이다. `movedSinceLastTick`은 마지막 시간 틱 이후 성공한 이동이 있었는지 표시한다. 이동 시 true, 다음 1틱에서 회복 없이 false로 바꾼다. 저장·복원은 표시를 그대로 보존한다. 캐릭터 생성·레벨·휴식 활동은 후속 단계다.
+- `stamina.current`·`max`는 안전한 정수이며 0 ≤ current ≤ max, max > 0이다. `movedSinceLastTick`은 마지막 시간 틱 이후 성공한 이동이 있었는지 표시한다. 이동 시 true, 다음 전역 틱에서 false로 바꾼다. 회복은 D-028의 독립 경로이므로 이 표시로 회복을 제외하지 않는다. 저장·복원은 표시를 그대로 보존한다. 캐릭터 생성·레벨·휴식 활동은 후속 단계다.
 - 상태는 JSON으로 직렬화할 수 있어야 한다. 함수, 클래스 인스턴스, `Map`, `Set`, `Date`를 넣지 않는다. 목록은 배열, 조회용 묶음은 `Record<string, T>`를 쓴다.
 - 상태는 불변 객체로 다룬다. 타입의 `Readonly`는 직접 대입을 제한하고, 테스트에서 중첩 객체를 동결해 원본 변경을 검출한다. 제품 실행마다 상태 전체를 복사·동결하는 로직은 추가하지 않는다.
 - 새 상태는 바뀐 부분만 새로 만든다. 갱신 코드는 직접 작성한다(D-009). 복잡해지면 Immer 도입을 다시 검토한다.
@@ -314,7 +314,7 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 ## 6. 콘텐츠 `[구현됨]`
 
-- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 현재 버전은 `0.2.3`, 실제 JSON은 매니페스트·시간 규칙·타일·구역·맵의 5개다. 정의 파일은 `tiles.json`, `zones.json`, `maps/s1-test.json`이다.
+- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 현재 버전은 `0.2.4`, 실제 JSON은 매니페스트·시간 규칙·타일·구역·맵의 5개다. 정의 파일은 `tiles.json`, `zones.json`, `maps/s1-test.json`이다.
 - 매니페스트의 파일 목록은 명시적이다. 필수 파일 누락, 중복 파일, 매니페스트 자기 참조, 목록에 없는 JSON도 오류다. 경로는 소문자 영문·숫자·밑줄·하이픈으로 된 상대 JSON 경로만 허용한다.
 - `time-rules.json`에 D-011·D-014의 임시값을 넣었다. 시간은 ms, 스태미나는 정수 단위다. 하트비트·minimumMoveIntervalMs도 JSON 설정에서 읽는다.
 - 시간 규칙의 시간 값과 최대 스태미나는 양의 안전한 정수, 회복량·이동 비용은 0 이상의 안전한 정수다. 하트비트 유예 시간은 간격 이상이어야 한다. S2 기본 시간 진행·스태미나 계산이 이 기존 값을 읽는다. 실제 타이머·하트비트·이동 간격도 런타임에서 읽는다.
@@ -548,7 +548,7 @@ export type SaveFile = Readonly<{
 | Map & Visibility | `src/engine/systems/map/` | `campaign.exploration`, `character.position` | S1 | 배치·이동·A안 안개·실제 콘텐츠 대조 구현됨 |
 | Time | `src/engine/systems/time/` | `meta.gameTime`·`lastActiveAt`, 이후 `settledUntil` | S2 | advanceTime·일괄 time/tick·하트비트 구현됨. 정산은 S3 |
 | Stamina & Rest | `src/engine/systems/stamina/` | `character.stamina`, `movedSinceLastTick` | S2 | 비용·소모·독립 대기 회복 구현됨. 휴식은 후속 |
-| Ambush | `src/engine/systems/ambush/` | 없음(판정만) | S2 | 설계 |
+| Ambush | `src/engine/systems/ambush/` | 없음(판정만) | S2 | rollAmbush·콘텐츠 검증 구현됨. 상태/틱/UI 연결은 D-029 승인 대기 |
 | Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠·GameStore·입력·틱 루프·정지·공백·이동 간격 구현됨 |
 | Inventory & Items | `src/engine/systems/inventory/` | `character` 휴대품·장비, `campaign` 창고 | S4 | 설계 |
 | Combat | `src/engine/systems/combat/` | `expedition` 진행 중 전투 | S5 | 설계 |
@@ -602,3 +602,12 @@ export type SaveFile = Readonly<{
 | 스태미나 수치 | 정수 유지. 최대 900, 거점·대기 틱당 1, 휴식 틱당 5, 이동 비용 6/3/0 | D-014 (임시) |
 
 - 코어 처리기 연결은 D-017에 따라 시작 시 목록을 주입해 고정한다.
+
+
+## 14. S2 휴식·습격 연결 제안 `[초안]`
+
+D-029의 CharacterState.activity·ExpeditionState.pendingAmbush와 세이브 v4는 승인 대기다. 현재 코어·GameState·세이브는 v3 그대로다.
+
+`engine/systems/ambush/roll.ts`는 구역 안전 여부·활동·콘텐츠 확률·Rng를 받아 boolean만 반환한다. 안전 구역/이동에는 추첨하지 않고, 대기/휴식은 서로 다른 확률을 쓴다. 확률 0/1은 난수 없이 확정한다. 판정 함수는 게임 상태·시간을 변경하지 않으며 엔진 처리기에는 아직 등록하지 않았다. 전역 틱의 상태 변경과 미처리 습격 게이트는 승인 후 연결한다.
+
+임시 확률은 time-rules.json의 ambush에 있으며 waitChancePerTick=0.02, restChancePerTick=0.1이다. 0≤확률≤1 및 휴식≥대기를 콘텐츠 스키마와 판정 경계에서 검사한다. 이번 준비 단계에서는 런타임이 아직 이 값을 사용하지 않는다.
