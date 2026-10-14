@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0 진행 중.** 구현된 것은 프로젝트 뼈대(빌드·테스트 환경, 빈 화면, 콘텐츠 JSON 구문 검사)와 코어 기초(sfc32, `computeValue`, UUID, 엔진 순수성 검사), 코어 계약(상태·행동·사건 타입, 캠페인 생성, 행동 처리, 효과 레지스트리)이다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0 진행 중.** 구현된 것은 프로젝트 뼈대(빌드·테스트 환경, 빈 화면)와 코어 기초(sfc32, `computeValue`, UUID, 엔진 순수성 검사), 코어 계약(상태·행동·사건 타입, 캠페인 생성, 행동 처리, 효과 레지스트리), 콘텐츠 기반(매니페스트·시간 규칙·로더·참조·효과 검증·CLI 연결)이다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -45,7 +45,7 @@ server   클라이언트 코드를 import하지 않는다. 공유 타입은 별�
 
 - `engine`은 `ui`, `runtime`, `persistence`, `sync`, React, DOM을 import하지 않는다.
 - `engine/core`는 `engine/systems`를 import하지 않는다. 시스템이 코어에 등록된다.
-- `content`는 Zod 외에 프로젝트 모듈을 import하지 않는다.
+- `content`는 같은 계층의 모듈과 JSON, Zod만 import한다. 엔진·UI·런타임 등 다른 프로젝트 계층은 import하지 않는다. 효과 검증 함수는 연결부가 인수로 전달한다.
 - `ui`는 게임 상태를 바꾸는 코드를 갖지 않는다. 상태 변경은 `runtime`의 `GameStore.dispatch`를 호출한다.
 - `[구현됨]` `src/engine/purity.test.ts`가 엔진의 금지 사항을 문자열 검색으로 검사한다: `Math.random`·`Date.now`·`new Date`·`performance`·`window`·`document`·`crypto` 사용, React·`node:` import, `ui`·`runtime`·`persistence`·`sync` import, `core`에서 `systems` import. 주석에 같은 표기를 쓰면 오탐이 나므로 주석에서는 다른 표기를 쓴다.
 - `scripts`는 `content`와 `engine`을 import할 수 있다. 콘텐츠 검증은 효과 레지스트리(`engine/core`, 7.1절)도 써야 하므로 검증 CLI는 `content`가 아니라 `scripts`에 둔다. `src/` 아래 모듈은 `scripts`를 import하지 않는다.
@@ -268,18 +268,70 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 - 새 캠페인의 시드는 런타임이 `crypto.getRandomValues`로 만들어 `createCampaign`에 넘긴다.
 - 전투 기록(`CombatLog`)은 전투 시작 시점의 `rngState`와 플레이어가 고른 행동 목록을 담는다. 같은 콘텐츠 버전에서 재생하면 같은 결과가 나와야 한다.
 
-## 6. 콘텐츠 `[설계]`
+## 6. 콘텐츠 `[구현됨]`
 
-- `[구현됨]` `src/content/types.ts`의 `ContentDb`는 현재 `Readonly<{ contentVersion: string }>`인 연결용 최소 타입이다. 실제 매니페스트·로더·종류별 조회 구조는 S0 콘텐츠 단위에서 추가한다.
+- `src/content/manifest.json`은 `contentVersion`, 시간 규칙 파일 경로 `timeRulesFile`, 정의 파일 경로 목록 `definitionFiles`를 갖는다. 초기 버전은 `0.1.0`, 실제 JSON은 매니페스트와 시간 규칙 2개다.
+- 매니페스트의 파일 목록은 명시적이다. 필수 파일 누락, 중복 파일, 매니페스트 자기 참조, 목록에 없는 JSON도 오류다. 경로는 소문자 영문·숫자·밑줄·하이픈으로 된 상대 JSON 경로만 허용한다.
+- `time-rules.json`에 D-011·D-014의 임시값을 넣었다. 시간은 ms, 스태미나는 정수 단위다. 하트비트 값도 JSON 설정으로 저장하며 런타임이 도입되면 여기서 읽는다.
+- 시간 규칙의 시간 값과 최대 스태미나는 양의 안전한 정수, 회복량·이동 비용은 0 이상의 안전한 정수다. 하트비트 유예 시간은 간격 이상이어야 한다. 실제 시간 진행·스태미나 계산은 S2다.
+- `schemas.ts`의 Zod 스키마가 매니페스트·시간 규칙·공통 정의 외피의 기준이며 TypeScript 타입은 스키마에서 추론한다. `resolveJsonModule` 설정을 켜 JSON import 타입 검사도 수행한다.
 
-- 종류별 JSON 파일과 Zod 스키마를 `src/content/`에 둔다. 예: `items.json`, `monsters.json`, `maps/*.json`, `time-rules.json`.
-- 시작 시 모든 파일을 읽어 1차로 스키마를 검증하고, 2차로 교차 참조(존재하지 않는 ID, 순환 의존)를 검증한 뒤 ID별 조회가 가능한 `ContentDb`를 만든다. 검증에 실패하면 게임을 시작하지 않고 오류를 보여 준다.
-- `npm run validate:content`는 `scripts/validate-content.ts`에서 같은 검증 코드를 Node로 실행한다(1.4절, D-016). `[구현됨]` 범위는 `src/content/` 아래 JSON 파일의 구문 검사뿐이다. 스키마·교차 참조 검증은 S0 콘텐츠 단위에서 연결한다.
-- 콘텐츠 ID는 `종류.이름` 형식의 소문자 영문이다 (예: `item.dried_ration`, `monster.genlock`). 한 번 배포한 ID는 바꾸지 않는다. 세이브가 참조하는 ID를 지우거나 바꾸려면 세이브 버전 변환이 필요하다.
-- 캐릭터, 캠페인, 사망 기록처럼 실행 중에 생기는 개체는 UUID를 쓴다. 서버 도입 시 ID가 겹치지 않게 하기 위해서다.
-  - `[구현됨]` `createUuid(rng)`(`src/engine/core/id.ts`)는 시드 난수 4개로 UUID v4 형식 문자열을 만든다. 같은 입력에서 같은 결과를 내야 하므로(INV-04) `crypto.randomUUID`를 쓰지 않는다. ID를 만들면 난수를 소비하므로 이후 판정 결과도 달라지지만, 저장·재생 시에는 같다.
-- 콘텐츠 매니페스트에 `contentVersion`을 둔다.
-- 버튼 문구, 오류 메시지 같은 UI 시스템 문구는 콘텐츠가 아니라 `src/ui/strings/`에 둔다.
+```ts
+// src/content/types.ts
+export type DeepReadonly<T> = T extends object
+  ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> } : T;
+export type ContentEntry = DeepReadonly<TimeRules> | DeepReadonly<ContentDefinition>;
+export type ContentDb = Readonly<{
+  contentVersion: string;
+  timeRules: DeepReadonly<TimeRules>;
+  definitions: readonly DeepReadonly<ContentDefinition>[];
+  byId: Readonly<Record<string, ContentEntry>>;
+}>;
+export type ContentError = Readonly<{
+  file: string;
+  path: string;
+  code: string;
+  message: string;
+}>;
+export type EffectValidator = (effect: Readonly<{ type: string; params: unknown }>) =>
+  | { ok: true }
+  | { ok: false; reason: string; message: string };
+export type ContentLoadResult =
+  | { ok: true; content: ContentDb }
+  | { ok: false; errors: ContentError[] };
+
+// src/content/load.ts
+export type ContentSources = Readonly<Record<string, unknown>>;
+export function loadContent(sources: ContentSources, validateEffect: EffectValidator): ContentLoadResult;
+```
+
+로딩 순서:
+
+1. 매니페스트 스키마와 파일 목록을 검증한다.
+2. 시간 규칙과 각 정의 파일의 배열 스키마를 검증한다.
+3. 모든 ID를 모으고 중복·누락 참조를 검증한다.
+4. 모든 효과를 주입된 검증 함수로 확인한다. 로딩 중 효과를 실행하지 않는다.
+5. 선행 의존 목록의 순환을 검사한다. 깊은 관계도 호출 스택을 늘리지 않는 방식으로 검사한다.
+6. 모두 통과한 경우에만 읽기 전용 ContentDb를 만든다. 하나라도 실패하면 오류 목록만 반환하고 부분 DB는 반환하지 않는다.
+
+공통 정의 외피와 검증:
+
+- S0의 정의 파일은 `{ id, references?, dependsOn?, effects? }`의 배열이다. 생략한 목록은 빈 배열로 만든다. 구체적인 맵·아이템·몬스터 필드와 스키마는 각 시스템 도입 시 추가한다.
+- `references`는 존재 확인용 일반 참조다. 상호 참조도 허용한다. `dependsOn`은 순환을 허용하지 않는 선행 의존 목록이다. 둘 다 실제 존재하는 ID만 가리켜야 한다(D-019).
+- 효과 외피는 `{ type, params }`다. 매개변수는 JSON 값이어야 하며 복사해 입력과 객체를 공유하지 않는다. 실제 매개변수 제약은 엔진의 효과 스키마가 검증한다.
+- 콘텐츠 ID는 `종류.이름` 형식의 소문자 영문·숫자·밑줄이다 (예: `item.dried_ration`, `monster.genlock`). 각 부분은 영문자로 시작한다. 시간 규칙은 `rules.` 종류를 쓴다.
+- ID별 조회는 `byId[id]`로 한다. 사전의 프로토타입은 없으므로 미등록 ID와 프로토타입 이름은 `undefined`다. 읽기 전용 타입과 중첩 동결을 적용한다.
+- 콘텐츠는 새로 파싱·복사한 객체로 구성하며 원본 입력을 수정하거나 동결하지 않는다. DB를 세이브에 넣지 않는다.
+- 한 번 배포한 ID는 바꾸지 않는다. 세이브가 참조하는 ID를 지우거나 바꾸려면 세이브 버전 변환이 필요하다.
+- 실행 중 개체의 ID는 기존 `createUuid(rng)`를 사용한다. 캠페인·캐릭터·사망 기록과 콘텐츠 ID는 구분한다.
+
+실행 환경의 연결:
+
+- 브라우저의 `runtime/content.ts`는 Vite의 JSON 수집 기능으로 `src/content/` 아래 전체 JSON을 모아 `loadContent`에 전달하고, 제품의 효과 레지스트리 검증 함수를 주입한다. 파일 추가 시 엔진 코드를 수정하지 않는다.
+- React 진입점은 콘텐츠를 먼저 검증한다. 성공하면 기존 화면을 표시하고, 파싱된 데이터의 검증이 실패하면 파일·필드 위치가 포함된 오류 안내를 표시한다. 브라우저용 JSON 구문 오류는 Vite 변환·빌드 단계에서 차단된다. 아직 GameStore나 플레이 상태를 생성하지 않는다.
+- `scripts/validate-content.ts`는 파일 시스템에서 전체 JSON을 읽어 구문을 검사한 뒤 같은 로더와 제품 효과 검증 함수를 쓴다. 오류 시 종료 코드는 1, 성공 시 0이다. 선택 인수로 검사할 콘텐츠 디렉터리를 받을 수 있다.
+- `npm run validate:content`는 구문뿐 아니라 스키마·ID·참조·의존·효과 검증을 모두 수행한다. 브라우저와 CLI의 파일 읽기만 다르고 검증 로직은 같다.
+- 버튼 문구·콘텐츠 실패 안내 같은 UI 시스템 문구는 `src/ui/strings/`에 둔다.
 
 ## 7. 효과와 수정치
 
@@ -311,7 +363,7 @@ export const effectRegistry: EffectRegistry; // S0에서는 제품의 효과 목
 - 효과의 적용 함수가 던지는 코드 예외는 검증 오류나 행동 거부로 변환하지 않는다.
 - 난수의 최종 상태 기록은 `dispatch`가 담당한다. 효과는 전달받은 같은 난수 생성기를 사용한다.
 - S0의 테스트용 효과 `test/emit`는 사건을 생성하고 선택적으로 난수를 소비한다. 제품의 목록에는 등록하지 않는다. 실제 게임 효과는 필요한 단계에서 추가한다.
-- 콘텐츠 로딩 시 `validate`를 이용해 모든 효과 유형과 매개변수를 검증한다. 이 연결과 INV-16 전체 검증은 S0 콘텐츠 단위에서 구현한다. 현재 레지스트리 단위 검증만 완료됐다.
+- 콘텐츠 로더에 레지스트리의 `validate`를 주입해 모든 효과 유형·매개변수를 검증한다. `runtime/content.test.ts`와 검증 CLI 테스트에서 등록·미등록·잘못된 매개변수의 연결 검증을 완료했다(INV-16). 제품의 효과 목록은 실제 게임 효과 도입 전까지 비어 있다.
 
 ### 7.2 수치 수정치 `[구현됨]`
 
@@ -404,13 +456,13 @@ export type SaveFile = {
 | 모듈 | 경로 | 소유하는 상태 | 도입 단계 | 상태 |
 |---|---|---|---|---|
 | Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약 구현됨 |
-| Content | `src/content/` | 없음(ContentDb) | S0 | 설계 |
+| Content | `src/content/` | 없음(ContentDb) | S0 | 기반·검증 구현됨 |
 | Persistence | `src/persistence/` | 없음(SaveFile) | S0 설계, S3 구현 | 설계 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign` 탐사 기록·길 지식, `character` 위치 | S1 | 설계 |
 | Time | `src/engine/systems/time/` | `meta.gameTime`, `meta.lastActiveAt`, `meta.settledUntil` | S2 | 설계 |
 | Stamina & Rest | `src/engine/systems/stamina/` | `character` 스태미나, 현재 활동 | S2 | 설계 |
 | Ambush | `src/engine/systems/ambush/` | 없음(판정만) | S2 | 설계 |
-| Runtime | `src/runtime/` | 세션 런타임 | S2 | 설계 |
+| Runtime | `src/runtime/` | 세션 런타임 | S2 | 콘텐츠 연결만 S0에 구현됨. GameStore·시간 루프는 설계 |
 | Inventory & Items | `src/engine/systems/inventory/` | `character` 휴대품·장비, `campaign` 창고 | S4 | 설계 |
 | Combat | `src/engine/systems/combat/` | `expedition` 진행 중 전투 | S5 | 설계 |
 | Character & Corruption | `src/engine/systems/character/` | `character` 능력치·오염·정신력 | S6 | 설계 |
@@ -440,8 +492,8 @@ export type SaveFile = {
 | INV-12 | 방치 작업의 결과로 영구 사망이 일어나지 않는다 | 확정 | `idle/*.test.ts` |
 | INV-13 | 오염도는 명세된 효과 외에는 감소하지 않는다 | 확정 | `character/*.test.ts` |
 | INV-14 | 캐릭터가 사망해도 `campaign` 영역(지도, 거점, 채집지, 코덱스)은 유지된다 | 확정 | `character/*.test.ts` |
-| INV-15 | 콘텐츠의 모든 ID 참조는 존재하는 대상을 가리킨다 | 확정 | `content/*.test.ts` |
-| INV-16 | 등록되지 않은 효과 유형이나 잘못된 매개변수는 콘텐츠 검증에서 실패한다 | 확정 | 레지스트리 단위 검증 구현됨(`core/effects.test.ts`), 콘텐츠 연결은 `content/*.test.ts`에서 예정 |
+| INV-15 | 콘텐츠의 모든 ID 참조는 존재하는 대상을 가리킨다 | 확정 | `[구현됨]` `content/load.test.ts`, 검증 CLI 테스트. 구체적인 게임 정의 참조는 각 시스템에서 추가 |
+| INV-16 | 등록되지 않은 효과 유형이나 잘못된 매개변수는 콘텐츠 검증에서 실패한다 | 확정 | `[구현됨]` `core/effects.test.ts`, `runtime/content.test.ts`, 검증 CLI 테스트 |
 | INV-17 | `src/engine/`은 브라우저 API 없이 Node 테스트 환경에서 실행된다 | 확정 | `[구현됨]` 전체 엔진 테스트(Node 환경), `engine/purity.test.ts` |
 | INV-18 | 같은 수정치 목록이면 순서와 상관없이 `computeValue` 결과가 같다 | 확정 | `[구현됨]` `core/modifiers.test.ts` |
 | INV-19 | 스태미나와 그 회복량·비용은 항상 정수다 | 확정 | `stamina/*.test.ts` |

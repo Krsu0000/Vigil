@@ -1,0 +1,16 @@
+{
+  "id": "rules.time",
+  "tickMs": 10000,
+  "maxOfflineMs": 86400000,
+  "heartbeatIntervalMs": 15000,
+  "heartbeatGraceMs": 120000,
+  "stamina": {
+    "max": 900,
+    "safeRegenPerTick": 1,
+    "waitRegenPerTick": 1,
+    "restRegenPerTick": 5,
+    "unexploredMoveCost": 6,
+    "exploredMoveCost": 3,
+    "safeMoveCost": 0
+  }
+}

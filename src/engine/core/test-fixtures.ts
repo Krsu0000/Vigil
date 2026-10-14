@@ -1,15 +1,19 @@
 // S0 검증용 데이터. 제품의 처리기와 효과 목록에는 연결하지 않는다.
 import { z } from 'zod';
+import { testSources } from '../../content/test-fixtures.ts';
+import { loadContent } from '../../content/load.ts';
 import type { ActionHandlers } from './actions.ts';
 import { createCampaign } from './campaign.ts';
 import type { EngineContext } from './context.ts';
 import { createDispatcher } from './dispatch.ts';
-import { createEffectRegistry, defineEffect } from './effects.ts';
+import { createEffectRegistry, defineEffect, effectRegistry } from './effects.ts';
 import type { EffectInstance } from './effects.ts';
 import type { GameState } from './state.ts';
 
 export const seed = [1, 2, 3, 4] as const;
-export const content = Object.freeze({ contentVersion: 'test.s0' });
+const loaded = loadContent(testSources(), effectRegistry.validate);
+if (!loaded.ok) throw new Error('코어 테스트용 콘텐츠 검증 실패');
+export const content = Object.freeze({ ...loaded.content, contentVersion: 'test.s0' });
 export const ctx: EngineContext = Object.freeze({ content, now: 1_700_000_000_000 });
 
 export function initialState(): GameState {
