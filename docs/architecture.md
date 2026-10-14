@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0 진행 중.** 프로젝트 뼈대, 코어 기초·계약, 콘텐츠 기반·검증, SaveFile v1의 메모리 저장 계약·버전 변환 체인, CombatLog 타입이 구현됐다. 실제 IndexedDB·자동 저장·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0 완료, S1 미착수.** 프로젝트 뼈대, 코어 기초·계약, 콘텐츠 기반·검증, SaveFile v1의 메모리 저장 계약·버전 변환 체인, CombatLog 타입이 구현됐다. PR #1~#5 병합 후 전체 완료 기준과 문서를 점검했다. 실제 IndexedDB·자동 저장·전투 재현은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -193,13 +193,13 @@ export const dispatch: Dispatcher; // S0에서는 게임 처리기가 없는 기
 - 처리기나 검증기의 코드 예외는 그대로 전달한다. 일반적인 행동 거부로 숨기지 않는다.
 - 테스트용 행동·효과는 `core/test-fixtures.ts`에서만 구성하고 제품의 기본 목록에는 등록하지 않는다.
 
-### 3.2 dispatch를 거치지 않는 경로 `[설계]`
+### 3.2 dispatch를 거치지 않는 경로 `[초기화·복원 구현됨]`
 
 | 경로 | 위치 | 용도 | 상태 |
 |---|---|---|---|
 | `createCampaign(content, seed, now)` | `engine/core/campaign.ts` | 새 캠페인 초기 상태 생성 | `[구현됨]` |
-| `restoreSave(raw)` | `persistence` | 형식 확인 → 버전 변환 → Zod 검증 → `GameState` | `[설계]` |
-| 버전 변환 함수 | `persistence/migrations/` | 이전 스키마의 세이브를 다음 버전으로 변환 | `[설계]` |
+| `restoreSave(raw)` | `persistence/save-file.ts` | 형식 확인 → 버전 변환 → Zod 검증 → `GameState` | `[구현됨]` |
+| 버전 변환 체인 | `persistence/migrations/` | 이전 스키마의 세이브를 다음 버전으로 변환 | 체인 `[구현됨]`, 실제 이전 버전·변환 함수 없음 |
 
 - `createCampaign`은 `seedRngState(seed)`로 시드 정수 4개를 검증·초기화하고, `createUuid(rng)`로 캠페인 ID를 만든 뒤 그 이후의 난수 상태를 저장한다.
 - 초기 `gameTime`은 0, `lastActiveAt`·`settledUntil`은 전달받은 `now`, `campaign`은 빈 객체, `character`·`expedition`은 `null`이다.
@@ -259,7 +259,7 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 - 하트비트: 실행 중에는 일정 간격(임시값 15초)으로 `lastActiveAt`을 갱신하는 행동을 보낸다. 다음 하트비트까지의 간격이 유예 시간(임시값 2분)보다 길면, 위험지대에서는 그 공백을 정지로 처리하고 틱을 보내지 않는다(D-011).
 - 테스트에서는 가짜 `Clock`을 주입한다.
 
-## 5. 난수 `[설계]`
+## 5. 난수 `[생성기·기록 타입 구현됨 / 런타임 연결 설계]`
 
 `[구현됨]` 생성기와 상태 저장·복원: `src/engine/core/rng.ts`. `seedRngState(seed)`는 시드 정수 4개로 초기 상태를 만들고 처음 출력 15개를 버린다. `createRng(state)`는 `nextUint32()`, `nextFloat()`(0 이상 1 미만), `nextInt(min, max)`(양끝 포함, 치우침 없는 재추첨), `getState()`를 가진 생성기를 만들며 입력 배열을 바꾸지 않는다. 출력식은 PractRand 원본 sfc32(`tmp = a + b + counter++`)와 같고, 참조값 테스트로 고정한다. 런타임 시드 생성은 아직 없다.
 
@@ -470,14 +470,14 @@ export type SaveFile = Readonly<{
 
 | 모듈 | 경로 | 소유하는 상태 | 도입 단계 | 상태 |
 |---|---|---|---|---|
-| Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약 구현됨 |
+| Core | `src/engine/core/` | `meta.rngState` | S0 | 코어 기초·계약·CombatLog 타입 구현됨 |
 | Content | `src/content/` | 없음(ContentDb) | S0 | 기반·검증 구현됨 |
 | Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S3 브라우저 저장 | v1 스키마·메모리 왕복·변환 체인 구현됨 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign` 탐사 기록·길 지식, `character` 위치 | S1 | 설계 |
 | Time | `src/engine/systems/time/` | `meta.gameTime`, `meta.lastActiveAt`, `meta.settledUntil` | S2 | 설계 |
 | Stamina & Rest | `src/engine/systems/stamina/` | `character` 스태미나, 현재 활동 | S2 | 설계 |
 | Ambush | `src/engine/systems/ambush/` | 없음(판정만) | S2 | 설계 |
-| Runtime | `src/runtime/` | 세션 런타임 | S2 | 콘텐츠 연결만 S0에 구현됨. GameStore·시간 루프는 설계 |
+| Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠 연결만 구현됨. GameStore(S1)·시간 루프(S2)는 설계 |
 | Inventory & Items | `src/engine/systems/inventory/` | `character` 휴대품·장비, `campaign` 창고 | S4 | 설계 |
 | Combat | `src/engine/systems/combat/` | `expedition` 진행 중 전투 | S5 | 설계 |
 | Character & Corruption | `src/engine/systems/character/` | `character` 능력치·오염·정신력 | S6 | 설계 |
