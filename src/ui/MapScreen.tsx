@@ -18,7 +18,7 @@ export function MapScreen({ store }: { store: GameStore }) {
   const [message, setMessage] = useState<string>(strings.moveHelp);
   const move = useCallback((direction: Direction) => {
     const result = store.dispatch({ type: 'move/step', direction });
-    if (!result.ok) setMessage(strings.blocked);
+    if (!result.ok) setMessage(result.reason === 'insufficient_resources' ? strings.insufficientStamina : strings.blocked);
     else {
       const event = result.events.find((entry) => entry.type === 'move/stepped');
       setMessage(event?.newlyExplored ? strings.newPath : strings.knownPath);
@@ -89,6 +89,8 @@ export function MapScreen({ store }: { store: GameStore }) {
         <dl className="travel-details">
           <div><dt>{strings.position}</dt><dd data-testid="position">({position.x}, {position.y})</dd></div>
           <div><dt>{strings.visited}</dt><dd data-testid="visited">{Object.keys(memory.visited).length}</dd></div>
+          <div><dt>{strings.stamina}</dt><dd data-testid="stamina">{state.character!.stamina.current} / {state.character!.stamina.max}</dd></div>
+          <div><dt>{strings.gameTime}</dt><dd data-testid="game-time">{state.meta.gameTime}{strings.tickUnit}</dd></div>
         </dl>
         <div className="movement-controls" role="group" aria-label={strings.move}>
           {controls.map(({ direction, glyph }) => (
@@ -99,6 +101,7 @@ export function MapScreen({ store }: { store: GameStore }) {
         <p className="keyboard-help">{strings.keyboardHelp}</p>
         <p className="movement-status" role="status">{message}</p>
         <p className="session-note">{strings.sessionOnly}</p>
+        <p className="time-note">{strings.timeEngineOnly}</p>
       </aside>
     </div>
   );

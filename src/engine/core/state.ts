@@ -7,7 +7,12 @@ export type CampaignState = Readonly<{
   exploration: Readonly<Record<string, MapExploration>>;
 }>;
 // 이전 세이브의 빈 캐릭터는 위치가 없는 상태로 유지한다.
-export type CharacterState = Readonly<{ position: MapPosition | null }>;
+export type StaminaState = Readonly<{ current: number; max: number }>;
+export type CharacterState = Readonly<{
+  position: MapPosition | null;
+  stamina: StaminaState;
+  movedSinceLastTick: boolean;
+}>;
 // 원정 시스템의 상태는 해당 단계에서 추가한다.
 export type ExpeditionState = Readonly<Record<string, never>>;
 

@@ -5,21 +5,27 @@ import { createDispatcher } from '../engine/core/dispatch.ts';
 import type { GameState } from '../engine/core/state.ts';
 import { mapHandlers } from '../engine/systems/map/actions.ts';
 import type { MapAction, MapEvent } from '../engine/systems/map/actions.ts';
+import { timeHandlers } from '../engine/systems/time/actions.ts';
+import type { TimeAction } from '../engine/systems/time/actions.ts';
+import type { TimeEvent } from '../engine/systems/time/advance.ts';
 import { validateMapState } from '../engine/systems/map/selectors.ts';
 import { GameStateSchema, restoreSave } from '../persistence/save-file.ts';
+
+export type RuntimeAction = MapAction | TimeAction;
+export type RuntimeEvent = MapEvent | TimeEvent;
 
 export type GameStore = Readonly<{
   content: ContentDb;
   getSnapshot: () => GameState;
   subscribe: (listener: () => void) => () => void;
-  dispatch: (action: MapAction) => DispatchResult<MapEvent>;
+  dispatch: (action: RuntimeAction) => DispatchResult<RuntimeEvent>;
   restore: (raw: unknown) => void;
 }>;
 
 export function createGameStore(content: ContentDb, initial: GameState, now: () => number): GameStore {
   let state: GameState = GameStateSchema.parse(initial);
   validateMapState(state, content);
-  const run = createDispatcher<MapAction, MapEvent>(mapHandlers);
+  const run = createDispatcher<RuntimeAction, RuntimeEvent>({ ...mapHandlers, ...timeHandlers });
   const listeners = new Set<() => void>();
   const publish = (next: GameState) => {
     state = next;
@@ -32,7 +38,7 @@ export function createGameStore(content: ContentDb, initial: GameState, now: () 
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     },
-    dispatch(action: MapAction) {
+    dispatch(action: RuntimeAction) {
       const result = run(state, action, { content, now: now() });
       if (result.ok) publish(result.state);
       return result;

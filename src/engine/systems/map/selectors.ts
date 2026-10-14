@@ -1,4 +1,4 @@
-import type { MapDefinition, TileDefinition } from '../../../content/schemas.ts';
+import type { MapDefinition, TileDefinition, ZoneDefinition } from '../../../content/schemas.ts';
 import type { ContentDb, DeepReadonly } from '../../../content/types.ts';
 import type { GameState, MapPosition } from '../../core/state.ts';
 
@@ -20,6 +20,12 @@ export function findCell(map: DeepReadonly<MapDefinition>, position: Pick<MapPos
 export function requireTile(content: ContentDb, tileId: string): DeepReadonly<TileDefinition> {
   const entry = content.byId[tileId];
   if (!entry || !('kind' in entry) || entry.kind !== 'tile') throw new Error(`타일 정의가 없다: ${tileId}`);
+  return entry;
+}
+
+export function requireZone(content: ContentDb, zoneId: string): DeepReadonly<ZoneDefinition> {
+  const entry = content.byId[zoneId];
+  if (!entry || !('kind' in entry) || entry.kind !== 'zone') throw new Error(`구역 정의가 없다: ${zoneId}`);
   return entry;
 }
 

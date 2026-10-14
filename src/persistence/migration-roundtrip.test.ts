@@ -16,7 +16,7 @@ const metadata = {
   contentVersion: '0.2.0', saveId: '00112233-4455-4677-8899-aabbccddeeff', revision: 7, savedAt: 1_700_000_001_000,
 };
 
-describe('실제 v1 예시 변환과 v2 저장 연속성', () => {
+describe('실제 v1 예시 변환과 v3 저장 연속성', () => {
   it.each([v1Empty, v1Placeholders])('이전 작성 코드로 생성한 v1을 검증·변환하고 전체 메타데이터를 보존한다', (legacy) => {
     expect(SaveFileV1Schema.parse(legacy)).toEqual(legacy);
     const raw = deepFreeze(structuredClone(legacy));
@@ -24,9 +24,9 @@ describe('실제 v1 예시 변환과 v2 저장 연속성', () => {
     const object = parseSave(raw);
     const json = deserializeSave(JSON.stringify(raw));
     expect(json).toEqual(object);
-    expect(object).toEqual({ ...legacy, schemaVersion: 2, state: {
+    expect(object).toEqual({ ...legacy, schemaVersion: 3, state: {
       ...legacy.state, campaign: { exploration: {} },
-      character: legacy.state.character === null ? null : { position: null },
+      character: legacy.state.character === null ? null : { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false },
     } });
     expect(object.state.meta).toEqual(legacy.state.meta);
     expect(object.state.expedition).toEqual(legacy.state.expedition);
@@ -58,7 +58,7 @@ describe('실제 v1 예시 변환과 v2 저장 연속성', () => {
       .toEqual(Array.from({ length: 32 }, () => before.nextUint32()));
   });
 
-  it('이동한 v2의 상태·안개·후속 이동이 저장 없이 진행한 경우와 같다 (INV-06)', () => {
+  it('이동한 v3의 상태·안개·후속 이동이 저장 없이 진행한 경우와 같다 (INV-06)', () => {
     const ctx = deepFreeze(mapContext());
     const original = deepFreeze(walk(startedState(ctx), ['east', 'east', 'south'], ctx));
     const save = createSaveFile(original, metadata);
@@ -101,9 +101,9 @@ describe('실제 v1 예시 변환과 v2 저장 연속성', () => {
     expect(() => parseSave(invalid)).toThrow();
   });
 
-  it('이미 v2인 데이터를 v1이라고 표시하면 이전 형식 검증에서 거부한다', () => {
-    const v2 = createSaveFile(startedState(), metadata);
-    expect(() => parseSave({ ...v2, schemaVersion: 1 })).toThrow();
+  it('이미 v3인 데이터를 v1이라고 표시하면 이전 형식 검증에서 거부한다', () => {
+    const v3 = createSaveFile(startedState(), metadata);
+    expect(() => parseSave({ ...v3, schemaVersion: 1 })).toThrow();
   });
 
   const invalidCoordinates = ['00:1:1', '-0:1:1', '0:01:1', '0:-1:1', '0:1.5:1', '0:1:9007199254740992', 'bad'];

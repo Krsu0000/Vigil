@@ -27,7 +27,7 @@ describe('맵 최초 배치와 이동', () => {
 
   it('미배치 캐릭터도 첫 배치를 할 수 있다', () => {
     const ctx = mapContext();
-    const state = { ...createCampaign(ctx.content, [1, 2, 3, 4], ctx.now), character: { position: null } };
+    const state = { ...createCampaign(ctx.content, [1, 2, 3, 4], ctx.now), character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false } };
     expect(mapDispatch(state, { type: 'map/start', mapId: 'map.s1_test' }, ctx).ok).toBe(true);
   });
 
@@ -94,7 +94,7 @@ describe('맵 최초 배치와 이동', () => {
   it('캐릭터 없음·미배치·알 수 없는 방향은 변경 없이 거부한다', () => {
     const ctx = mapContext();
     const empty = createCampaign(ctx.content, [1, 2, 3, 4], ctx.now);
-    for (const state of [empty, { ...empty, character: { position: null } }]) {
+    for (const state of [empty, { ...empty, character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false } }]) {
       expect(mapDispatch(state, { type: 'move/step', direction: 'east' }, ctx).state).toBe(state);
     }
     const state = deepFreeze(startedState(ctx));
@@ -118,7 +118,7 @@ describe('맵 최초 배치와 이동', () => {
       'map.s1_test': { ...state.campaign.exploration['map.s1_test']!, mapVersion: 2 },
     } } };
     expect(() => mapDispatch(mismatch, { type: 'move/step', direction: 'east' }, ctx)).toThrow('버전');
-    const invalid: GameState = { ...state, character: { position: { ...state.character!.position!, x: 0 } } };
+    const invalid: GameState = { ...state, character: { ...state.character!, position: { ...state.character!.position!, x: 0 } } };
     expect(() => mapDispatch(invalid, { type: 'move/step', direction: 'east' }, ctx)).toThrow('현재 위치');
   });
 });

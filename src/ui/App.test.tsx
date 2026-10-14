@@ -59,4 +59,15 @@ describe('App', () => {
     expect(wall).toContain('벽 (1, 0)');
     expect(Object.keys(store.getSnapshot().campaign.exploration['map.s1_test']!.visited)).toHaveLength(3);
   });
+
+  it('엔진 스태미나·게임 시간을 표시하고 자동 회복 미지원 안내를 제공한다', () => {
+    const ctx = mapContext(); const store = createNewGameStore(ctx.content, [1,2,3,4], () => ctx.now);
+    for (const direction of ['east','east','south','south','east'] as const) store.dispatch({ type: 'move/step', direction });
+    store.dispatch({ type: 'time/tick' });
+    const html = renderToString(<App store={store} />);
+    const textHtml = html.replaceAll('<!-- -->', '');
+    expect(textHtml).toContain('data-testid="stamina">894 / 900');
+    expect(textHtml).toContain('data-testid="game-time">1틱');
+    expect(html).toContain(strings.timeEngineOnly);
+  });
 });
