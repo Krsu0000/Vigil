@@ -1,6 +1,7 @@
 import type { ActionHandlers } from '../../core/actions.ts';
 import type { MapPosition } from '../../core/state.ts';
 import { coordinateKey, currentLocation, findCell, findMap, requireTile } from './selectors.ts';
+import { assertStamina, consumeStamina, createStamina, getMoveCost } from '../stamina/stamina.ts';
 
 export type Direction = 'north' | 'south' | 'east' | 'west';
 export type MapAction =
@@ -38,7 +39,9 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
           campaign: { ...state.campaign, exploration: {
             [map.id]: { mapVersion: map.version, visited: { [coordinateKey(position)]: true } },
           } },
-          character: { position },
+          character: state.character ? { ...state.character, position } : {
+            position, stamina: createStamina(ctx.content), movedSinceLastTick: false,
+          },
         },
         events: [{ type: 'map/started', position }],
       };
@@ -49,8 +52,11 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
       if (!Object.hasOwn(DELTAS, action.direction)) return 'invalid_action';
       const location = currentLocation(state, ctx.content);
       if (!location) return 'condition_not_met';
-      const cell = findCell(location.map, destination(location.position, action.direction));
-      return cell && requireTile(ctx.content, cell.tileId).walkable ? null : 'condition_not_met';
+      const to = destination(location.position, action.direction);
+      const cell = findCell(location.map, to);
+      if (!cell || !requireTile(ctx.content, cell.tileId).walkable) return 'condition_not_met';
+      assertStamina(state.character!.stamina);
+      return state.character!.stamina.current < getMoveCost(state, to, ctx.content) ? 'insufficient_resources' : null;
     },
     execute: (state, action, ctx) => {
       const { position, memory } = currentLocation(state, ctx.content)!;
@@ -60,7 +66,10 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
       return {
         state: {
           ...state,
-          character: { ...state.character!, position: to },
+          character: { ...state.character!, position: to,
+            stamina: consumeStamina(state.character!.stamina, getMoveCost(state, to, ctx.content)),
+            movedSinceLastTick: true,
+          },
           campaign: newlyExplored ? { ...state.campaign, exploration: {
             ...state.campaign.exploration,
             [to.mapId]: { ...memory, visited: { ...memory.visited, [key]: true } },

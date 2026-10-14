@@ -115,4 +115,32 @@ describe('GameStore', () => {
     const ctx = mapContext(sources);
     expect(() => initialMapId(ctx.content)).toThrow('1개');
   });
+
+  it('이동과 시간 행동은 같은 구독 경로로 한 번씩 반영된다', () => {
+    const ctx = mapContext(); const store = createNewGameStore(ctx.content, seed, () => ctx.now);
+    const notify = vi.fn(); store.subscribe(notify);
+    store.dispatch({ type: 'move/step', direction: 'east' });
+    expect(store.getSnapshot().character?.movedSinceLastTick).toBe(true);
+    const first = store.dispatch({ type: 'time/tick' });
+    expect(first.ok).toBe(true);
+    expect(store.getSnapshot()).toBe(first.state);
+    expect(store.getSnapshot().meta.gameTime).toBe(1);
+    expect(store.getSnapshot().character?.movedSinceLastTick).toBe(false);
+    expect(notify).toHaveBeenCalledTimes(2);
+  });
+
+  it('자원 부족 이동도 같은 스냅샷을 유지하고 구독에 알리지 않는다', () => {
+    const ctx = mapContext();
+    const initial = walk(startedState(ctx), ['east','east','south','south'], ctx);
+    const store = createGameStore(ctx.content, { ...initial, character: {
+      ...initial.character!, stamina: { current: 5, max: 900 }, movedSinceLastTick: false,
+    } }, () => ctx.now);
+    const before = store.getSnapshot(); const notify = vi.fn();store.subscribe(notify);
+    expect(store.dispatch({ type: 'move/step', direction: 'east' })).toEqual({ ok: false, state: before, reason: 'insufficient_resources' });
+    expect(store.getSnapshot()).toBe(before);
+    expect(notify).not.toHaveBeenCalled();
+    store.dispatch({ type: 'time/tick' });
+    expect(store.getSnapshot().character?.stamina.current).toBe(6);
+    expect(store.dispatch({ type: 'move/step', direction: 'east' }).ok).toBe(true);
+  });
 });
