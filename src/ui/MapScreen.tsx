@@ -47,6 +47,10 @@ export function MapScreen({ store }: { store: GameStore }) {
   const currentCell = byPosition.get(`${position.x}:${position.y}`)!;
   const zone = store.content.byId[currentCell.zoneId];
   if (!zone || !('kind' in zone) || zone.kind !== 'zone') throw new Error('현재 구역 정의가 없다');
+  const stamina = state.character!.stamina;
+  const recoveryHint = !session.running ? strings.recoveryPaused : stamina.current === stamina.max ? strings.recoveryFull :
+    state.character!.movedSinceLastTick ? strings.recoveryMoving : strings.recoveryWaiting;
+  const recoveryPerTick = zone.safety === 'safe' ? store.content.timeRules.stamina.safeRegenPerTick : store.content.timeRules.stamina.waitRegenPerTick;
 
   return (
     <div className="exploration-layout">
@@ -115,6 +119,8 @@ export function MapScreen({ store }: { store: GameStore }) {
         </div>
         <p className="keyboard-help">{strings.keyboardHelp}</p>
         <p className="movement-status" role="status">{message}</p>
+        <p className="recovery-status" data-testid="recovery-status">{recoveryHint}</p>
+        <p className="recovery-rules">{strings.tickLength} {store.content.timeRules.tickMs / 1000}{strings.secondsUnit} · {strings.recoveryAmount} {recoveryPerTick}</p>
         <p className="session-note">{strings.sessionOnly}</p>
         <p className="time-note">{strings.liveRecovery}</p>
       </aside>

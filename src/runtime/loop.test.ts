@@ -38,7 +38,12 @@ class FakeClock implements Clock, Scheduler {
   }
 }
 
-function setup(danger = false, sources = mapSources()) {
+// 이전 10초 경계도 회귀 검사한다. 실제 2초 설정은 아래 매개변수 검사에서 사용한다.
+function tenSecondSources() {
+  const sources = mapSources(); sources['time-rules.json'].tickMs = 10_000; return sources;
+}
+
+function setup(danger = false, sources = tenSecondSources()) {
   const ctx = mapContext(sources); const clock = new FakeClock();
   const base = danger ? walk(startedState(ctx), ['east','east','south','south','east'], ctx) : startedState(ctx);
   const initial = { ...base, character: { ...base.character!, stamina: { current: 880, max: 900 }, movedSinceLastTick: false } };
@@ -49,6 +54,31 @@ function setup(danger = false, sources = mapSources()) {
 }
 
 describe('실시간 틱·세션 제어', () => {
+  it.each([2_000, 10_000])('%ims 틱에서 이동 후 1→2틱의 대기는 회복한다', (tickMs) => {
+    const sources = mapSources(); sources['time-rules.json'].tickMs = tickMs;
+    const { store, loop, clock } = setup(true, sources);
+    expect(loop.move('east').ok).toBe(true);
+    clock.advance(tickMs - 1); expect(store.getSnapshot().meta.gameTime).toBe(0);
+    clock.advance(1);
+    expect(store.getSnapshot().meta.gameTime).toBe(1);
+    expect(store.getSnapshot().character?.stamina.current).toBe(874);
+    clock.advance(tickMs);
+    expect(store.getSnapshot().meta.gameTime).toBe(2);
+    expect(store.getSnapshot().character?.stamina.current).toBe(875);
+  });
+
+  it.each([2_000, 10_000])('%ims 틱에서 1틱 뒤 이동하면 2틱은 회복 없이, 3틱은 회복한다', (tickMs) => {
+    const sources = mapSources(); sources['time-rules.json'].tickMs = tickMs;
+    const { store, loop, clock } = setup(true, sources);
+    clock.advance(tickMs); expect(store.getSnapshot().meta.gameTime).toBe(1);
+    expect(loop.move('east').ok).toBe(true);
+    clock.advance(tickMs);
+    expect(store.getSnapshot().meta.gameTime).toBe(2);
+    expect(store.getSnapshot().character?.stamina.current).toBe(875);
+    clock.advance(tickMs);
+    expect(store.getSnapshot().meta.gameTime).toBe(3);
+    expect(store.getSnapshot().character?.stamina.current).toBe(876);
+  });
   it('10초 경계마다 한 틱과 회복을 적용하고 하트비트는 별도로 갱신한다', () => {
     const { store, clock } = setup(); const rng = store.getSnapshot().meta.rngState;
     clock.advance(9_999); expect(store.getSnapshot().meta.gameTime).toBe(0);
@@ -197,7 +227,7 @@ describe('실시간 틱·세션 제어', () => {
   });
 
   it('콘텐츠의 이동 간격을 읽고 세션 상태 변경을 구독자에게 알린다', () => {
-    const sources = mapSources(); sources['time-rules.json'].minimumMoveIntervalMs = 500;
+    const sources = tenSecondSources(); sources['time-rules.json'].minimumMoveIntervalMs = 500;
     const { loop, clock } = setup(false, sources); const notify = vi.fn();
     const unsubscribe = loop.subscribe(notify);
     expect(loop.move('east').ok).toBe(true); clock.advance(200);

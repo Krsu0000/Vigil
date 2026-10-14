@@ -52,6 +52,8 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
 .movement-status { min-height: 40px; margin: 20px 0 16px; font-size: 13px; line-height: 1.7; text-align: center; }
 .session-note { border-top: 1px solid #34363e; padding-top: 14px; margin: 0; font-size: 11px; color: #8b8d96; line-height: 1.8; }
 .time-note { margin: 12px 0 0; font-size: 11px; color: #a3a4ad; line-height: 1.8; }
+.recovery-status { font-size: 12px; line-height: 1.7; margin: 0 0 8px; color: #c9cbd2; }
+.recovery-rules { font-size: 11px; line-height: 1.7; margin: 0 0 14px; color: #a3a4ad; }
 .unplaced button { min-height: 48px; padding: 0 20px; border: 1px solid #575963; border-radius: 8px; background: #292b33; }
 @media (max-width: 680px) {
   main { padding: 20px 16px 28px; }
@@ -73,6 +75,7 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
   .movement-status { grid-column: 1 / -1; min-height: 22px; margin: 8px 0 4px; }
   .session-note { grid-column: 1 / -1; padding-top: 10px; }
   .time-note { grid-column: 1 / -1; margin: 0; }
+  .recovery-status, .recovery-rules { grid-column: 1 / -1; margin: 0; }
 }
 @media (max-width: 360px) {
   main { padding: 16px 12px 20px; }

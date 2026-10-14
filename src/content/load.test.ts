@@ -15,9 +15,9 @@ describe('콘텐츠 로더', () => {
     const result = loadContent(testSources(), rejectEffects);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('기본 데이터 검증 실패');
-    expect(result.content.contentVersion).toBe('0.2.1');
+    expect(result.content.contentVersion).toBe('0.2.2');
     expect(result.content.timeRules).toMatchObject({
-      id: 'rules.time', tickMs: 10_000, minimumMoveIntervalMs: 200, maxOfflineMs: 86_400_000,
+      id: 'rules.time', tickMs: 2_000, minimumMoveIntervalMs: 200, maxOfflineMs: 86_400_000,
       heartbeatIntervalMs: 15_000, heartbeatGraceMs: 120_000,
       stamina: { max: 900, safeRegenPerTick: 1, waitRegenPerTick: 1, restRegenPerTick: 5,
         unexploredMoveCost: 6, exploredMoveCost: 3, safeMoveCost: 0 },
