@@ -5,6 +5,8 @@ import { createDispatcher } from '../engine/core/dispatch.ts';
 import type { GameState } from '../engine/core/state.ts';
 import { mapHandlers } from '../engine/systems/map/actions.ts';
 import type { MapAction, MapEvent } from '../engine/systems/map/actions.ts';
+import { settleHandlers } from '../engine/systems/time/settle.ts';
+import type { SettleAction, SettleEvent } from '../engine/systems/time/settle.ts';
 import { timeHandlers } from '../engine/systems/time/actions.ts';
 import type { TimeAction } from '../engine/systems/time/actions.ts';
 import type { TimeEvent } from '../engine/systems/time/advance.ts';
@@ -17,8 +19,8 @@ import type { AmbushAction, AmbushEvent } from '../engine/systems/ambush/actions
 import { validateMapState } from '../engine/systems/map/selectors.ts';
 import { GameStateSchema, restoreSave } from '../persistence/save-file.ts';
 
-export type RuntimeAction = MapAction | TimeAction | StaminaAction | RestAction | AmbushAction;
-export type RuntimeEvent = MapEvent | TimeEvent | StaminaEvent | RestEvent | AmbushEvent;
+export type RuntimeAction = MapAction | TimeAction | SettleAction | StaminaAction | RestAction | AmbushAction;
+export type RuntimeEvent = MapEvent | TimeEvent | SettleEvent | StaminaEvent | RestEvent | AmbushEvent;
 
 export type GameStore = Readonly<{
   content: ContentDb;
@@ -32,7 +34,7 @@ export function createGameStore(content: ContentDb, initial: GameState, now: () 
   let state: GameState = GameStateSchema.parse(initial);
   validateMapState(state, content);
   validateActivityState(state, content);
-  const run = createDispatcher<RuntimeAction, RuntimeEvent>({ ...mapHandlers, ...timeHandlers, ...staminaHandlers, ...restHandlers, ...ambushHandlers });
+  const run = createDispatcher<RuntimeAction, RuntimeEvent>({ ...mapHandlers, ...timeHandlers, ...settleHandlers, ...staminaHandlers, ...restHandlers, ...ambushHandlers });
   const listeners = new Set<() => void>();
   const publish = (next: GameState) => {
     state = next;

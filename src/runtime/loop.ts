@@ -23,6 +23,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
   let heartbeatAt = 0;
   let recoveryAt = 0;
   let nextMoveAt = -Infinity;
+  let coveredUntil = 0;
   const publish = (patch: Partial<SessionStatus>) => {
     const next = { ...status, ...patch };
     next.running = active && !next.paused && !next.settingsOpen && !next.gapPaused && !next.ambushPending;
@@ -35,7 +36,10 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
     if (timer !== undefined) scheduler.cancel(timer);
     timer = undefined;
   };
-  const reanchor = () => { tickAt = heartbeatAt = recoveryAt = clock.monotonicNow(); };
+  const reanchor = () => {
+    tickAt = heartbeatAt = recoveryAt = clock.monotonicNow();
+    coveredUntil = Math.max(coveredUntil, clock.wallNow());
+  };
   const pump = () => {
     if (!status.running) return;
     const now = clock.monotonicNow();
@@ -46,6 +50,16 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
     if (now - heartbeatAt > rules.heartbeatGraceMs && danger) {
       reanchor();
       publish({ gapPaused: true });
+      return;
+    }
+    if (now - heartbeatAt > rules.heartbeatGraceMs && !danger) {
+      // 긴 안전 구역 실행 공백은 오프라인과 같은 상한/역행 규칙을 적용한다.
+      pumping = true;
+      try {
+        store.dispatch({ type: 'time/settle', from: coveredUntil, to: clock.wallNow() });
+        reanchor();
+        store.dispatch({ type: 'time/heartbeat' });
+      } finally { pumping = false; }
       return;
     }
     // 마감 시각 순서로 처리한다. 동시에는 전역 틱을 먼저, 회복을 다음에 처리한다.
@@ -64,6 +78,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
         }
       }
     } finally { pumping = false; }
+    coveredUntil = Math.max(coveredUntil, clock.wallNow());
     if (status.running && now - heartbeatAt >= rules.heartbeatIntervalMs) {
       store.dispatch({ type: 'time/heartbeat' });
       heartbeatAt = now;
@@ -114,6 +129,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
   };
   return Object.freeze({
     getSnapshot: () => status,
+    synchronize() { pump(); schedule(); },
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     start() {
       if (active) return;

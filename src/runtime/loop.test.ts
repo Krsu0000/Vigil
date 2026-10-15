@@ -420,3 +420,36 @@ describe('휴식·습격의 런타임 경계', () => {
     clock.advance(2_000); expect(store.getSnapshot().meta.gameTime).toBe(2);
   });
 });
+
+describe('안전 구역의 긴 실행 공백 정산', () => {
+  it('실시간 진행 뒤 긴 공백은 마지막 실행 이후만 지급하고 최대 24시간으로 제한한다', () => {
+    const t = setup(false, mapSources()); t.clock.advance(10_000);
+    expect(t.store.getSnapshot().meta.gameTime).toBe(5);
+    t.clock.jump(3 * 86_400_000); t.clock.wake();
+    expect(t.store.getSnapshot().meta.gameTime).toBe(43_205);
+    expect(t.store.getSnapshot().character!.stamina.current).toBe(900);
+    const state = t.store.getSnapshot(); t.loop.synchronize();
+    expect(t.store.getSnapshot()).toEqual(state);
+    t.clock.advance(2_000); expect(t.store.getSnapshot().meta.gameTime).toBe(43_206);
+  });
+
+  it('긴 공백 중 시각이 역행하면 정산하지 않고 다음 실시간 간격을 새로 센다', () => {
+    const t = setup(false, mapSources()); t.clock.advance(10_000);
+    const state = t.store.getSnapshot(); t.clock.jump(180_000); t.clock.wall -= 200_000; t.clock.wake();
+    expect(t.store.getSnapshot()).toEqual(state);
+    t.clock.advance(1_999); expect(t.store.getSnapshot()).toEqual(state);
+    t.clock.advance(1); expect(t.store.getSnapshot().meta.gameTime).toBe(6);
+  });
+
+  it('설정창/수동 정지의 긴 안전 구역 공백은 정산하지 않는다', () => {
+    for (const settings of [false,true]) {
+      const t = setup(false, mapSources());
+      if (settings) t.loop.setSettingsOpen(true); else t.loop.setPaused(true);
+      const state = t.store.getSnapshot(); t.clock.jump(3*86_400_000);
+      if (settings) t.loop.setSettingsOpen(false); else t.loop.setPaused(false);
+      expect(t.store.getSnapshot().meta.gameTime).toBe(state.meta.gameTime);
+      expect(t.store.getSnapshot().character!.stamina).toEqual(state.character!.stamina);
+      t.clock.advance(2_000); expect(t.store.getSnapshot().meta.gameTime).toBe(1);
+    }
+  });
+});

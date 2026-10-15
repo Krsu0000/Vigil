@@ -19,12 +19,13 @@ export type AutoSave = Readonly<{
 
 // 저장 형식·게임 난수는 바꾸지 않는다. UI는 이 연결부의 상태만 구독한다.
 export function createAutoSave(store: GameStore, repository: SaveRepository | null, loaded: LoadedSave,
-  now: () => number, scheduler: Scheduler, visibility: VisibilitySource, newSaveId: () => string): AutoSave {
+  now: () => number, scheduler: Scheduler, visibility: VisibilitySource, newSaveId: () => string, beforeSnapshot: () => void = () => {}): AutoSave {
   const saveId = loaded.save?.saveId ?? newSaveId();
   let revision = loaded.save?.revision ?? 0;
   let generation = loaded.generation;
   let previousValid = loaded.previousValid;
-  let dirty = loaded.source === 'empty' || loaded.source === 'backup';
+  let dirty = loaded.source === 'empty' || loaded.source === 'backup' ||
+    loaded.save?.state.meta.settledUntil !== store.getSnapshot().meta.settledUntil;
   let status: SaveStatus = { phase: repository ? loaded.save ? 'saved' : 'idle' : 'unavailable', savedAt: loaded.save?.savedAt ?? null, recovered: loaded.source === 'backup' };
   let active = false;
   let unsubscribe: (() => void) | undefined;
@@ -43,8 +44,11 @@ export function createAutoSave(store: GameStore, repository: SaveRepository | nu
       const succeeded = await pending;
       // 실패하면 같은 손상/용량 오류를 무한 재시도하지 않는다.
       if (!succeeded) return false;
-      return dirty ? save() : true;
+      return save();
     }
+    try { beforeSnapshot(); }
+    catch { dirty = true; publish({ phase: 'error' }); return false; }
+    cancel();
     if (!dirty) return true;
     dirty = false;
     publish({ phase: 'saving' });
@@ -83,7 +87,7 @@ export function createAutoSave(store: GameStore, repository: SaveRepository | nu
       void save();
     }, 1_000);
   };
-  const hidden = () => { if (visibility.hidden) { cancel(); void save(); } };
+  const hidden = () => { if (visibility.hidden) { dirty = true; cancel(); void save(); } };
   return Object.freeze({
     getSnapshot: () => status,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },

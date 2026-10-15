@@ -14,7 +14,7 @@ export function SettingsDialog({ onClose, persistent = false }: { onClose: () =>
       <h2 id="settings-heading">{strings.settings}</h2>
       <p>{strings.settingsPauseHelp}</p>
       <p>{strings.keyboardHelp}</p>
-      <p>{persistent ? strings.noOfflineYet : strings.sessionOnly}</p>
+      <p>{persistent ? strings.offlineRecovery : strings.sessionOnly}</p>
       <button type="button" autoFocus onClick={onClose}>{strings.closeSettings}</button>
     </dialog>
   );

@@ -17,9 +17,9 @@ const controls: readonly { direction: Direction; glyph: string }[] = [
   { direction: 'south', glyph: '↓' }, { direction: 'east', glyph: '→' },
 ];
 
-export function MapScreen({ store, persistent = false }: { store: GameStore; persistent?: boolean }) {
+export function MapScreen({ store, loop: suppliedLoop, persistent = false }: { store: GameStore; loop?: ReturnType<typeof createGameLoop>; persistent?: boolean }) {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  const loop = useMemo(() => createGameLoop(store, browserClock, browserScheduler), [store]);
+  const loop = useMemo(() => suppliedLoop ?? createGameLoop(store, browserClock, browserScheduler), [store, suppliedLoop]);
   const session = useSyncExternalStore(loop.subscribe, loop.getSnapshot, loop.getSnapshot);
   useEffect(() => { loop.start(); return () => loop.stop(); }, [loop]);
   const pendingAmbush = state.expedition?.pendingAmbush;
@@ -148,7 +148,7 @@ export function MapScreen({ store, persistent = false }: { store: GameStore; per
         <p className="movement-status" role="status">{message}</p>
         <p className="recovery-status" data-testid="recovery-status">{recoveryHint}</p>
         <p className="recovery-rules">{strings.tickLength} {store.content.timeRules.tickMs / 1000}{strings.secondsUnit} · {strings.recoveryInterval} {store.content.timeRules.stamina.recoveryIntervalMs / 1000}{strings.secondsUnit} · {strings.recoveryAmount} {recoveryPerTick}</p>
-        <p className="session-note">{persistent ? strings.noOfflineYet : strings.sessionOnly}</p>
+        <p className="session-note">{persistent ? strings.offlineRecovery : strings.sessionOnly}</p>
         <p className="time-note">{strings.liveRecovery}</p>
       </aside>
       {pendingAmbush && ambushOpen && !session.settingsOpen && <AmbushDialog
