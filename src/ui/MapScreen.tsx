@@ -9,7 +9,7 @@ import { createGameLoop } from '../runtime/loop.ts';
 import { AmbushDialog } from './AmbushDialog.tsx';
 import { SettingsDialog } from './SettingsDialog.tsx';
 import type { Direction } from '../engine/systems/map/actions.ts';
-import { currentLocation, requireTile } from '../engine/systems/map/selectors.ts';
+import { currentLocation, getReturnDestination, requireTile } from '../engine/systems/map/selectors.ts';
 import { getTileVisibility } from '../engine/systems/map/visibility.ts';
 import { strings } from './strings/index.ts';
 
@@ -154,6 +154,14 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
               else setMessage(resting ? strings.restStopped : strings.restStarted);
             }}>{resting ? strings.stopRest : strings.startRest}</button>
           <span data-testid="activity">{resting ? strings.resting : strings.waiting}</span>
+        </div>
+        <div className="return-controls">
+          <button type="button" disabled={!session.running || !getReturnDestination(state, store.content)} onClick={() => {
+            input.clear();
+            const result = loop.returnToCamp();
+            setMessage(result.ok ? strings.returnSucceeded : loop.getSnapshot().ambushPending ? strings.returnAmbushBlocked : strings.returnUnavailable);
+          }}>{strings.returnToCamp}</button>
+          <p>{pendingAmbush ? strings.returnAmbushBlocked : zone.safety === 'safe' ? strings.returnAlreadySafe : !session.running ? strings.returnPaused : strings.returnHelp}</p>
         </div>
         {zone.safety === 'danger' && <p className="rest-rules">
           {strings.resting}: {store.content.timeRules.stamina.recoveryIntervalMs / 1000}{strings.secondsUnit} · {strings.recoveryAmount} {store.content.timeRules.stamina.restRegenPerTick}<br />

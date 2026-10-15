@@ -162,6 +162,18 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
     resolveAmbush(result: AmbushResult) {
       return store.dispatch({ type: 'ambush/resolve', result });
     },
+    returnToCamp() {
+      // 마감이 지난 기존 시간 처리를 먼저 한다. 귀환 자체의 추가 시간/이동 대기는 없다.
+      pump();
+      schedule();
+      if (!status.running) return { ok: false, reason: 'paused' } as const;
+      const result = store.dispatch({ type: 'map/return' });
+      if (result.ok) {
+        recoveryAt = clock.monotonicNow();
+        schedule();
+      }
+      return result;
+    },
     move(direction: Direction) {
       pump();
       schedule();
