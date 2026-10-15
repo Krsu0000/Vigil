@@ -1,3 +1,4 @@
+import type { CombatAction } from '../engine/systems/combat/actions.ts';
 import type { InventoryAction } from '../engine/systems/inventory/actions.ts';
 import type { AmbushResult } from '../engine/systems/ambush/actions.ts';
 import type { Direction } from '../engine/systems/map/actions.ts';
@@ -13,7 +14,7 @@ export type SessionStatus = Readonly<{
 export function createGameLoop(store: GameStore, clock: Clock, scheduler: Scheduler) {
   const rules = store.content.timeRules;
   const listeners = new Set<() => void>();
-  let status: SessionStatus = { running: false, paused: false, settingsOpen: false, gapPaused: false, ambushPending: !!store.getSnapshot().expedition?.pendingAmbush };
+  let status: SessionStatus = { running: false, paused: false, settingsOpen: false, gapPaused: false, ambushPending: !!(store.getSnapshot().expedition?.pendingAmbush || store.getSnapshot().expedition?.combat) };
   let active = false;
   let unsubscribe: (() => void) | undefined;
   let observedActivity = store.getSnapshot().character?.activity;
@@ -106,7 +107,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
       observedActivity = activity;
       if (!pumping) recoveryAt = clock.monotonicNow();
     }
-    const pending = !!state.expedition?.pendingAmbush;
+    const pending = !!(state.expedition?.pendingAmbush || state.expedition?.combat);
     if (pending !== status.ambushPending) {
       const wasRunning = status.running;
       publish({ ambushPending: pending });
@@ -137,7 +138,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
       nextMoveAt = -Infinity;
       observedActivity = store.getSnapshot().character?.activity;
       reanchor();
-      publish({ ambushPending: !!store.getSnapshot().expedition?.pendingAmbush });
+      publish({ ambushPending: !!(store.getSnapshot().expedition?.pendingAmbush || store.getSnapshot().expedition?.combat) });
       schedule();
     },
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
@@ -147,7 +148,7 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
       observedActivity = store.getSnapshot().character?.activity;
       unsubscribe = store.subscribe(observeStore);
       reanchor();
-      publish({ ambushPending: !!store.getSnapshot().expedition?.pendingAmbush });
+      publish({ ambushPending: !!(store.getSnapshot().expedition?.pendingAmbush || store.getSnapshot().expedition?.combat) });
       if (status.running) store.dispatch({ type: 'time/heartbeat' });
       schedule();
     },
@@ -162,6 +163,11 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
     },
     resolveAmbush(result: AmbushResult) {
       return store.dispatch({ type: 'ambush/resolve', result });
+    },
+    combatAction(action: CombatAction) {
+      pump(); schedule();
+      if (!active || status.paused || status.settingsOpen || status.gapPaused) return { ok: false, reason: 'paused' } as const;
+      return store.dispatch(action);
     },
     inventoryAction(action: InventoryAction) {
       pump();

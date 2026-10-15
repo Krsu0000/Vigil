@@ -18,5 +18,18 @@
     "unexploredMoveCost": 6,
     "exploredMoveCost": 3,
     "safeMoveCost": 0
+  },
+  "combat": {
+    "healthMax": 100,
+    "safeHealthRegenPerPeriod": 1,
+    "attackMin": 7,
+    "attackMax": 10,
+    "hitChance": 0.9,
+    "defenseMultiplier": 0.5,
+    "skillCost": 12,
+    "skillMultiplier": 1.8,
+    "escapeChance": 0.6,
+    "ticksPerTurn": 1,
+    "ambushEncounterId": "encounter.wolf_pack"
   }
 }

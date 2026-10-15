@@ -1,9 +1,11 @@
+import { v6ToV7 } from './migrations/v6-to-v7.ts';
 import { describe, expect, it } from 'vitest';
 import v2Empty from './fixtures/v2-empty.json' with { type: 'json' };
 import v2Unplaced from './fixtures/v2-unplaced.json' with { type: 'json' };
 import v2Explored from './fixtures/v2-explored.json' with { type: 'json' };
 import { SaveFileV2Schema } from './schemas-v2.ts';
 import { v2ToV3 } from './migrations/v2-to-v3.ts';
+import { v5ToV6 } from './migrations/v5-to-v6.ts';
 import { v4ToV5 } from './migrations/v4-to-v5.ts';
 import { v3ToV4 } from './migrations/v3-to-v4.ts';
 import { SaveFileV3Schema } from './schemas-v3.ts';
@@ -25,7 +27,7 @@ describe('이전 코드로 생성한 v2의 v3 변환', () => {
     } };
     expect(v2ToV3(input)).toEqual(expected);
     expect(SaveFileV3Schema.parse(expected)).toEqual(expected);
-    const current = v4ToV5(v3ToV4(expected));
+    const current = v6ToV7(v5ToV6(v4ToV5(v3ToV4(expected))));
     expect(parseSave(input)).toEqual(current);
     expect(deserializeSave(JSON.stringify(input))).toEqual(current);
     expect(deserializeSave(serializeSave(parseSave(input)))).toEqual(current);
@@ -37,7 +39,7 @@ describe('이전 코드로 생성한 v2의 v3 변환', () => {
     const migrated = restoreSave(v2Explored);
     const base = SaveFileV2Schema.parse(v2Explored).state;
     const direct = { ...base, campaign: { ...base.campaign, openedChests: {} }, expedition: base.expedition === null ? null : { pendingAmbush: null }, character: {
-      ...base.character!, inventory: { stacks: {}, equipment: { feet: null } }, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const,
+      ...base.character!, health: { current: 100, max: 100 }, inventory: { stacks: {}, equipment: { feet: null } }, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const,
     } };
     expect(migrated).toEqual(direct);
     for (const legacyState of [migrated, direct]) {

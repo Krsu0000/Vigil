@@ -3,7 +3,6 @@ import type { ContentError } from '../content/types.ts';
 import type { GameStore } from '../runtime/store.ts';
 import type { createGameLoop } from '../runtime/loop.ts';
 import type { AutoSave } from '../runtime/auto-save.ts';
-import { SaveStatus } from './SaveStatus.tsx';
 import { MapScreen } from './MapScreen.tsx';
 import './styles.css';
 
@@ -12,7 +11,7 @@ export function App({ contentErrors = [], store, loop, autoSave, persistent = fa
 }) {
   return (
     <main>
-      <header className="app-header"><h1>{strings.gameTitle}</h1><span>{strings.exploration}</span></header>
+      {!store && <header className="app-header"><h1>{strings.gameTitle}</h1></header>}
       {contentErrors.length > 0 && (
         <section role="alert">
           <h2>{strings.contentLoadFailed}</h2>
@@ -30,7 +29,6 @@ export function App({ contentErrors = [], store, loop, autoSave, persistent = fa
         <section className="error-panel" role="alert"><h2>{strings.startupFailed}</h2><p>{strings.startupHelp}</p></section>
       )}
       {contentErrors.length === 0 && !startupError && !saveLoadError && store && <>
-        {autoSave && <SaveStatus autoSave={autoSave} />}
         <MapScreen store={store} loop={loop} persistent={persistent} autoSave={autoSave} />
       </>}
     </main>

@@ -1,3 +1,4 @@
+import { triggerEncounter } from '../combat/selectors.ts';
 import type { ActionHandlers } from '../../core/actions.ts';
 import type { MapPosition } from '../../core/state.ts';
 import { coordinateKey, currentLocation, findCell, findMap, getReturnDestination, requireTile } from './selectors.ts';
@@ -44,6 +45,7 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
           character: state.character ? { ...state.character, position } : {
             position, stamina: createStamina(ctx.content), movedSinceLastTick: false, activity: 'waiting',
             inventory: { stacks: {}, equipment: { feet: null } },
+            health: { current: ctx.content.timeRules.combat.healthMax, max: ctx.content.timeRules.combat.healthMax },
           },
         },
         events: [{ type: 'map/started', position }],
@@ -73,6 +75,7 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
   'move/step': {
     validate: (state, action, ctx) => {
       if (!Object.hasOwn(DELTAS, action.direction)) return 'invalid_action';
+      if (state.expedition?.combat || state.character?.health.current === 0) return 'condition_not_met';
       if (state.expedition?.pendingAmbush) return 'condition_not_met';
       const location = currentLocation(state, ctx.content);
       if (!location) return 'condition_not_met';
@@ -88,7 +91,7 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
       const key = coordinateKey(to);
       const newlyExplored = memory.visited[key] !== true;
       return {
-        state: {
+        state: triggerEncounter({
           ...state,
           character: { ...state.character!, position: to,
             stamina: consumeStamina(state.character!.stamina, getMoveCost(state, to, ctx.content)),
@@ -98,7 +101,7 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
             ...state.campaign.exploration,
             [to.mapId]: { ...memory, visited: { ...memory.visited, [key]: true } },
           } } : state.campaign,
-        },
+        }, position, ctx.content),
         events: [{ type: 'move/stepped', from: position, to, newlyExplored }],
       };
     },

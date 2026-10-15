@@ -1,11 +1,13 @@
 {
-  "contentVersion": "0.3.0",
+  "contentVersion": "0.4.0",
   "timeRulesFile": "time-rules.json",
   "definitionFiles": [
     "tiles.json",
     "zones.json",
     "maps/s1-test.json",
     "items.json",
-    "chests.json"
+    "chests.json",
+    "monsters.json",
+    "encounters.json"
   ]
 }

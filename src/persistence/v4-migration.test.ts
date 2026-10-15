@@ -1,5 +1,7 @@
+import { v6ToV7 } from './migrations/v6-to-v7.ts';
 import { describe, expect, it, vi } from 'vitest';
 import legacyV3 from './fixtures/v3-explored.json' with { type: 'json' };
+import { v5ToV6 } from './migrations/v5-to-v6.ts';
 import { v4ToV5 } from './migrations/v4-to-v5.ts';
 import { v3ToV4 } from './migrations/v3-to-v4.ts';
 import { SaveFileV3Schema } from './schemas-v3.ts';
@@ -18,8 +20,8 @@ describe('v3→v4 호환성과 휴식·습격 저장', () => {
       character: { ...old.state.character!, activity: 'waiting' }, expedition: expedition === null ? null : { pendingAmbush: null },
     } };
     expect(v3ToV4(old)).toEqual(expected);
-    expect(parseSave(old)).toEqual(v4ToV5(expected));
-    expect(deserializeSave(serializeSave(parseSave(old)))).toEqual(v4ToV5(expected));
+    expect(parseSave(old)).toEqual(v6ToV7(v5ToV6(v4ToV5(expected))));
+    expect(deserializeSave(serializeSave(parseSave(old)))).toEqual(v6ToV7(v5ToV6(v4ToV5(expected))));
     expect(old.schemaVersion).toBe(3);
   });
 
@@ -27,7 +29,7 @@ describe('v3→v4 호환성과 휴식·습격 저장', () => {
     for (const character of [null,{ ...v3.state.character!, position: null }]) {
       const old = { ...v3, state: { ...v3.state, character } };
       const result = parseSave(old);
-      expect(result.state.character).toEqual(character === null ? null : { ...character, activity: 'waiting', inventory: { stacks: {}, equipment: { feet: null } } });
+      expect(result.state.character).toEqual(character === null ? null : { ...character, health: { current: 100, max: 100 }, activity: 'waiting', inventory: { stacks: {}, equipment: { feet: null } } });
       expect(result.state.meta).toEqual(old.state.meta);
     }
   });

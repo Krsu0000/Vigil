@@ -18,7 +18,6 @@ export function SettingsDialog({ onClose, persistent = false, autoSave, content 
       <h2 id="settings-heading">{strings.settings}</h2>
       <p>{strings.settingsPauseHelp}</p>
       <p>{strings.keyboardHelp}</p>
-      <p>{persistent ? strings.offlineRecovery : strings.sessionOnly}</p>
       {autoSave && content && <SaveFiles persistent={persistent} autoSave={autoSave} content={content} busy={busy} onBusyChange={setBusy} />}
       <button type="button" disabled={busy} autoFocus onClick={onClose}>{strings.closeSettings}</button>
     </dialog>

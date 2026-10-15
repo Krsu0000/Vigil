@@ -406,7 +406,13 @@ describe('휴식·습격의 런타임 경계', () => {
     const a = ambushSetup(.02,.1); const b = ambushSetup(.02,.1);
     a.loop.setResting(true); b.loop.setResting(true);
     a.clock.jump(20_000); a.clock.wake(); b.clock.advance(20_000);
-    expect(a.store.getSnapshot()).toEqual(b.store.getSnapshot());
+    // 게임 결과는 같고, 기록 시각은 각 브라우저가 사건을 실제 처리한 현실 시각이다.
+    const withoutRecordTimes = (state: ReturnType<typeof a.store.getSnapshot>) => ({ ...state,
+      campaign: { ...state.campaign, recentRecords: state.campaign.recentRecords?.map(({ text }) => ({ text })) },
+    });
+    expect(withoutRecordTimes(a.store.getSnapshot())).toEqual(withoutRecordTimes(b.store.getSnapshot()));
+    expect(a.store.getSnapshot().campaign.recentRecords!.at(-1)!.at).toBe(a.store.getSnapshot().meta.lastActiveAt + 20_000);
+    expect(b.store.getSnapshot().campaign.recentRecords!.at(-1)!.at).toBe(b.store.getSnapshot().meta.lastActiveAt + 8_000);
     expect(a.loop.getSnapshot()).toEqual(b.loop.getSnapshot());
   });
 

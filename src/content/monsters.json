@@ -1,0 +1,59 @@
+[
+  {
+    "kind": "monster",
+    "id": "monster.wolf",
+    "name": "굶주린 늑대",
+    "description": "물어뜯기를 노리는 야수.",
+    "glyph": "●",
+    "level": 2,
+    "health": 32,
+    "damageMin": 6,
+    "damageMax": 10,
+    "hitChance": 0.85,
+    "intent": "공격을 준비한다",
+    "loot": [
+      {
+        "itemId": "item.travel_ration",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "kind": "monster",
+    "id": "monster.hound",
+    "name": "배회하는 들개",
+    "description": "폐허를 배회하는 작은 야수.",
+    "glyph": "●",
+    "level": 1,
+    "health": 18,
+    "damageMin": 3,
+    "damageMax": 6,
+    "hitChance": 0.85,
+    "intent": "공격을 준비한다",
+    "loot": [
+      {
+        "itemId": "item.travel_ration",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "kind": "monster",
+    "id": "monster.hurlock",
+    "name": "외로운 헐록",
+    "description": "대재앙의 흔적을 품은 어둠피조물.",
+    "glyph": "●",
+    "level": 3,
+    "health": 48,
+    "damageMin": 8,
+    "damageMax": 13,
+    "hitChance": 0.85,
+    "intent": "공격을 준비한다",
+    "loot": [
+      {
+        "itemId": "item.travel_ration",
+        "quantity": 1
+      }
+    ]
+  }
+]

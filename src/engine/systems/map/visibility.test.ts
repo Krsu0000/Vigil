@@ -33,7 +33,7 @@ describe('A안 전장의 안개', () => {
     expect(moved.campaign.exploration['map.s1_test']!.visited['0:1:2']).toBeUndefined();
   });
 
-  it('한 번 본 벽은 시야 밖에서도 남고 벽 너머는 노출하지 않는다', () => {
+  it('확인한 길의 벽 경계는 남고 벽 너머 바닥은 노출하지 않는다', () => {
     const ctx = mapContext();
     const state = walk(startedState(ctx), ['east', 'east'], ctx);
     expect(getTileVisibility(state, at(4, 1), ctx.content)).toBe('visible');
@@ -44,7 +44,7 @@ describe('A안 전장의 안개', () => {
     expect(moved.campaign.exploration['map.s1_test']!.visited['0:4:1']).toBeUndefined();
   });
 
-  it('시작점에서 확인한 위·왼쪽 벽도 이동 후 계속 남는다', () => {
+  it('시작점의 위·왼쪽 벽은 길의 경계로 남는다', () => {
     const ctx = mapContext();
     const state = walk(startedState(ctx), ['east', 'east'], ctx);
     expect(getTileVisibility(state, at(1, 0), ctx.content)).toBe('explored');
@@ -52,7 +52,7 @@ describe('A안 전장의 안개', () => {
     expect(getTileVisibility(state, at(8, 1), ctx.content)).toBe('unexplored');
   });
 
-  it('캐릭터가 없어도 확인한 벽은 캠페인의 길 기록에서 복원한다', () => {
+  it('캐릭터가 없어도 길의 벽 경계는 탐사 기록에서 복원한다', () => {
     const ctx = deepFreeze(mapContext());
     const state = deepFreeze({ ...startedState(ctx), character: null });
     const before = structuredClone(state);
@@ -62,7 +62,7 @@ describe('A안 전장의 안개', () => {
     expect(Object.keys(state.campaign.exploration['map.s1_test']!.visited)).toHaveLength(1);
   });
 
-  it('확인한 벽의 계산은 다른 맵과 다른 층의 길 기록을 섞지 않는다', () => {
+  it('각 맵·층의 벽 경계는 해당 길 기록만 사용한다', () => {
     const sources = mapSources();
     const map = sources['maps/s1-test.json'][0]!;
     map.floors.push({ ...structuredClone(map.floors[0]!), floor: -1 });
@@ -77,6 +77,24 @@ describe('A안 전장의 안개', () => {
     } } };
     expect(getTileVisibility(remembered, { ...at(1, 0), mapId: 'map.other', floor: -1 }, ctx.content)).toBe('explored');
     expect(getTileVisibility(remembered, { ...at(1, 0), mapId: 'map.other' }, ctx.content)).toBe('unexplored');
+  });
+
+  it('벽 경계는 모서리까지 한 겹이며 그 너머 벽이나 바닥을 열지 않는다', () => {
+    const ctx = mapContext(); const state = startedState(ctx);
+    expect(getTileVisibility(state, at(0, 0), ctx.content)).toBe('explored');
+    expect(getTileVisibility(state, at(3, 0), ctx.content)).toBe('explored');
+    expect(getTileVisibility(state, at(4, 0), ctx.content)).toBe('unexplored');
+    expect(getTileVisibility(state, at(3, 1), ctx.content)).toBe('unexplored');
+    expect(state.campaign.exploration['map.s1_test']!.visited).toEqual({ '0:1:1': true });
+  });
+
+  it('지나온 길의 바깥 모서리도 연결하되 미탐사 방의 경계는 노출하지 않는다', () => {
+    const ctx = mapContext();
+    const state = walk(startedState(ctx), ['south', 'south', 'south', 'south', 'east', 'east'], ctx);
+    for (let x = 0; x <= 4; x++) expect(getTileVisibility(state, at(x, 6), ctx.content)).not.toBe('unexplored');
+    for (let y = 0; y <= 6; y++) expect(getTileVisibility(state, at(0, y), ctx.content)).not.toBe('unexplored');
+    expect(getTileVisibility(state, at(8, 0), ctx.content)).toBe('unexplored');
+    expect(state.campaign.exploration['map.s1_test']!.visited['0:0:6']).toBeUndefined();
   });
 
   it('시야 조회는 상태·탐사 기록·시간·난수를 바꾸지 않는다', () => {

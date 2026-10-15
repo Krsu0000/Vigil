@@ -3,6 +3,7 @@ import type { GameState } from '../engine/core/state.ts';
 import { validateMapState } from '../engine/systems/map/selectors.ts';
 import { validateActivityState } from '../engine/systems/rest/actions.ts';
 
+import { validateCombatState } from '../engine/systems/combat/validate.ts';
 import { validateInventoryState } from '../engine/systems/inventory/selectors.ts';
 
 // 형식 검증 뒤, 상태를 교체하기 전에 모든 복원 경로에서 호출한다.
@@ -11,5 +12,6 @@ import { validateInventoryState } from '../engine/systems/inventory/selectors.ts
 export function validateStateContent(state: GameState, content: ContentDb): void {
   validateMapState(state, content);
   validateInventoryState(state, content);
+  validateCombatState(state, content);
   validateActivityState(state, content);
 }

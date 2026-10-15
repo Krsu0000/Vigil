@@ -20,7 +20,7 @@ function interval(state: GameState, action: SettleAction, ctx: EngineContext) {
   const from = Math.max(action.from, state.meta.settledUntil, state.meta.lastActiveAt);
   const elapsedMs = Math.min(Math.max(0, action.to - from), ctx.content.timeRules.maxOfflineMs);
   const location = currentLocation(state, ctx.content);
-  const safe = !!location && !state.expedition?.pendingAmbush &&
+  const safe = !!location && !state.expedition?.pendingAmbush && !state.expedition?.combat &&
     requireZone(ctx.content, findCell(location.map, location.position)!.zoneId).safety === 'safe';
   return { from, elapsedMs, ticks: safe ? Math.floor(elapsedMs / ctx.content.timeRules.tickMs) : 0,
     periods: safe ? Math.floor(elapsedMs / ctx.content.timeRules.stamina.recoveryIntervalMs) : 0 };

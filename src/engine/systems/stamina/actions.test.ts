@@ -47,7 +47,7 @@ describe('독립 스태미나 회복 행동', () => {
 
   it.each([false, true])('캐릭터 없음/미배치 %s는 회복을 거부한다', (unplaced) => {
     const ctx = mapContext(); const initial = createCampaign(ctx.content, [1,2,3,4], ctx.now);
-    const state = unplaced ? { ...initial, character: { inventory: { stacks: {}, equipment: { feet: null } }, position: null,
+    const state = unplaced ? { ...initial, character: { health: { current: 100, max: 100 }, inventory: { stacks: {}, equipment: { feet: null } }, position: null,
       stamina: { current: 0, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const,
     } } : initial;
     expect(dispatch(state, { type: 'stamina/recover', periods: 1 }, ctx)).toEqual({ ok: false, state, reason: 'condition_not_met' });

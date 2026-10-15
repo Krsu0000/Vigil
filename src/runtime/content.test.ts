@@ -10,7 +10,7 @@ describe('실행 환경의 콘텐츠 연결', () => {
     const result = loadGameContent();
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('실제 데이터 검증 실패');
-    expect(result.content.contentVersion).toBe('0.3.0');
+    expect(result.content.contentVersion).toBe('0.4.0');
     expect(result.content.timeRules.id).toBe('rules.time');
     expect(result.content.byId['map.s1_test']).toMatchObject({ kind: 'map', version: 1 });
     expect(result.content.byId['tile.wall']).toMatchObject({ walkable: false, blocksSight: true });

@@ -47,7 +47,7 @@ describe('App', () => {
     expect(hidden).not.toContain('tile.wall');
   });
 
-  it('이동 후 확인한 벽은 표시하고 탐사한 칸 수에는 추가하지 않는다', () => {
+  it('이동 후 길의 벽 경계를 표시하되 탐사한 칸 수에는 추가하지 않는다', () => {
     const ctx = mapContext();
     const store = createNewGameStore(ctx.content, [1, 2, 3, 4], () => ctx.now);
     store.dispatch({ type: 'move/step', direction: 'east' });
@@ -56,11 +56,12 @@ describe('App', () => {
     const wall = html.match(/<div role="gridcell"[^>]*data-x="1"[^>]*data-y="0"[^>]*>.*?<\/div>/)?.[0];
     expect(wall).toBeDefined();
     expect(wall).toContain('is-explored is-wall');
+    expect(wall).toContain('wall-object');
     expect(wall).toContain('벽 (1, 0)');
     expect(Object.keys(store.getSnapshot().campaign.exploration['map.s1_test']!.visited)).toHaveLength(3);
   });
 
-  it('엔진 스태미나·게임 시간을 표시하고 현재 회복·후속 기능을 안내한다', () => {
+  it('엔진 자원·시간을 표시하고 상단 정지 버튼·위치별 시간 설명을 제외한다', () => {
     const ctx = mapContext(); const store = createNewGameStore(ctx.content, [1,2,3,4], () => ctx.now);
     for (const direction of ['east','east','south','south','east'] as const) store.dispatch({ type: 'move/step', direction });
     store.dispatch({ type: 'time/tick' });
@@ -68,23 +69,28 @@ describe('App', () => {
     const textHtml = html.replaceAll('<!-- -->', '');
     expect(textHtml).toContain('data-testid="stamina">894 / 900');
     expect(textHtml).toContain('data-testid="game-time">1틱');
-    expect(html).toContain(strings.liveRecovery);
+    expect(textHtml).toContain('data-testid="health">100 / 100');
+    expect(textHtml).toContain('data-testid="sanity">—');
+    expect(textHtml).toContain('data-testid="corruption">—');
     expect(html).toContain(strings.settings);
-    expect(html).toContain(strings.resume);
-    expect(html).toContain(strings.recoveryPaused);
-    expect(textHtml).toContain('틱 간격 2초 · 회복 간격 2초 · 회복량 1');
+    expect(html).not.toContain('>일시정지<');
+    expect(html).not.toContain('>재개<');
+    expect(html).not.toContain(strings.offlineRecovery);
+    expect(html).not.toContain('틱 간격 2초');
+    expect(html).toContain('미니맵');
+    expect(html).toContain('주 메뉴');
   });
 });
 
 describe('휴식·습격 표시', () => {
-  it('휴식 중 상태와 중지 버튼·회복량 5를 엔진 상태에서 표시한다', () => {
+  it('휴식 중 상태와 중지 버튼·위험 안내를 엔진 상태에서 표시한다', () => {
     const ctx = mapContext(); const store = createNewGameStore(ctx.content,[1,2,3,4],() => ctx.now);
     for (const direction of ['east','east','south','south','east'] as const) store.dispatch({ type: 'move/step', direction });
     store.dispatch({ type: 'rest/start' });
     const html = renderToString(<App store={store} />).replaceAll('<!-- -->','');
     expect(html).toContain(strings.stopRest);
-    expect(html).toContain('data-testid="activity">휴식 중');
-    expect(html).toContain('회복량 5');
+    expect(html).toContain('휴식 중');
+    expect(html).toContain('회복↑ 습격↑');
   });
 
   it('미처리 습격은 안내·재열기 버튼을 유지하고 모든 이동 버튼을 비활성화한다', () => {
@@ -93,11 +99,11 @@ describe('휴식·습격 표시', () => {
     const state = store.getSnapshot();
     const pending = { ...state, character: { ...state.character!, activity: 'waiting' as const },
       expedition: { pendingAmbush: { triggeredAt: 0, activityAtTrigger: 'resting' as const } } };
-    const save = { format: 'last-vigil-save',schemaVersion: 5,contentVersion: '0.2.4',saveId: state.meta.campaignId,revision: 0,savedAt: ctx.now,state: pending };
+    const save = { format: 'last-vigil-save',schemaVersion: 6,contentVersion: '0.2.4',saveId: state.meta.campaignId,revision: 0,savedAt: ctx.now,state: pending };
     store.restore(save);
     const html = renderToString(<App store={store} />);
-    expect(html).toContain(strings.ambushPending);
-    expect(html).toContain(strings.reopenAmbush);
+    expect(html).toContain('data-testid="session-status">조우');
+    expect(html).toContain('미처리 조우 · 다시 열기');
     for (const direction of ['north','south','east','west']) expect(html).toMatch(new RegExp(`class="move-${direction}"[^>]*disabled`));
   });
 });
