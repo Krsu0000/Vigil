@@ -26,7 +26,7 @@ if (!contentResult.ok) {
       const { store, loaded } = await loadSavedGame(contentResult.content,repository,browserClock.wallNow,
         () => [...crypto.getRandomValues(new Uint32Array(4))]);
       const loop = createGameLoop(store,browserClock,browserScheduler);
-      const autoSave = createAutoSave(store,repository,loaded,browserClock.wallNow,browserScheduler,document,() => crypto.randomUUID(),loop.synchronize);
+      const autoSave = createAutoSave(store,repository,loaded,browserClock.wallNow,browserScheduler,document,() => crypto.randomUUID(),loop.synchronize,loop.resetAfterRestore);
       // 실제 루프를 시작하기 전에 새 게임/백업 복원/정산 결과의 저장을 시도한다. 저장 실패는 표시하고 플레이를 허용한다.
       await autoSave.flush();
       root.render(<StrictMode><App store={store} loop={loop} autoSave={autoSave} persistent={repository !== null} /></StrictMode>);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { CSSProperties } from 'react';
+import type { AutoSave } from '../runtime/auto-save.ts';
 import type { GameStore } from '../runtime/store.ts';
 import { initialMapId } from '../runtime/store.ts';
 import { bindMovementKeys, createMovementInput } from '../runtime/input.ts';
@@ -17,7 +18,7 @@ const controls: readonly { direction: Direction; glyph: string }[] = [
   { direction: 'south', glyph: '↓' }, { direction: 'east', glyph: '→' },
 ];
 
-export function MapScreen({ store, loop: suppliedLoop, persistent = false }: { store: GameStore; loop?: ReturnType<typeof createGameLoop>; persistent?: boolean }) {
+export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoSave }: { store: GameStore; loop?: ReturnType<typeof createGameLoop>; persistent?: boolean; autoSave?: AutoSave }) {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const loop = useMemo(() => suppliedLoop ?? createGameLoop(store, browserClock, browserScheduler), [store, suppliedLoop]);
   const session = useSyncExternalStore(loop.subscribe, loop.getSnapshot, loop.getSnapshot);
@@ -47,14 +48,15 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false }: { s
     const unsubscribe = loop.subscribe(() => { if (!loop.getSnapshot().running) input.clear(); });
     return () => { unbind(); unsubscribe(); };
   }, [input, loop]);
+  const settingsDialog = session.settingsOpen && <SettingsDialog persistent={persistent} autoSave={autoSave} content={store.content} onClose={() => loop.setSettingsOpen(false)} />;
   const location = currentLocation(state, store.content);
   if (!location) return (
-    <section className="unplaced">
+    <><section className="unplaced">
       <p>{strings.unplaced}</p>
       <button type="button" onClick={() => store.dispatch({ type: 'map/start', mapId: initialMapId(store.content) })}>
         {strings.start}
       </button>
-    </section>
+    </section>{settingsDialog}</>
   );
   const { map, position, memory } = location;
   const floor = map.floors.find((entry) => entry.floor === position.floor)!;
@@ -172,7 +174,7 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false }: { s
         onClose={() => setAmbushOpen(false)} onResolve={(result) => {
           if (loop.resolveAmbush(result).ok) setMessage(result === 'defeated' ? strings.defeatedResult : strings.escapedResult);
         }} />}
-      {session.settingsOpen && <SettingsDialog persistent={persistent} onClose={() => loop.setSettingsOpen(false)} />}
+      {settingsDialog}
     </div>
   );
 }

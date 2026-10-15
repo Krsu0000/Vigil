@@ -496,14 +496,14 @@ export type SaveFile = Readonly<{
 - `parseSave`는 먼저 JSON 데이터만 허용해 입력과 분리한 뒤 검증한다. 함수·Date·Map·Set·undefined·NaN·무한대를 JSON 변환으로 조용히 손실시키지 않는다. `GameStateSchema`는 기존 코어 타입과 호환되는지 TypeScript로 검사한다.
 - 콘텐츠 버전은 매니페스트와 같은 문자열 스키마로 검증하고 저장된 값을 보존한다. 콘텐츠 버전별 호환성 정책·콘텐츠 변환은 아직 없으며 구조 버전 변환과 구분한다.
 
-### 8.2 저장과 불러오기 `[메모리·브라우저 저장·거점 오프라인 정산 구현됨]`
+### 8.2 저장과 불러오기 `[메모리·브라우저 저장·거점 오프라인·파일 전송 구현됨]`
 
 - `createSaveFile(state, metadata)`: contentVersion·saveId·revision·savedAt을 호출부에서 받아 검증된 독립 스냅샷을 만든다. ID나 시간을 내부에서 생성하지 않으며 게임 난수를 소비하지 않는다.
 - `serializeSave(save)`·`deserializeSave(json)`: 같은 검증 경로로 JSON 문자열을 쓰고 읽는다. `parseSave(raw)`는 객체를 받고, `restoreSave(raw)`는 객체 또는 JSON 문자열에서 `GameState`만 반환한다.
 - 객체·JSON 불러오기 순서: JSON 데이터·형식 확인 → 버전 변환 → 최종 Zod 검증. 실패하면 예외를 내고 부분 상태를 반환하지 않는다.
 - 저장·복원은 gameTime·lastActiveAt·settledUntil·rngState·revision·savedAt을 그대로 보존한다. 실제 저장마다 revision을 증가시키는 책임은 S3의 호출부에 있다. 왕복만으로 revision을 올리지 않는다.
 
-S3 첫 단위에서 다음 브라우저 저장/복원 규칙을 연결했다(D-030). 거점 time/settle은 두 번째 단위(D-031), 파일 이동 UI는 후속 단위다.
+S3 첫 단위에서 다음 브라우저 저장/복원 규칙을 연결했다(D-030). 거점 time/settle은 두 번째 단위(D-031), 파일 이동 UI는 세 번째 단위(D-034)에서 연결했다.
 
 - 저장 시점: 행동이 처리될 때마다 짧은 지연(디바운스)을 두고 저장하고, 화면이 가려질 때(`visibilitychange`) 즉시 저장한다. 지연 시간은 임시값 1초다(D-010).
 - 새 세이브를 쓰기 전에 직전 세이브를 백업 슬롯 하나에 보관한다. 새 세이브를 읽지 못하면 백업을 불러온다(D-010).
@@ -515,6 +515,17 @@ S3 첫 단위에서 다음 브라우저 저장/복원 규칙을 연결했다(D-0
 - runtime/auto-save.ts는 Store 구독·1초 디바운스·숨김 이벤트·쓰기 직렬화·revision/savedAt/saveId·저장 상태 구독을 담당한다. 성공 쓰기 뒤에만 revision/세대/직전 유효 문자열을 갱신한다. 실패는 UI에 알리고 명시적 재시도까지 자동 반복을 멈춘다. StrictMode 효과 정리는 즉시 저장 조건이 아니다.
 - ui/SaveStatus.tsx는 저장 상태·백업 복원 안내·재시도를 표시한다. 거점 최대 24시간 회복/위험 구역 닫힌 시간 제외 안내를 표시한다. 부분 틱/수동 정지/팝업 열림은 저장하지 않는다.
 - auto-save는 초기 정산으로 settledUntil이 달라지면 구독 시작 전에도 저장 대상으로 삼는다. main에서 만든 동일 루프를 UI와 저장에 주입하며, beforeSnapshot으로 미처리 실행분을 반영한 뒤 savedAt/상태를 함께 캡처한다. 상태 변경이 없는 정지 중에도 숨김 이벤트는 시각 체크포인트를 남긴다. 부분 틱/정지 구간을 저장 시각 뒤로 다시 지급하지 않는다.
+
+S3 세 번째 단위의 파일 전송 규칙(D-034):
+
+- 설정창의 정지 안에서 `SaveFiles`가 JSON 다운로드와 파일 선택/검증/미리보기/명시적 교체/취소를 제공한다. 읽기/적용 중에는 닫기·ESC·중복 작업을 막는다. 이전 미배치 세이브를 적용해도 설정창을 닫을 수 있다.
+- `persistence/file-transfer.ts`의 readSaveFile은 파일을 읽기 전에 10MiB 상한을 확인하고, UTF-8 BOM 제거 → 기존 deserializeSave/v1~v3 변환 → 실제 맵/활동 검증을 수행한다. 파일 확장자만으로 신뢰하지 않는다. preview 단계는 현재 Store/저장소/게임 시간을 바꾸지 않는다.
+- `AutoSave.exportSave`는 beforeSnapshot으로 실행분을 반영한 현재 상태와 현재 savedAt·saveId·마지막 성공 revision을 캡처한다. 파일 생성 자체는 브라우저 쓰기/revision 증가/오프라인 정산을 하지 않는다. UI는 Blob/object URL로 내려받기를 요청하고 URL을 지연 해제한다.
+- `AutoSave.importSave`는 자동/숨김 쓰기를 차단하고 진행 중인 기존 쓰기를 기다린다. 후보를 다시 검증해 별도 Store에서 incoming.savedAt 이후를 time/settle로 한 번 정산하고, 현재 콘텐츠 버전·현재 savedAt·파일 saveId·파일 revision+1의 v4 스냅샷을 만든다. 최대 revision은 교체 전에 거부한다.
+- 현재 미저장 진행을 포함한 검증 스냅샷을 backup으로, 정산된 후보를 primary로 기존 세대 확인 트랜잭션 하나에 기록한다. 후보의 ID/revision과 로컬 저장소 generation은 구분한다. 실패/충돌은 활성 Store와 저장 ID/revision/슬롯을 교체하지 않는다. 실패 뒤 일반 저장 재시도는 기존 탐험을 저장하며 후보를 적용하지 않는다.
+- 쓰기 성공 뒤 Store/저장 메타데이터를 교체하고 afterRestore로 같은 루프의 resetAfterRestore를 호출한다. 이전 탐험의 coveredUntil·부분 틱/회복·이동 제한을 초기화하고 수동/설정/공백 정지는 유지한다. 가져온 습격 제한도 유지한다. 이후 자동 저장은 가져온 saveId/다음 revision을 사용한다.
+- 저장소 불가 모드는 파일 교환을 메모리에서 허용하되 저장 불가/브라우저 백업 불가를 명시한다. 브라우저 백업은 기존 1개 회전 정책이며 이후 자동 저장으로 갱신되므로 영구 보관은 파일 내보내기를 사용한다.
+- 최초 슬롯 복원 자체가 차단된 시작 실패 화면에는 파일 복구 UI를 추가하지 않는다. 손상/미래 버전 슬롯을 새 게임으로 덮어쓰지 않는 기존 정책을 유지한다. 콘텐츠 버전 문자열별 추가 호환성 정책·서버 동기화·귀환은 이번 범위 밖이다.
 
 ### 8.3 버전 변환 `[체인 구조 구현됨]`
 

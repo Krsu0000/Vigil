@@ -130,6 +130,15 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
   return Object.freeze({
     getSnapshot: () => status,
     synchronize() { pump(); schedule(); },
+    resetAfterRestore() {
+      // 다른 탐험의 실행 완료 시각/부분 주기/이동 제한을 가져온 파일에 물려주지 않는다.
+      coveredUntil = 0;
+      nextMoveAt = -Infinity;
+      observedActivity = store.getSnapshot().character?.activity;
+      reanchor();
+      publish({ ambushPending: !!store.getSnapshot().expedition?.pendingAmbush });
+      schedule();
+    },
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     start() {
       if (active) return;
