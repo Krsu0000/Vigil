@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import type { AutoSave } from '../runtime/auto-save.ts';
 import type { GameStore } from '../runtime/store.ts';
 import { initialMapId } from '../runtime/store.ts';
-import { bindMovementKeys, createMovementInput } from '../runtime/input.ts';
+import { bindMovementKeys } from '../runtime/input.ts';
 import { browserClock, browserScheduler } from '../runtime/clock.ts';
 import { createGameLoop } from '../runtime/loop.ts';
 import { AmbushDialog } from './AmbushDialog.tsx';
@@ -40,14 +40,8 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
       const event = result.events.find((entry) => entry.type === 'move/stepped');
       setMessage(event?.newlyExplored ? strings.newPath : strings.knownPath);
     }
-    return result.ok || result.reason === 'cooldown';
   }, [loop]);
-  const input = useMemo(() => createMovementInput(move, store.content.timeRules.minimumMoveIntervalMs, browserScheduler), [move, store]);
-  useEffect(() => {
-    const unbind = bindMovementKeys(window, input, document);
-    const unsubscribe = loop.subscribe(() => { if (!loop.getSnapshot().running) input.clear(); });
-    return () => { unbind(); unsubscribe(); };
-  }, [input, loop]);
+  useEffect(() => bindMovementKeys(window, move), [move]);
   const settingsDialog = session.settingsOpen && <SettingsDialog persistent={persistent} autoSave={autoSave} content={store.content} onClose={() => loop.setSettingsOpen(false)} />;
   const location = currentLocation(state, store.content);
   if (!location) return (
@@ -133,15 +127,7 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
           {controls.map(({ direction, glyph }) => (
             <button type="button" className={`move-${direction}`} key={direction}
               aria-label={strings[direction]} disabled={!session.running}
-              onPointerDown={(event) => {
-                if (!event.isPrimary || event.button !== 0) return;
-                event.currentTarget.setPointerCapture(event.pointerId);
-                input.press(`pointer:${event.pointerId}`, direction);
-              }}
-              onPointerUp={(event) => input.release(`pointer:${event.pointerId}`)}
-              onPointerCancel={(event) => input.release(`pointer:${event.pointerId}`)}
-              onLostPointerCapture={(event) => input.release(`pointer:${event.pointerId}`)}
-              onContextMenu={(event) => { event.preventDefault(); input.clear(); }}
+              onPointerDown={(event) => { if (event.isPrimary && event.button === 0) move(direction); }}
               // 포인터는 누를 때 처리한다. 키보드/보조기술의 click(detail=0)만 여기서 처리한다.
               onClick={(event) => { if (event.detail === 0) move(direction); }}>{glyph}</button>
           ))}
@@ -157,7 +143,6 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
         </div>
         <div className="return-controls">
           <button type="button" disabled={!session.running || !getReturnDestination(state, store.content)} onClick={() => {
-            input.clear();
             const result = loop.returnToCamp();
             setMessage(result.ok ? strings.returnSucceeded : loop.getSnapshot().ambushPending ? strings.returnAmbushBlocked : strings.returnUnavailable);
           }}>{strings.returnToCamp}</button>
