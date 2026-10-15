@@ -126,7 +126,7 @@ describe('기본 시간 엔진', () => {
 
   it('미배치·캐릭터 없음은 틱을 거부하며 아무 상태도 변경하지 않는다', () => {
     const ctx = mapContext(); const initial = createCampaign(ctx.content, [1,2,3,4],ctx.now);
-    for (const state of [initial, { ...initial, character: { position: null, stamina: { current: 0, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } }]) {
+    for (const state of [initial, { ...initial, character: { inventory: { stacks: {}, equipment: { feet: null } }, position: null, stamina: { current: 0, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } }]) {
       expect(dispatch(deepFreeze(state), { type: 'time/tick' }, ctx)).toEqual({ ok: false, state, reason: 'condition_not_met' });
       expect(() => advanceTime(state, 1, ctx, createRng(state.meta.rngState))).toThrow('배치');
     }

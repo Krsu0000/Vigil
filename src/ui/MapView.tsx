@@ -7,11 +7,12 @@ import { findFloor } from '../engine/systems/map/indexes.ts';
 import { findCell, requireTile } from '../engine/systems/map/selectors.ts';
 import { createVisibilityQuery } from '../engine/systems/map/visibility.ts';
 import { mapWindow } from './map-window.ts';
+import { findChest } from '../engine/systems/inventory/selectors.ts';
 import { strings } from './strings/index.ts';
 
 // 시간·자원만 갱신되면 지도를 재계산하지 않는다. 표시 범위만 DOM에 둔다.
-export const MapView = memo(function MapView({ content, map, position, memory }: {
-  content: ContentDb; map: DeepReadonly<MapDefinition>; position: MapPosition; memory: MapExploration;
+export const MapView = memo(function MapView({ content, map, position, memory, openedChests }: {
+  content: ContentDb; map: DeepReadonly<MapDefinition>; position: MapPosition; memory: MapExploration; openedChests?: Readonly<Record<string, true>>;
 }) {
   const floor = findFloor(map, position.floor)!;
   const viewport = useRef<HTMLDivElement>(null);
@@ -66,12 +67,14 @@ export const MapView = memo(function MapView({ content, map, position, memory }:
                 const seen = visibility(target);
                 // 미탐사 지형 정보는 DOM에도 넣지 않는다.
                 const tile = seen === 'unexplored' ? null : requireTile(content, findCell(map, target)!.tileId);
+                const chestId = seen === 'unexplored' ? undefined : findCell(map, target)?.chestId;
+                const chest = chestId && !openedChests?.[chestId] ? findChest(content, chestId) : undefined;
                 const player = x === position.x && y === position.y;
-                const label = tile ? `${player ? strings.player : tile.name} (${x}, ${y})` : strings.unexplored;
+                const label = tile ? `${player ? strings.player : chest?.name ?? tile.name} (${x}, ${y})` : strings.unexplored;
                 return <div role="gridcell" aria-colindex={x + 1} key={x} aria-label={label}
                   className={`map-cell is-${seen}${tile && !tile.walkable ? ' is-wall' : ''}${player ? ' is-player' : ''}`}
                   data-x={x} data-y={y} data-visibility={seen}>
-                  <span aria-hidden="true">{player ? strings.playerGlyph : tile?.walkable ? tile.glyph : ''}</span>
+                  <span aria-hidden="true">{player ? strings.playerGlyph : chest ? chest.glyph : tile?.walkable ? tile.glyph : ''}</span>
                 </div>;
               })}
             </div>;
@@ -83,6 +86,7 @@ export const MapView = memo(function MapView({ content, map, position, memory }:
       <span><i className="legend-current" />{strings.visible}</span>
       <span><i className="legend-explored" />{strings.explored}</span>
       <span><i className="legend-unknown" />{strings.unexplored}</span>
+      <span>{strings.chestLegend} · {strings.chestHint}</span>
     </div>
   </section>;
 

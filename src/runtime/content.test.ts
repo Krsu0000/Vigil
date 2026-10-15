@@ -10,7 +10,7 @@ describe('실행 환경의 콘텐츠 연결', () => {
     const result = loadGameContent();
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('실제 데이터 검증 실패');
-    expect(result.content.contentVersion).toBe('0.2.5');
+    expect(result.content.contentVersion).toBe('0.3.0');
     expect(result.content.timeRules.id).toBe('rules.time');
     expect(result.content.byId['map.s1_test']).toMatchObject({ kind: 'map', version: 1 });
     expect(result.content.byId['tile.wall']).toMatchObject({ walkable: false, blocksSight: true });
@@ -29,7 +29,7 @@ describe('실행 환경의 콘텐츠 연결', () => {
   });
 
   it('제품에 등록되지 않은 효과를 콘텐츠 로딩 단계에서 차단한다 (INV-16)', () => {
-    const sources = testSources([{ id: 'item.test', effects: [{ type: 'test/emit', params: {} }] }]);
+    const sources = testSources([{ id: 'example.test', effects: [{ type: 'test/emit', params: {} }] }]);
     const result = loadGameContent(sources);
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('미등록 효과가 통과함');
@@ -41,9 +41,9 @@ describe('실행 환경의 콘텐츠 연결', () => {
     const effects = createEffectRegistry({
       'test/checked': defineEffect({ params: z.strictObject({ amount: z.number().int().min(1) }), apply }),
     });
-    const valid = testSources([{ id: 'item.test', effects: [{ type: 'test/checked', params: { amount: 1 } }] }]);
+    const valid = testSources([{ id: 'example.test', effects: [{ type: 'test/checked', params: { amount: 1 } }] }]);
     expect(loadContent(valid, effects.validate).ok).toBe(true);
-    const invalid = testSources([{ id: 'item.test', effects: [{ type: 'test/checked', params: { amount: '1' } }] }]);
+    const invalid = testSources([{ id: 'example.test', effects: [{ type: 'test/checked', params: { amount: '1' } }] }]);
     const result = loadContent(invalid, effects.validate);
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('잘못된 매개변수가 통과함');

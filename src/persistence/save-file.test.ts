@@ -21,7 +21,7 @@ function fixture(): SaveFile {
   }, metadata);
 }
 
-describe('SaveFile v4 저장 계약', () => {
+describe('SaveFile v5 저장 계약', () => {
   it('직렬화 → 역직렬화 → Zod 검증 후 전체 세이브가 같다', () => {
     const save = deepFreeze(fixture());
     const restored = deserializeSave(serializeSave(save));
@@ -35,7 +35,7 @@ describe('SaveFile v4 저장 계약', () => {
     const state = initialState();
     const original = structuredClone(state);
     const save = createSaveFile(deepFreeze(state), deepFreeze(metadata));
-    expect(save).toMatchObject({ format: 'last-vigil-save', schemaVersion: 4, ...metadata });
+    expect(save).toMatchObject({ format: 'last-vigil-save', schemaVersion: 5, ...metadata });
     expect(save.state).toEqual(original);
     expect(save.state).not.toBe(state);
     expect(state).toEqual(original);
@@ -71,7 +71,7 @@ describe('SaveFile v4 저장 계약', () => {
   });
 
   it('null과 미배치 character·빈 expedition을 모두 보존한다', () => {
-    const state = { ...initialState(), character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const }, expedition: { pendingAmbush: null } };
+    const state = { ...initialState(), character: { inventory: { stacks: {}, equipment: { feet: null } }, position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const }, expedition: { pendingAmbush: null } };
     expect(restoreSave(serializeSave(createSaveFile(state, metadata)))).toEqual(state);
   });
 
@@ -95,7 +95,7 @@ describe('SaveFile v4 저장 계약', () => {
   });
 
   it('미래 버전을 낮추거나 현재 형식으로 읽지 않는다', () => {
-    const raw = { ...fixture(), schemaVersion: 5 };
+    const raw = { ...fixture(), schemaVersion: 6 };
     expect(() => parseSave(raw)).toThrow('미래 세이브 버전');
     expect(() => deserializeSave(JSON.stringify(raw))).toThrow('미래 세이브 버전');
   });

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { AutoSave } from '../runtime/auto-save.ts';
 import type { GameStore } from '../runtime/store.ts';
 import { initialMapId } from '../runtime/store.ts';
-import { bindMovementKeys } from '../runtime/input.ts';
+import { bindInteractionKeys, bindMovementKeys } from '../runtime/input.ts';
 import { browserClock, browserScheduler } from '../runtime/clock.ts';
 import { createGameLoop } from '../runtime/loop.ts';
 import { AmbushDialog } from './AmbushDialog.tsx';
@@ -10,6 +10,9 @@ import { SettingsDialog } from './SettingsDialog.tsx';
 import type { Direction } from '../engine/systems/map/actions.ts';
 import { currentLocation, findCell, getReturnDestination } from '../engine/systems/map/selectors.ts';
 import { MapView } from './MapView.tsx';
+import { InventoryDialog } from './InventoryDialog.tsx';
+import type { InventoryAction } from '../engine/systems/inventory/actions.ts';
+import { currentChest, findItem } from '../engine/systems/inventory/selectors.ts';
 import { strings } from './strings/index.ts';
 
 const controls: readonly { direction: Direction; glyph: string }[] = [
@@ -30,6 +33,10 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
     document.title = pendingAmbush ? `${strings.ambush} · ${strings.gameTitle}` : strings.gameTitle;
     return () => { document.title = previous; };
   }, [pendingAmbush]);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  useEffect(() => { if (pendingAmbush) setInventoryOpen(false); }, [pendingAmbush]);
+  const [lootedChestId, setLootedChestId] = useState<string | null>(null);
+  useEffect(() => { setLootedChestId(null); }, [state.character?.position]);
   const [message, setMessage] = useState<string>(strings.moveHelp);
   const move = useCallback((direction: Direction) => {
     const result = loop.move(direction);
@@ -41,6 +48,22 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
     }
   }, [loop]);
   useEffect(() => bindMovementKeys(window, move), [move]);
+  const inventoryAction = useCallback((action: InventoryAction) => {
+    const result = loop.inventoryAction(action);
+    if (!result.ok) { setMessage(strings.inventoryActionBlocked); return; }
+    const event = result.events.find(entry => entry.type.startsWith('inventory/'));
+    if (event?.type === 'inventory/looted') setLootedChestId(event.chestId);
+    setMessage(event?.type === 'inventory/used' ? strings.itemUsed + event.recovered :
+      event?.type === 'inventory/equipped' ? strings.itemEquipped :
+      event?.type === 'inventory/unequipped' ? strings.itemUnequipped : strings.lootReceived);
+  }, [loop]);
+  const interact = useCallback(() => {
+    const current = store.getSnapshot();
+    const chest = currentChest(current, store.content);
+    if (!chest || current.campaign.openedChests[chest.id]) return;
+    inventoryAction({ type: 'inventory/open_chest', chestId: chest.id });
+  }, [store, inventoryAction]);
+  useEffect(() => bindInteractionKeys(window, interact), [interact]);
   const settingsDialog = session.settingsOpen && <SettingsDialog persistent={persistent} autoSave={autoSave} content={store.content} onClose={() => loop.setSettingsOpen(false)} />;
   const location = currentLocation(state, store.content);
   const exploredCount = useMemo(() => location ? Object.keys(location.memory.visited).length : 0, [location?.memory]);
@@ -58,6 +81,8 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
   if (!zone || !('kind' in zone) || zone.kind !== 'zone') throw new Error('현재 구역 정의가 없다');
   const stamina = state.character!.stamina;
   const resting = state.character!.activity === 'resting';
+  const chest = currentChest(state, store.content);
+  const chestOpened = chest && state.campaign.openedChests[chest.id];
   const recoveryHint = !session.running ? strings.recoveryPaused : stamina.current === stamina.max ? strings.recoveryFull :
     resting ? strings.recoveryResting : strings.recoveryWaiting;
   const recoveryPerTick = zone.safety === 'safe' ? store.content.timeRules.stamina.safeRegenPerTick : resting ? store.content.timeRules.stamina.restRegenPerTick : store.content.timeRules.stamina.waitRegenPerTick;
@@ -69,10 +94,11 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
         <button type="button" onClick={() => loop.setPaused(!(session.paused || session.gapPaused))}>
           {session.paused || session.gapPaused || !session.running && !pendingAmbush ? strings.resume : strings.pause}
         </button>
+        <button type="button" onClick={() => setInventoryOpen(true)}>{strings.inventory}</button>
         <button type="button" onClick={() => loop.setSettingsOpen(true)}>{strings.settings}</button>
         {session.gapPaused && <p role="alert">{strings.heartbeatGap}</p>}
       </div>
-      <MapView content={store.content} map={map} position={position} memory={memory} />
+      <MapView content={store.content} map={map} position={position} memory={memory} openedChests={state.campaign.openedChests} />
       <aside className="travel-panel" aria-label={strings.exploration}>
         <p className="eyebrow">{strings.currentZone}</p>
         <h2>{zone.name}</h2>
@@ -84,6 +110,15 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
           <div><dt>{strings.stamina}</dt><dd data-testid="stamina">{state.character!.stamina.current} / {state.character!.stamina.max}</dd></div>
           <div><dt>{strings.gameTime}</dt><dd data-testid="game-time">{state.meta.gameTime}{strings.tickUnit}</dd></div>
         </dl>
+        {chest && <div className="chest-controls"><p>{chest.name}</p>
+          <button type="button" aria-keyshortcuts="Z Space" disabled={!session.running || !!chestOpened}
+            onClick={interact}>{strings.openChest}</button>
+          {chestOpened && <div data-testid="chest-status" role="status">{lootedChestId === chest.id ? <>
+            <p>{strings.chestLooted}</p>
+            <ul className="chest-loot">{chest.loot.map((entry, index) =>
+              <li key={`${entry.itemId}:${index}`}>{findItem(store.content, entry.itemId)!.name} ×{entry.quantity}</li>)}</ul>
+          </> : <p>{strings.chestEmpty}</p>}</div>}
+        </div>}
         <div className="movement-controls" role="group" aria-label={strings.move}>
           {controls.map(({ direction, glyph }) => (
             <button type="button" className={`move-${direction}`} key={direction}
@@ -128,6 +163,8 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
         onClose={() => setAmbushOpen(false)} onResolve={(result) => {
           if (loop.resolveAmbush(result).ok) setMessage(result === 'defeated' ? strings.defeatedResult : strings.escapedResult);
         }} />}
+      {inventoryOpen && !pendingAmbush && !session.settingsOpen && <InventoryDialog state={state} content={store.content}
+        enabled={session.running} onAction={inventoryAction} onClose={() => setInventoryOpen(false)} message={message} />}
       {settingsDialog}
     </div>
   );

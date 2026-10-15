@@ -27,7 +27,7 @@ describe('맵 최초 배치와 이동', () => {
 
   it('미배치 캐릭터도 첫 배치를 할 수 있다', () => {
     const ctx = mapContext();
-    const state = { ...createCampaign(ctx.content, [1, 2, 3, 4], ctx.now), character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } };
+    const state = { ...createCampaign(ctx.content, [1, 2, 3, 4], ctx.now), character: { inventory: { stacks: {}, equipment: { feet: null } }, position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } };
     expect(mapDispatch(state, { type: 'map/start', mapId: 'map.s1_test' }, ctx).ok).toBe(true);
   });
 
@@ -94,7 +94,7 @@ describe('맵 최초 배치와 이동', () => {
   it('캐릭터 없음·미배치·알 수 없는 방향은 변경 없이 거부한다', () => {
     const ctx = mapContext();
     const empty = createCampaign(ctx.content, [1, 2, 3, 4], ctx.now);
-    for (const state of [empty, { ...empty, character: { position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } }]) {
+    for (const state of [empty, { ...empty, character: { inventory: { stacks: {}, equipment: { feet: null } }, position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const } }]) {
       expect(mapDispatch(state, { type: 'move/step', direction: 'east' }, ctx).state).toBe(state);
     }
     const state = deepFreeze(startedState(ctx));
@@ -114,7 +114,7 @@ describe('맵 최초 배치와 이동', () => {
   it('맵 버전 불일치·손상된 현재 위치는 일반 이동 거부로 숨기지 않는다', () => {
     const ctx = mapContext();
     const state = startedState(ctx);
-    const mismatch: GameState = { ...state, campaign: { exploration: {
+    const mismatch: GameState = { ...state, campaign: { openedChests: {}, exploration: {
       'map.s1_test': { ...state.campaign.exploration['map.s1_test']!, mapVersion: 2 },
     } } };
     expect(() => mapDispatch(mismatch, { type: 'move/step', direction: 'east' }, ctx)).toThrow('버전');
@@ -135,7 +135,7 @@ describe('복원 상태와 실제 맵 대조', () => {
   it.each(['0:0:1', '0:99:1', '01:1:1', 'bad'])('잘못된 탐사 기록 %s를 콘텐츠와 대조해 거부한다', (key) => {
     const ctx = mapContext();
     const state = startedState(ctx);
-    const raw: GameState = { ...state, campaign: { exploration: {
+    const raw: GameState = { ...state, campaign: { openedChests: {}, exploration: {
       'map.s1_test': { mapVersion: 1, visited: { '0:1:1': true, [key]: true } },
     } } };
     expect(() => validateMapState(raw, ctx.content)).toThrow();
@@ -145,7 +145,7 @@ describe('복원 상태와 실제 맵 대조', () => {
     const ctx = mapContext();
     for (const [mapId, mapVersion] of [['map.missing', 1], ['map.s1_test', 2]] as const) {
       const state: GameState = { ...startedState(ctx), character: null,
-        campaign: { exploration: { [mapId]: { mapVersion, visited: {} } } } };
+        campaign: { openedChests: {}, exploration: { [mapId]: { mapVersion, visited: {} } } } };
       expect(() => validateMapState(state, ctx.content)).toThrow('맵 버전');
     }
   });

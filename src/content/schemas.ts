@@ -91,17 +91,37 @@ export const MapDefinitionSchema = DefinitionSchema.extend({
       y: nonnegativeInteger,
       tileId: namedId('tile'),
       zoneId: namedId('zone'),
+      chestId: namedId('chest').optional(),
     })).min(1),
   })).min(1),
 });
 
 // 구체적인 맵 정의가 S0 공통 외피로 처리되어 검증을 우회하지 못하게 한다.
+export const ItemDefinitionSchema = DefinitionSchema.extend({
+  kind: z.literal('item'), id: namedId('item'), name: text, description: text,
+  tags: z.array(text).min(1), weightGrams: nonnegativeInteger,
+  category: z.enum(['food', 'equipment']),
+  slot: z.literal('feet').optional(),
+  modifiers: z.array(z.strictObject({
+    target: z.literal('move_cost'), op: z.enum(['add', 'mul']),
+    value: z.number().finite(),
+  })).default([]),
+}).refine(item => item.category === 'food'
+  ? item.effects.length > 0 && item.slot === undefined && item.modifiers.length === 0
+  : item.slot !== undefined && item.effects.length === 0 && item.modifiers.length > 0,
+  { message: '음식에는 사용 효과, 장비에는 슬롯과 수정치가 필요하다' });
+
+export const ChestDefinitionSchema = DefinitionSchema.extend({
+  kind: z.literal('chest'), id: namedId('chest'), name: text, glyph: text,
+  loot: z.array(z.strictObject({ itemId: namedId('item'), quantity: positiveInteger })).min(1),
+}).refine(chest => chest.effects.length === 0, { message: '상자는 loot로만 아이템을 지급한다' });
+
 const GenericDefinitionSchema = DefinitionSchema.extend({ kind: z.undefined().optional() }).refine(
-  (definition) => !/^(map|tile|zone)\./.test(definition.id),
-  { message: 'map·tile·zone ID에는 해당 종류의 구체적인 정의가 필요하다', path: ['id'] },
+  (definition) => !/^(map|tile|zone|item|chest)\./.test(definition.id),
+  { message: 'map·tile·zone·item·chest ID에는 해당 종류의 구체적인 정의가 필요하다', path: ['id'] },
 );
 export const ContentDefinitionSchema = z.discriminatedUnion('kind', [
-  MapDefinitionSchema, TileDefinitionSchema, ZoneDefinitionSchema, GenericDefinitionSchema,
+  MapDefinitionSchema, TileDefinitionSchema, ZoneDefinitionSchema, ItemDefinitionSchema, ChestDefinitionSchema, GenericDefinitionSchema,
 ]);
 export const DefinitionsSchema = z.array(ContentDefinitionSchema);
 
@@ -112,3 +132,5 @@ export type ContentEffect = z.infer<typeof ContentEffectSchema>;
 export type MapDefinition = z.infer<typeof MapDefinitionSchema>;
 export type TileDefinition = z.infer<typeof TileDefinitionSchema>;
 export type ZoneDefinition = z.infer<typeof ZoneDefinitionSchema>;
+export type ItemDefinition = z.infer<typeof ItemDefinitionSchema>;
+export type ChestDefinition = z.infer<typeof ChestDefinitionSchema>;

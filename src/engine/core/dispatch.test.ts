@@ -96,7 +96,7 @@ describe('행동 처리', () => {
 
   it('처리기의 상태·사건은 유지하되 난수 상태는 실제 생성기의 상태로 기록한다', () => {
     const state = deepFreeze(initialState());
-    const nextCampaign = { exploration: {} };
+    const nextCampaign = { openedChests: {}, exploration: {} };
     const events: TestEvent[] = [{ type: 'test/plain' }];
     const run = createDispatcher<TestAction, TestEvent>({
       'test/check': {

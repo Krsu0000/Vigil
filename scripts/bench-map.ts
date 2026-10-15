@@ -25,7 +25,7 @@ for (const size of [32, 128, 512]) {
   const lookupMs = performance.now() - lookupAt;
   const state = createNewGameStore(loaded.content, [1, 2, 3, 4], () => 1_700_000_000_000).getSnapshot();
   const memory = { mapVersion: map.version, visited: Object.fromEntries(map.floors[0]!.cells.map(cell => [`0:${cell.x}:${cell.y}`, true as const])) };
-  const explored = { ...state, campaign: { exploration: { [map.id]: memory } } };
+  const explored = { ...state, campaign: { openedChests: {}, exploration: { [map.id]: memory } } };
   const validateAt = performance.now(); validateMapState(explored, loaded.content);
   const validateMs = performance.now() - validateAt;
   const visible = createVisibilityQuery(map, state.character!.position, memory, loaded.content);

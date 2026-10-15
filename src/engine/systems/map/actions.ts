@@ -43,6 +43,7 @@ export const mapHandlers: ActionHandlers<MapAction, MapEvent> = {
           } },
           character: state.character ? { ...state.character, position } : {
             position, stamina: createStamina(ctx.content), movedSinceLastTick: false, activity: 'waiting',
+            inventory: { stacks: {}, equipment: { feet: null } },
           },
         },
         events: [{ type: 'map/started', position }],

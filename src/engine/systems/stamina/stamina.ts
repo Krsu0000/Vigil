@@ -1,4 +1,5 @@
 import type { ContentDb } from '../../../content/types.ts';
+import { equipmentModifiers } from '../inventory/selectors.ts';
 import { computeValue } from '../../core/modifiers.ts';
 import type { GameState, MapPosition, StaminaState } from '../../core/state.ts';
 import { coordinateKey, findCell, findMap, requireZone } from '../map/selectors.ts';
@@ -19,17 +20,27 @@ export function getMoveCost(state: GameState, to: MapPosition, content: ContentD
   const map = findMap(content, to.mapId);
   const cell = map && findCell(map, to);
   if (!cell) throw new Error('이동 비용 대상 칸이 없다');
-  const rules = content.timeRules.stamina;
   const safe = requireZone(content, cell.zoneId).safety === 'safe';
   const explored = state.campaign.exploration[to.mapId]?.visited[coordinateKey(to)] === true;
+  return calculateMoveCost(state, content, safe, explored);
+}
+
+export function movementCosts(state: GameState, content: ContentDb) {
+  return { safe: calculateMoveCost(state, content, true, false),
+    unexplored: calculateMoveCost(state, content, false, false),
+    explored: calculateMoveCost(state, content, false, true) };
+}
+
+function calculateMoveCost(state: GameState, content: ContentDb, safe: boolean, explored: boolean): number {
+  const rules = content.timeRules.stamina;
   const base = safe ? rules.safeMoveCost : rules.unexploredMoveCost;
   // 기존 경로 가격도 콘텐츠 값이다. 기본 비용이 0이면 배율 대신 고정 증감을 쓴다.
   const mods = safe || !explored ? [] : [{
-    target: 'move_cost', source: to.mapId,
+    target: 'move_cost', source: 'explored_route',
     op: base === 0 ? 'add' as const : 'mul' as const,
     value: base === 0 ? rules.exploredMoveCost : rules.exploredMoveCost / base,
   }];
-  const cost = computeValue(base, mods, { round: 'round', min: 0 });
+  const cost = computeValue(base, [...(safe ? [] : equipmentModifiers(state, content, 'move_cost')), ...mods], { round: 'round', min: 0 });
   if (!Number.isSafeInteger(cost)) throw new Error('이동 비용은 0 이상의 안전한 정수여야 한다');
   return cost;
 }

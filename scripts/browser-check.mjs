@@ -6,6 +6,7 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
+import { checkInventory } from './browser-inventory.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const require = createRequire(import.meta.url);
@@ -91,7 +92,7 @@ try {
       await page.getByRole('button', { name: '파일로 내보내기', exact: true }).click();
       const download = await downloadPromise;
       const exported = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
-      assert.equal(exported.schemaVersion, 4);
+      assert.equal(exported.schemaVersion, 5);
       await page.locator('input[type=file]').setInputFiles({ name: 'roundtrip.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
       await page.getByRole('button', { name: '이 탐험으로 교체', exact: true }).click();
       await page.getByTestId('file-status').filter({ hasText: '가져왔' }).waitFor();
@@ -101,6 +102,8 @@ try {
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth));
       assert.deepEqual(errors, []);
       await page.screenshot({ path: path.join(artifacts, `app-${width}.png`), fullPage: true });
+      results.push(await checkInventory({ page, width, artifacts, readSlot, font }));
+      assert.deepEqual(errors, []);
       results.push({ width, input: true, saveDuringContinuousInput: true, fileRoundtrip: true, errors });
     } finally { await context.close(); }
   }

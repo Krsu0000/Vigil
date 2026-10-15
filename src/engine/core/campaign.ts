@@ -18,7 +18,7 @@ export function createCampaign(_content: ContentDb, seed: readonly number[], now
       lastActiveAt: now,
       settledUntil: now,
     },
-    campaign: { exploration: {} },
+    campaign: { exploration: {}, openedChests: {} },
     character: null,
     expedition: null,
   };

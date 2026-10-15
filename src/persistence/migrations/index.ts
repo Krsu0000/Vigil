@@ -3,6 +3,7 @@ import { CURRENT_SCHEMA_VERSION, SAVE_FORMAT } from '../format.ts';
 import { v1ToV2 } from './v1-to-v2.ts';
 import { v2ToV3 } from './v2-to-v3.ts';
 import { v3ToV4 } from './v3-to-v4.ts';
+import { v4ToV5 } from './v4-to-v5.ts';
 
 export { CURRENT_SCHEMA_VERSION, SAVE_FORMAT } from '../format.ts';
 
@@ -15,6 +16,7 @@ export const SAVE_MIGRATIONS: readonly SaveMigration[] = Object.freeze([
   Object.freeze({ fromVersion: 1, migrate: v1ToV2 }),
   Object.freeze({ fromVersion: 2, migrate: v2ToV3 }),
   Object.freeze({ fromVersion: 3, migrate: v3ToV4 }),
+  Object.freeze({ fromVersion: 4, migrate: v4ToV5 }),
 ]);
 
 const EnvelopeSchema = z.looseObject({

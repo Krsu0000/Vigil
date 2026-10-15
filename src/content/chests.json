@@ -1,0 +1,30 @@
+[
+  {
+    "kind": "chest",
+    "id": "chest.camp_supply",
+    "name": "보급 상자",
+    "glyph": "▣",
+    "loot": [
+      {
+        "itemId": "item.travel_ration",
+        "quantity": 3
+      },
+      {
+        "itemId": "item.trail_boots",
+        "quantity": 1
+      }
+    ]
+  },
+  {
+    "kind": "chest",
+    "id": "chest.ruins_supply",
+    "name": "폐허의 상자",
+    "glyph": "▣",
+    "loot": [
+      {
+        "itemId": "item.travel_ration",
+        "quantity": 2
+      }
+    ]
+  }
+]
