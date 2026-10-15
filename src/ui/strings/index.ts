@@ -1,5 +1,16 @@
 // UI 시스템 문구. 게임 콘텐츠 텍스트는 src/content/에 둔다 (architecture 6장).
 export const strings = {
+  saveFiles: '세이브 파일',
+  saveFilesHelp: 'JSON 파일로 탐험을 보관하거나 다른 브라우저·기기로 옮길 수 있습니다. 최대 10MB 파일을 가져올 수 있습니다.',
+  exportSave: '파일로 내보내기', chooseSaveFile: '가져올 파일 선택', applySaveFile: '이 탐험으로 교체', cancelImport: '가져오기 취소',
+  exportRequested: '파일 다운로드를 요청했습니다.', exportFailed: '파일을 내보내지 못했습니다. 다시 시도해 주세요.',
+  importPreview: '가져올 탐험 확인', savedTime: '파일 저장 시각', unplacedSave: '탐험 시작 전',
+  importReplaceHelp: '현재 탐험을 이 파일로 교체합니다. 현재 진행은 브라우저 백업 한 개에 보관되지만 이후 자동 저장으로 갱신됩니다. 계속 보관하려면 먼저 파일로 내보내 주세요. 거점 오프라인 시간은 적용할 때 정산합니다.',
+  importMemoryReplaceHelp: '현재 탐험을 이 파일로 교체합니다. 브라우저 저장을 사용할 수 없어 백업을 남길 수 없습니다. 현재 진행을 보관하려면 먼저 파일로 내보내 주세요. 거점 오프라인 시간은 적용할 때 정산합니다.',
+  importSucceeded: '파일의 탐험을 가져왔습니다. 설정창을 닫으면 이어서 플레이할 수 있습니다.',
+  importInvalid: '파일을 읽을 수 없거나 지원하지 않는 세이브입니다. 10MB 이하의 The Last Vigil JSON 파일인지 확인해 주세요. 현재 탐험은 유지했습니다.',
+  importWriteFailed: '파일을 적용하지 못했습니다. 현재 탐험은 유지했습니다. 저장 공간이나 다른 창의 저장 여부를 확인한 뒤 다시 시도해 주세요.',
+  processingSaveFile: '파일을 처리하는 중입니다. 잠시 기다려 주세요.',
   browserSave: '브라우저 저장', loadingSave: '저장한 탐험을 불러오는 중입니다.',
   saveLoadFailed: '저장한 탐험을 불러오지 못했습니다.',
   saveLoadHelp: '기존 저장 데이터는 보존했습니다. 다른 창을 닫거나 다시 접속해 주세요.',

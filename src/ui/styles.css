@@ -100,3 +100,15 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
 .save-status { margin-bottom: 16px; padding: 10px 14px; border: 1px solid #35363d; border-radius: 8px; font-size: 12px; line-height: 1.7; }
 .save-status p { margin: 0; }
 .save-status button { min-height: 44px; margin-top: 8px; padding: 0 16px; border: 1px solid #575963; border-radius: 8px; background: #292b33; }
+
+.save-files { margin: 20px 0; padding-top: 14px; border-top: 1px solid #575963; }
+.save-files h3, .save-files h4 { margin: 0 0 8px; }
+.save-file-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.save-files button { min-height: 44px; padding: 8px 12px; }
+.save-files button:disabled { opacity: .45; }
+.save-file-preview { margin-top: 14px; padding: 12px; border: 1px solid #777; border-radius: 8px; }
+.save-file-name, .save-file-preview dd { overflow-wrap: anywhere; }
+.save-file-preview dl { font-size: 12px; }
+.save-file-preview dl div { margin-bottom: 6px; }
+.save-file-preview dd { margin-left: 0; }
+.settings-dialog { box-sizing: border-box; max-height: calc(100dvh - 32px); overflow-y: auto; }

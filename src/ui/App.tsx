@@ -31,7 +31,7 @@ export function App({ contentErrors = [], store, loop, autoSave, persistent = fa
       )}
       {contentErrors.length === 0 && !startupError && !saveLoadError && store && <>
         {autoSave && <SaveStatus autoSave={autoSave} />}
-        <MapScreen store={store} loop={loop} persistent={persistent} />
+        <MapScreen store={store} loop={loop} persistent={persistent} autoSave={autoSave} />
       </>}
     </main>
   );
