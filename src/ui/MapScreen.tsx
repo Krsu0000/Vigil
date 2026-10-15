@@ -17,7 +17,7 @@ const controls: readonly { direction: Direction; glyph: string }[] = [
   { direction: 'south', glyph: '↓' }, { direction: 'east', glyph: '→' },
 ];
 
-export function MapScreen({ store }: { store: GameStore }) {
+export function MapScreen({ store, persistent = false }: { store: GameStore; persistent?: boolean }) {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const loop = useMemo(() => createGameLoop(store, browserClock, browserScheduler), [store]);
   const session = useSyncExternalStore(loop.subscribe, loop.getSnapshot, loop.getSnapshot);
@@ -148,14 +148,14 @@ export function MapScreen({ store }: { store: GameStore }) {
         <p className="movement-status" role="status">{message}</p>
         <p className="recovery-status" data-testid="recovery-status">{recoveryHint}</p>
         <p className="recovery-rules">{strings.tickLength} {store.content.timeRules.tickMs / 1000}{strings.secondsUnit} · {strings.recoveryInterval} {store.content.timeRules.stamina.recoveryIntervalMs / 1000}{strings.secondsUnit} · {strings.recoveryAmount} {recoveryPerTick}</p>
-        <p className="session-note">{strings.sessionOnly}</p>
+        <p className="session-note">{persistent ? strings.noOfflineYet : strings.sessionOnly}</p>
         <p className="time-note">{strings.liveRecovery}</p>
       </aside>
       {pendingAmbush && ambushOpen && !session.settingsOpen && <AmbushDialog
         onClose={() => setAmbushOpen(false)} onResolve={(result) => {
           if (loop.resolveAmbush(result).ok) setMessage(result === 'defeated' ? strings.defeatedResult : strings.escapedResult);
         }} />}
-      {session.settingsOpen && <SettingsDialog onClose={() => loop.setSettingsOpen(false)} />}
+      {session.settingsOpen && <SettingsDialog persistent={persistent} onClose={() => loop.setSettingsOpen(false)} />}
     </div>
   );
 }
