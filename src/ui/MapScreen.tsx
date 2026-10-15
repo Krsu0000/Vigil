@@ -124,7 +124,10 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false }: { s
         <div className="movement-controls" role="group" aria-label={strings.move}>
           {controls.map(({ direction, glyph }) => (
             <button type="button" className={`move-${direction}`} key={direction}
-              aria-label={strings[direction]} disabled={!session.running} onClick={() => move(direction)}>{glyph}</button>
+              aria-label={strings[direction]} disabled={!session.running}
+              onPointerDown={(event) => { if (event.isPrimary && event.button === 0) move(direction); }}
+              // 포인터는 누를 때 처리한다. 키보드/보조기술의 click(detail=0)만 여기서 처리한다.
+              onClick={(event) => { if (event.detail === 0) move(direction); }}>{glyph}</button>
           ))}
         </div>
         <div className="rest-controls">

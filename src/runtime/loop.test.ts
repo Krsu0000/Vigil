@@ -80,8 +80,8 @@ describe('실시간 틱·세션 제어', () => {
     expect(wall.store.getSnapshot().character!.stamina.current).toBe(881);
     const cooldown = setup(true, mapSources()); cooldown.clock.advance(1_000);
     expect(cooldown.loop.move('east').ok).toBe(true); const current = cooldown.store.getSnapshot().character!.stamina.current;
-    cooldown.clock.advance(100); expect(cooldown.loop.move('west')).toEqual({ ok: false, reason: 'cooldown' });
-    cooldown.clock.advance(1_899); expect(cooldown.store.getSnapshot().character!.stamina.current).toBe(current);
+    cooldown.clock.advance(99); expect(cooldown.loop.move('west')).toEqual({ ok: false, reason: 'cooldown' });
+    cooldown.clock.advance(1_900); expect(cooldown.store.getSnapshot().character!.stamina.current).toBe(current);
     cooldown.clock.advance(1); expect(cooldown.store.getSnapshot().character!.stamina.current).toBe(current + 1);
   });
 
@@ -271,10 +271,11 @@ describe('실시간 틱·세션 제어', () => {
     expect(store.getSnapshot()).toBe(before);
   });
 
-  it('이동 간격 199ms는 거부하고 200ms부터 허용하며 자원·탐사·난수를 보존한다', () => {
-    const { loop, clock, store } = setup();
+  it.each([100, 200, 500])('이동 간격 %ims 직전은 거부하고 경계부터 허용하며 자원·탐사·난수를 보존한다', interval => {
+    const sources = tenSecondSources(); sources['time-rules.json'].minimumMoveIntervalMs = interval;
+    const { loop, clock, store } = setup(false, sources);
     expect(loop.move('east').ok).toBe(true); const before = store.getSnapshot();
-    clock.advance(199); expect(loop.move('east')).toEqual({ ok: false, reason: 'cooldown' });
+    clock.advance(interval - 1); expect(loop.move('east')).toEqual({ ok: false, reason: 'cooldown' });
     expect(store.getSnapshot()).toBe(before);
     clock.advance(1); expect(loop.move('east').ok).toBe(true);
   });
