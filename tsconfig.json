@@ -27,6 +27,7 @@
     "src",
     "scripts",
     "vite.config.ts",
-    "tests/browser"
+    "tests/browser",
+    "tools"
   ]
 }

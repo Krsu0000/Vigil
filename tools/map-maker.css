@@ -1,0 +1,35 @@
+.map-maker { max-width:1040px; padding:24px; margin:auto; }
+.map-maker header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.map-maker h1 { font-size:21px; }
+.map-maker h2 { font-size:15px; margin:12px 0; }
+.map-maker a { color:inherit; padding:12px; }
+.maker-layout { display:grid; grid-template-columns:320px minmax(0,1fr); gap:28px; margin-top:16px; }
+.maker-fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
+.map-maker label { display:flex; flex-direction:column; gap:5px; font-size:12px; }
+.map-maker input { width:100%; min-width:0; min-height:44px; padding:8px; font-size:16px; border:1px solid #555; border-radius:0; background:#202020; color:inherit; }
+.map-maker button,.maker-play button { min-height:44px; }
+.map-maker p { line-height:1.6; }
+.map-maker form>button { margin-top:16px; width:100%; }
+.maker-result h2 { display:flex; justify-content:space-between; }
+.maker-result canvas { display:block; image-rendering:pixelated; width:100%; max-height:60dvh; object-fit:contain; background:#202020; margin:12px 0; }
+.maker-actions { display:flex; gap:10px; margin:16px 0; }
+.maker-actions button { flex:1; }
+.maker-file { margin:16px 0; }
+.maker-error { white-space:pre-wrap; overflow-wrap:anywhere; border-top:1px solid #aaa; padding:16px 0; }
+.maker-play { display:flex; flex-direction:column; height:100dvh; min-height:0; padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px); overflow:hidden; }
+.maker-play>header { display:flex; align-items:center; gap:16px; flex:none; padding:4px 12px; border-bottom:1px solid #555; }
+.maker-play>header span { color:#aaa; font-size:11px; margin-left:auto; }
+.maker-map { flex:1; min-height:0; }
+.maker-map>.map-panel,.maker-map .map-viewport { height:100%; }
+.maker-map .map-legend { display:none; }
+.maker-position { display:flex; justify-content:space-between; padding:8px 12px; font-size:12px; }
+.maker-move-message { padding:0 12px 4px; font-size:11px; }
+.maker-controls { display:flex; justify-content:center; align-items:stretch; gap:12px; flex:none; padding:8px 12px; }
+@media(max-width:760px) {
+  .map-maker { padding:16px; }
+  .maker-layout { grid-template-columns:1fr; gap:12px; }
+  .map-maker h1 { font-size:18px; }
+  .map-maker header { gap:12px; }
+  .map-maker a { white-space:nowrap; }
+  .maker-result canvas { max-height:55dvh; }
+}

@@ -10,6 +10,7 @@ import { checkInventory } from './browser-inventory.mjs';
 import { checkWalls } from './browser-walls.mjs';
 import { checkRecords } from './browser-records.mjs';
 import { checkMobile } from './browser-mobile.mjs';
+import { checkMaker } from './browser-maker.mjs';
 import { checkCombat } from './browser-combat.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -60,7 +61,7 @@ async function font(page) {
 }
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHROMIUM_EXECUTABLE ? { executablePath: process.env.BROWSER_CHROMIUM_EXECUTABLE } : {}) });
-  for (const width of process.env.BROWSER_SUITE === 'map' ? [] : [1440, 390, 320]) {
+  for (const width of ['map','maker'].includes(process.env.BROWSER_SUITE) ? [] : [1440, 390, 320]) {
     const context = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, hasTouch: width < 500, isMobile: width < 500 });
     try {
       const page = await context.newPage(), errors = [];
@@ -139,10 +140,11 @@ try {
       results.push({ width, input: true, saveDuringContinuousInput: true, fileRoundtrip: true, errors });
     } finally { await context.close(); }
   }
-  if (process.env.BROWSER_SUITE !== 'map') results.push(await checkMobile({ browser, url:distUrl, artifacts }));
+  if (!['map','maker'].includes(process.env.BROWSER_SUITE)) results.push(await checkMobile({ browser, url:distUrl, artifacts }));
+  if (process.env.BROWSER_SUITE !== 'map') results.push(...await checkMaker({ browser, url:distUrl, artifacts, readSlot }));
   dev = await createServer({ root, server: { host: '127.0.0.1', port: 0 } }); await dev.listen();
   const fixtureUrl = dev.resolvedUrls.local[0];
-  for (const size of [128, 512]) {
+  for (const size of process.env.BROWSER_SUITE === 'maker' ? [] : [128, 512]) {
     const context = await browser.newContext({ viewport: { width: 390, height: 900 }, isMobile: true, hasTouch: true });
     try {
       const page = await context.newPage(), errors = [];
