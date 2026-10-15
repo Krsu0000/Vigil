@@ -11,7 +11,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "validate:content": "node scripts/validate-content.ts",
-    "build": "vite build"
+    "build": "vite build",
+    "test:browser": "node scripts/browser-check.mjs",
+    "bench:map": "node scripts/bench-map.ts"
   },
   "dependencies": {
     "react": "19.3.0",

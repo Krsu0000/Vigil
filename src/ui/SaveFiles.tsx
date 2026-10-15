@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AutoSave } from '../runtime/auto-save.ts';
 import type { ContentDb } from '../content/types.ts';
-import { readSaveFile } from '../persistence/file-transfer.ts';
+import { readSaveFile } from '../runtime/read-save-file.ts';
 import { serializeSave } from '../persistence/save-file.ts';
 import type { SaveFile } from '../persistence/save-file.ts';
 import { strings } from './strings/index.ts';

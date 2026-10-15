@@ -1,10 +1,9 @@
 import type { ContentDb } from '../content/types.ts';
-import { validateMapState } from '../engine/systems/map/selectors.ts';
-import { validateActivityState } from '../engine/systems/rest/actions.ts';
-import { CURRENT_SCHEMA_VERSION, SAVE_FORMAT } from './format.ts';
-import { parseSave } from './save-file.ts';
-import type { SaveFile } from './save-file.ts';
-import type { SaveSlots } from './browser-repository.ts';
+import { validateStateContent } from './validate-state.ts';
+import { CURRENT_SCHEMA_VERSION, SAVE_FORMAT } from '../persistence/format.ts';
+import { parseSave } from '../persistence/save-file.ts';
+import type { SaveFile } from '../persistence/save-file.ts';
+import type { SaveSlots } from '../persistence/browser-repository.ts';
 
 export type LoadedSave = Readonly<{ save: SaveFile | null; source: 'primary' | 'backup' | 'empty'; previousValid: string | null; generation: number }>;
 
@@ -23,8 +22,7 @@ export function loadSaveSlots(slots: SaveSlots, content: ContentDb): LoadedSave 
     }
     try {
       const save = parseSave(decoded);
-      validateMapState(save.state, content);
-      validateActivityState(save.state, content);
+      validateStateContent(save.state, content);
       // 이전 객체 형식도 JSON으로 보존한다. 현재 포맷으로 검증/변환은 이미 완료했다.
       const previousValid = typeof raw === 'string' ? raw : JSON.stringify(save);
       return { save, source, previousValid, generation: slots.generation };

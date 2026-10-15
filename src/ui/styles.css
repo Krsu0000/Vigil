@@ -25,9 +25,10 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
 .map-description, .zone-description { color: #a3a4ad; font-size: 13px; line-height: 1.8; }
 .map-description { margin: 14px 0 24px; }
 .map-panel { --map-background: #303238; --map-explored: #45474f; --map-visible: #62656f; --map-wall: #000; }
-.map-viewport { min-height: 284px; display: flex; justify-content: center; align-items: center; background: var(--map-background); border: 1px solid #2e2f35; padding: 20px 8px; overflow: auto; }
-.map-grid { --cell-size: 32px; display: grid; grid-template-columns: repeat(var(--columns), var(--cell-size)); gap: 0; flex: 0 0 auto; }
-.map-row { display: contents; }
+.map-viewport { height: 284px; background: var(--map-background); border: 1px solid #2e2f35; padding: 0; overflow: auto; overscroll-behavior: contain; }
+.map-surface { position: relative; width: max-content; min-width: 100%; height: max-content; min-height: 100%; display: grid; place-items: center; padding: 20px 8px; }
+.map-grid { --cell-size: 32px; position: relative; width: calc(var(--columns) * var(--cell-size)); height: calc(var(--rows) * var(--cell-size)); }
+.map-row { display: flex; position: absolute; }
 .map-cell { width: var(--cell-size); height: var(--cell-size); display: flex; align-items: center; justify-content: center; font: 22px ui-monospace, monospace; }
 .map-cell.is-unexplored { background: var(--map-background); }
 .map-cell.is-explored { background: var(--map-explored); color: #b0b2bc; }
@@ -61,7 +62,8 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
   .exploration-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .map-panel, .travel-panel { padding: 20px; }
   .map-description { display: none; }
-  .map-viewport { min-height: 224px; margin-top: 20px; padding: 16px 0; }
+  .map-viewport { height: 224px; margin-top: 20px; }
+  .map-surface { padding: 16px 0; }
   .map-grid { --cell-size: clamp(24px, 7vw, 32px); }
   .travel-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; padding: 16px 20px; }
   .travel-panel > .eyebrow, .travel-panel > h2, .zone-label, .travel-details { grid-column: 1; margin: 0; }
@@ -82,7 +84,8 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
   .app-header { padding-bottom: 12px; margin-bottom: 12px; }
   .exploration-layout { gap: 12px; }
   .map-panel { padding: 16px; }
-  .map-viewport { min-height: 200px; margin-top: 12px; padding: 12px 0; }
+  .map-viewport { height: 200px; margin-top: 12px; }
+  .map-surface { padding: 12px 0; }
   .map-legend { margin-top: 12px; gap: 10px; }
 }
 

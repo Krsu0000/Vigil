@@ -1,5 +1,6 @@
 import type { MapDefinition, TileDefinition, ZoneDefinition } from '../../../content/schemas.ts';
 import type { ContentDb, DeepReadonly } from '../../../content/types.ts';
+import { indexedCell } from './indexes.ts';
 import type { GameState, MapPosition } from '../../core/state.ts';
 
 export function coordinateKey(position: Pick<MapPosition, 'floor' | 'x' | 'y'>): string {
@@ -12,9 +13,7 @@ export function findMap(content: ContentDb, mapId: string): DeepReadonly<MapDefi
 }
 
 export function findCell(map: DeepReadonly<MapDefinition>, position: Pick<MapPosition, 'floor' | 'x' | 'y'>) {
-  const floor = map.floors.find((candidate) => candidate.floor === position.floor);
-  if (!floor || position.x < 0 || position.y < 0 || position.x >= floor.width || position.y >= floor.height) return undefined;
-  return floor.cells.find((cell) => cell.x === position.x && cell.y === position.y);
+  return indexedCell(map, position);
 }
 
 export function requireTile(content: ContentDb, tileId: string): DeepReadonly<TileDefinition> {

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import v1 from './fixtures/v1-empty.json' with { type: 'json' };
-import v2 from './fixtures/v2-explored.json' with { type: 'json' };
-import v3 from './fixtures/v3-explored.json' with { type: 'json' };
+import v1 from '../persistence/fixtures/v1-empty.json' with { type: 'json' };
+import v2 from '../persistence/fixtures/v2-explored.json' with { type: 'json' };
+import v3 from '../persistence/fixtures/v3-explored.json' with { type: 'json' };
 import { mapContext, startedState } from '../engine/systems/map/test-fixtures.ts';
-import { createSaveFile, serializeSave } from './save-file.ts';
-import { MAX_SAVE_FILE_BYTES, readSaveFile } from './file-transfer.ts';
+import { createSaveFile, serializeSave } from '../persistence/save-file.ts';
+import { MAX_SAVE_FILE_BYTES, readSaveFile } from './read-save-file.ts';
 
 const ctx = mapContext();
 const save = createSaveFile(startedState(ctx), { saveId: startedState(ctx).meta.campaignId, revision: 3, savedAt: ctx.now, contentVersion: ctx.content.contentVersion });

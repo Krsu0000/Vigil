@@ -12,11 +12,11 @@ import type { TimeAction } from '../engine/systems/time/actions.ts';
 import type { TimeEvent } from '../engine/systems/time/advance.ts';
 import { staminaHandlers } from '../engine/systems/stamina/actions.ts';
 import type { StaminaAction, StaminaEvent } from '../engine/systems/stamina/actions.ts';
-import { restHandlers, validateActivityState } from '../engine/systems/rest/actions.ts';
+import { restHandlers } from '../engine/systems/rest/actions.ts';
 import type { RestAction, RestEvent } from '../engine/systems/rest/actions.ts';
 import { ambushHandlers } from '../engine/systems/ambush/actions.ts';
 import type { AmbushAction, AmbushEvent } from '../engine/systems/ambush/actions.ts';
-import { validateMapState } from '../engine/systems/map/selectors.ts';
+import { validateStateContent } from './validate-state.ts';
 import { GameStateSchema, restoreSave } from '../persistence/save-file.ts';
 
 export type RuntimeAction = MapAction | TimeAction | SettleAction | StaminaAction | RestAction | AmbushAction;
@@ -32,8 +32,7 @@ export type GameStore = Readonly<{
 
 export function createGameStore(content: ContentDb, initial: GameState, now: () => number): GameStore {
   let state: GameState = GameStateSchema.parse(initial);
-  validateMapState(state, content);
-  validateActivityState(state, content);
+  validateStateContent(state, content);
   const run = createDispatcher<RuntimeAction, RuntimeEvent>({ ...mapHandlers, ...timeHandlers, ...settleHandlers, ...staminaHandlers, ...restHandlers, ...ambushHandlers });
   const listeners = new Set<() => void>();
   const publish = (next: GameState) => {
@@ -54,8 +53,7 @@ export function createGameStore(content: ContentDb, initial: GameState, now: () 
     },
     restore(raw: unknown) {
       const restored = restoreSave(raw);
-      validateMapState(restored, content);
-      validateActivityState(restored, content);
+      validateStateContent(restored, content);
       // 모든 검증을 통과한 뒤 교체한다. 실패 시 원래 상태와 구독을 유지한다.
       publish(restored);
     },
