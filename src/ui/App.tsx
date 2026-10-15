@@ -1,13 +1,14 @@
 import { strings } from './strings/index.ts';
 import type { ContentError } from '../content/types.ts';
 import type { GameStore } from '../runtime/store.ts';
+import type { createGameLoop } from '../runtime/loop.ts';
 import type { AutoSave } from '../runtime/auto-save.ts';
 import { SaveStatus } from './SaveStatus.tsx';
 import { MapScreen } from './MapScreen.tsx';
 import './styles.css';
 
-export function App({ contentErrors = [], store, autoSave, persistent = false, loading = false, saveLoadError = false, startupError = false }: {
-  contentErrors?: readonly ContentError[]; store?: GameStore; autoSave?: AutoSave; persistent?: boolean; loading?: boolean; saveLoadError?: boolean; startupError?: boolean;
+export function App({ contentErrors = [], store, loop, autoSave, persistent = false, loading = false, saveLoadError = false, startupError = false }: {
+  contentErrors?: readonly ContentError[]; store?: GameStore; loop?: ReturnType<typeof createGameLoop>; autoSave?: AutoSave; persistent?: boolean; loading?: boolean; saveLoadError?: boolean; startupError?: boolean;
 }) {
   return (
     <main>
@@ -30,7 +31,7 @@ export function App({ contentErrors = [], store, autoSave, persistent = false, l
       )}
       {contentErrors.length === 0 && !startupError && !saveLoadError && store && <>
         {autoSave && <SaveStatus autoSave={autoSave} />}
-        <MapScreen store={store} persistent={persistent} />
+        <MapScreen store={store} loop={loop} persistent={persistent} />
       </>}
     </main>
   );

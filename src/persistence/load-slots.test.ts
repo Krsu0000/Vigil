@@ -10,12 +10,14 @@ const metadata={contentVersion:ctx.content.contentVersion,saveId:'00112233-4455-
 const save=serializeSave(createSaveFile(startedState(ctx),metadata));
 
 describe('브라우저 세이브 후보 검증·시작 복원',()=>{
-  it('유효한 primary를 우선하며 복원은 시각·난수/ID를 생성하지 않는다',async()=>{
+  it('유효한 primary를 복원한 뒤 현재 시각으로 한 번 정산하며 난수/ID는 생성하지 않는다',async()=>{
     const now=vi.fn(()=>ctx.now+86400000);const seed=vi.fn(()=>[9,8,7,6]);
     const repository={read:async()=>({primary:save,backup:'bad',generation:3}),write:vi.fn(),close:vi.fn()};
     const result=await loadSavedGame(ctx.content,repository,now,seed);
-    expect(result.loaded.source).toBe('primary');expect(result.store.getSnapshot()).toEqual(createSaveFile(startedState(ctx),metadata).state);
-    expect(now).not.toHaveBeenCalled();expect(seed).not.toHaveBeenCalled();expect(repository.write).not.toHaveBeenCalled();
+    expect(result.loaded.source).toBe('primary');expect(result.store.getSnapshot().meta.gameTime).toBe(43_200);
+    expect(result.store.getSnapshot().meta.settledUntil).toBe(ctx.now+86400000);
+    expect(result.store.getSnapshot().meta.rngState).toEqual(startedState(ctx).meta.rngState);
+    expect(now).toHaveBeenCalledTimes(2);expect(seed).not.toHaveBeenCalled();expect(repository.write).not.toHaveBeenCalled();
   });
 
   it.each(['{','null',JSON.stringify({...v3,state:{...v3.state,campaign:{exploration:{}}}})])('손상/위치 오류 %s는 유효한 백업으로 복구한다',(primary)=>{

@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0·S1 완료, S2 세 번째 단위 구현.** 휴식·대기/휴식 습격 판정·미처리 습격 게이트·임시 팝업을 연결했다(D-029). 현재 SaveFile은 v4이며 v1~v3 변환을 지원한다. S3 첫 단위의 IndexedDB·자동 저장·백업·시작 복원을 연결했다(D-030). 오프라인 정산·실제 전투·S2 사용자 재미 판정은 아직 없다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0·S1 완료, S2 세 번째 단위 구현.** 휴식·대기/휴식 습격 판정·미처리 습격 게이트·임시 팝업을 연결했다(D-029). 현재 SaveFile은 v4이며 v1~v3 변환을 지원한다. S3 첫 단위의 IndexedDB·자동 저장·백업·시작 복원을 연결했다(D-030). S3 두 번째 단위의 거점 오프라인 정산을 연결했다(D-031). 실제 전투·S2 사용자 재미 판정·S3 전체 완료는 아직 아니다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -235,7 +235,7 @@ export const dispatch: Dispatcher; // S0에서는 게임 처리기가 없는 기
 
 ## 4. 시간
 
-### 4.1 두 종류의 시간 `[실시간 구현됨 / 오프라인 설계]`
+### 4.1 두 종류의 시간 `[실시간·거점 오프라인 구현됨]`
 
 | 시간 | 단위 | 저장 위치 | 바꾸는 곳 | 쓰임 |
 |---|---|---|---|---|
@@ -262,20 +262,20 @@ export function advanceTime(state: GameState, ticks: number, ctx: EngineContext,
 - 한 행동에서 시간을 두 번 진행시키지 않는다. 시간을 쓰는 행동(예: 야영지 설치)은 처리기 안에서 `advanceTime`을 한 번만 호출한다.
 - `[구현됨]` `time/advance.ts`·`actions.ts`의 time/tick은 생략 시 1틱, ticks 지정 시 양의 안전한 정수만큼 advanceTime을 한 번 호출한다. 잘못된 틱 수는 invalid_action으로 거부한다. 배치된 캐릭터가 없으면 행동을 거부한다. advanceTime은 0틱에 같은 상태 참조를 반환하고 음수·소수·게임 시간 정수 상한 초과를 오류로 처리한다.
 - `[구현됨]` advanceTime은 gameTime·이동 표시·습격 상태·소비한 난수를 갱신하고 스태미나는 보존한다. time/advanced 사건의 기존 recovered 필드는 호환을 위해 유지하며 항상 0이다. 실제 회복 사건은 stamina/recovered다. movedSinceLastTick은 회복 판정에 쓰지 않고 위험지대 대기 습격의 이동 틱 제외에 쓴다(D-028·D-029).
-- runtime/loop.ts가 실제 2초 자동 루프를 연결했다. 위험지대 휴식·습격은 다음 단위이며 현재 위험지대 대기는 독립 회복 주기의 기본 회복만 한다. time/settle은 S3다.
+- runtime/loop.ts가 실제 2초 자동 루프를 연결했다. 위험지대 대기/휴식·습격은 D-029, 거점 오프라인 time/settle은 D-031에 따라 구현됐다.
 
-### 4.3 오프라인 정산 `[설계]`
+### 4.3 오프라인 정산 `[거점 구현됨 / 야영지·방치 작업 설계]`
 
-불러오기 직후, 또는 화면이 다시 보일 때 런타임이 `{ type: 'time/settle', to: now }`를 한 번 보낸다.
+`time/settle`은 `{ type: 'time/settle', from, to }`를 받는다. `from`은 런타임이 보장하는 마지막 상태 스냅샷/실행 시각이며 필수다. `settledUntil`만 시작점으로 쓰면 실시간으로 진행한 구간을 다시 지급하므로 사용하지 않는다(D-031).
 
-1. `from = meta.settledUntil`, `elapsed = to - from`.
-2. `elapsed <= 0`이면 아무것도 하지 않는다. 기기 시각이 뒤로 간 경우도 여기에 해당하며, 자원과 타이머를 되돌리지 않는다.
-3. `elapsed`를 최대 인정 시간(콘텐츠 값, 임시값 24시간. D-011)으로 자른다. 방치 작업의 완료 여부는 이 상한과 무관하게 종료 시각으로 판단한다.
-4. 위치가 거점 또는 보호 중인 야영지면 `elapsed`를 전역 틱 수와 회복 주기 수로 각각 바꿔 공통 시간·회복 계산을 조합한다. 야영지 보호가 도중에 끝나면 그 틱에서 멈춘다. 위험지대면 0틱이다.
-5. 종료 시각이 `to` 이전인 방치 작업을 완료 처리한다. 각 작업은 완료 표시가 있어 결과를 두 번 지급하지 않는다.
-6. `settledUntil = to`로 갱신한다.
+1. 실제 시작점은 `max(from, meta.settledUntil, meta.lastActiveAt)`이다. 시작 복원의 `from`은 SaveFile.savedAt이며, 열린 세션의 긴 안전 구역 공백에는 직전 실행 완료 시각을 전달한다. 마지막 실행 시각은 역행한 기기 시각으로 저장된 파일에서도 이미 실행한 구간을 보호한다.
+2. `to <= 시작점`이면 상태 값과 사건을 바꾸지 않는다. 시각 역행에도 기준 시각을 낮추지 않는다. `from/to`는 0 이상의 안전한 정수여야 한다.
+3. 경과 시간은 콘텐츠 `maxOfflineMs`(현재 24시간)로 자른다. 안전 구역에 배치돼 있고 미처리 습격이 없을 때만 전역 틱/독립 회복 간격으로 각각 나눠 내린다.
+4. `advanceTime`과 기존 stamina/recover 처리기를 조합한다. 현재 안전 구역은 중간 시각에 끝나는 효과가 없어 일괄 처리해도 순차 처리와 같다. 회복은 최대치에서 포화되며 전역 게임 시간은 인정된 틱만큼 진행한다. 난수를 소비하지 않는다. 위험지대·미배치 상태·미처리 습격에는 회복·게임 시간·습격 판정이 없다.
+5. 양의 구간은 보상이 없거나 상한을 넘더라도 `settledUntil = to`로 소비한다. 같은 구간/같은 시각 재정산은 지급하지 않는다. 부분 틱/회복 시간은 세션 재개와 같이 이월하지 않는다(D-028).
+6. 게임 시간 정수 상한을 넘으면 부분 지급 없이 거부한다. 저장/복원 함수 자체는 상태를 진행하지 않으며 별도 dispatch만 정산한다.
 
-같은 `to`로 두 번 호출해도 두 번째는 아무것도 하지 않는다(멱등). 과도한 시간 점프는 3번의 상한으로 제한한다.
+야영지의 유한 보호 시간·방치 작업 완료 처리는 해당 상태/콘텐츠가 생기는 S7/S8 범위다. 보호가 도중에 끝나는 시각에 정산을 분할해야 한다. 현재 일반 안전 구역 판정으로 미구현 야영지를 지원한다고 간주하지 않는다. 지속 피해·만료 효과 도입 때는 실시간과 같이 마감 순서로 조합해야 한다.
 
 ### 4.4 런타임의 시간 처리 `[구현됨]`
 
@@ -286,10 +286,10 @@ export type Clock = { wallNow(): number; monotonicNow(): number };
 
 - 실시간 틱은 `monotonicNow()`(= `performance.now()`) 차이로 센다.
 - 하트비트: 실행 중에는 일정 간격(임시값 15초)으로 `lastActiveAt`을 갱신하는 행동을 보낸다. 다음 하트비트까지의 간격이 유예 시간(임시값 2분)보다 길면, 위험지대에서는 그 공백을 정지로 처리하고 틱을 보내지 않는다(D-011).
-- runtime/clock.ts의 Clock·Scheduler를 주입한다. Store의 ctx.now 공급자와 루프는 같은 Clock을 사용한다. 하트비트 행동은 기존 lastActiveAt만 갱신하며 시각 역행 때는 이전 값을 유지한다. settledUntil은 S3 정산용으로 남겨 둔다.
+- runtime/clock.ts의 Clock·Scheduler를 주입한다. Store의 ctx.now 공급자와 루프는 같은 Clock을 사용한다. 하트비트 행동은 기존 lastActiveAt만 갱신하며 시각 역행 때는 이전 값을 유지한다. 하트비트는 settledUntil을 바꾸지 않는다. 정산은 별도 time/settle 경로다(D-031).
 - runtime/loop.ts의 createGameLoop가 세션 상태(수동 정지·설정창·공백 정지)와 부분 틱·이동 간격을 관리한다. 시작/종료는 멱등이며 취소된 콜백도 세대 번호로 무효화한다. MapScreen 효과의 시작→종료→시작에서도 활성 타이머는 하나다.
 - 타이머와 입력 모두 틱 처리 전에 하트비트 유예를 검사한다. 위험지대에서 유예 초과 시 공백의 모든 미처리 틱을 제외하고 공백 정지를 표시한다. 명시적인 재개가 필요하다. 정확히 유예와 같거나 유예 이하인 지연은 틱을 중복 없이 처리한다.
-- 안전 구역의 열려 있는 세션은 단조 시계의 지연분을 전역 틱/회복 마감 시각 순서로 처리한다. 창을 닫았다 여는 오프라인 정산·24시간 상한 적용은 S3의 time/settle에서 구현한다. 이 루프는 visibilitychange만으로 정지하지 않는다.
+- 안전 구역의 일반 지연은 단조 시계의 마감 순서로 처리한다. 하트비트 유예 초과의 긴 안전 구역 공백은 마지막 실행 완료 시각부터 time/settle로 24시간 상한/역행 정책을 적용한 뒤 실시간 기준을 다시 잡는다. 위험지대는 기존 공백 정지를 유지한다. visibilitychange에서 별도 정산을 중복 실행하지 않는다. 숨김 저장 전 loop.synchronize가 미처리 실행분을 먼저 처리하며, 보이기 후에는 다음 타이머/입력에서 같은 pump를 실행한다.
 - 수동 정지·설정창 정지 중에는 타이머·이동이 중단된다. 설정창을 닫아도 수동/공백 정지는 유지한다. 재개 시 부분 틱을 버리고 콘텐츠의 틱 간격(현재 2초)을 새로 세며 정지 구간은 소급하지 않는다. 일반 게임 창은 정지 요청을 보내지 않는 구조다. 현재 설정창과 습격 팝업을 구현했다. 미처리 습격의 진행 제한은 팝업 열림과 독립된 엔진 상태에 따른다(D-029).
 - 성공한 이동 뒤 minimumMoveIntervalMs(임시 200ms)보다 빠른 입력은 runtime에서 cooldown으로 거부한다. 벽·자원 부족 거부는 간격을 소비하지 않는다. 키보드·모바일은 같은 loop.move를 사용한다. 세션 거부는 엔진 호출 없이 자원·위치·탐사를 유지한다.
 - 테스트에서는 가짜 Clock·Scheduler로 경계·정지·공백·시각 역행·중복 타이머를 검사한다. 세션 상태·부분 틱·이동 간격은 저장하지 않는다(D-026). D-029의 활동·미처리 습격은 엔진에 저장하고 세이브 v4로 보존한다.
@@ -496,25 +496,25 @@ export type SaveFile = Readonly<{
 - `parseSave`는 먼저 JSON 데이터만 허용해 입력과 분리한 뒤 검증한다. 함수·Date·Map·Set·undefined·NaN·무한대를 JSON 변환으로 조용히 손실시키지 않는다. `GameStateSchema`는 기존 코어 타입과 호환되는지 TypeScript로 검사한다.
 - 콘텐츠 버전은 매니페스트와 같은 문자열 스키마로 검증하고 저장된 값을 보존한다. 콘텐츠 버전별 호환성 정책·콘텐츠 변환은 아직 없으며 구조 버전 변환과 구분한다.
 
-### 8.2 저장과 불러오기 `[메모리·브라우저 저장 구현됨 / 오프라인 정산 설계]`
+### 8.2 저장과 불러오기 `[메모리·브라우저 저장·거점 오프라인 정산 구현됨]`
 
 - `createSaveFile(state, metadata)`: contentVersion·saveId·revision·savedAt을 호출부에서 받아 검증된 독립 스냅샷을 만든다. ID나 시간을 내부에서 생성하지 않으며 게임 난수를 소비하지 않는다.
 - `serializeSave(save)`·`deserializeSave(json)`: 같은 검증 경로로 JSON 문자열을 쓰고 읽는다. `parseSave(raw)`는 객체를 받고, `restoreSave(raw)`는 객체 또는 JSON 문자열에서 `GameState`만 반환한다.
 - 객체·JSON 불러오기 순서: JSON 데이터·형식 확인 → 버전 변환 → 최종 Zod 검증. 실패하면 예외를 내고 부분 상태를 반환하지 않는다.
 - 저장·복원은 gameTime·lastActiveAt·settledUntil·rngState·revision·savedAt을 그대로 보존한다. 실제 저장마다 revision을 증가시키는 책임은 S3의 호출부에 있다. 왕복만으로 revision을 올리지 않는다.
 
-S3 첫 단위에서 다음 브라우저 저장/복원 규칙을 연결했다(D-030). 오프라인 time/settle과 파일 이동 UI는 아직 없다.
+S3 첫 단위에서 다음 브라우저 저장/복원 규칙을 연결했다(D-030). 거점 time/settle은 두 번째 단위(D-031), 파일 이동 UI는 후속 단위다.
 
 - 저장 시점: 행동이 처리될 때마다 짧은 지연(디바운스)을 두고 저장하고, 화면이 가려질 때(`visibilitychange`) 즉시 저장한다. 지연 시간은 임시값 1초다(D-010).
 - 새 세이브를 쓰기 전에 직전 세이브를 백업 슬롯 하나에 보관한다. 새 세이브를 읽지 못하면 백업을 불러온다(D-010).
-- 현재 불러오기 순서: 저장소 읽기 → primary/backup 후보의 형식/변환/구조/콘텐츠 검증 → `GameStore` 초기화 → 실제 루프 시작. time/settle 1회는 다음 단위에서 별도로 연결한다.
-- 저장과 불러오기 자체는 게임 시간을 바꾸지 않는다. 다음 단위의 오프라인 시간 변화는 time/settle에서 별도로 처리한다.
+- 현재 불러오기 순서: 저장소 읽기 → primary/backup 후보의 형식/변환/구조/콘텐츠 검증 → `GameStore` 초기화 → savedAt 기준 time/settle 1회 → 정산 결과 저장 시도 → 실제 루프 시작. 저장 실패는 기존 슬롯 보존/재시도 안내 후 메모리 플레이를 허용한다.
+- 저장과 불러오기 자체는 게임 시간을 바꾸지 않는다. 오프라인 시간 변화는 time/settle에서 별도로 처리한다.
 - persistence/browser-repository.ts는 DB last-vigil(구조 버전 1), save-slots의 primary/backup/generation을 다룬다. read는 같은 읽기 트랜잭션의 슬롯/세대를 반환한다. write는 세대 확인 뒤 새 primary·검증된 backup·다음 세대를 하나의 트랜잭션으로 커밋한다. 오류/다른 탭 충돌은 전체 취소한다.
 - persistence/load-slots.ts는 primary를 먼저 검증하고 손상/콘텐츠 불일치면 backup을 검사한다. 두 슬롯 모두 없을 때만 새 게임이다. 둘 다 오류 또는 미래 버전이면 기존 데이터를 유지하고 실패한다. 미래 버전을 이전 백업으로 되돌려 덮어쓰지 않는다.
-- runtime/startup.ts는 검증된 저장을 복원하거나 빈 저장소에서 새 캠페인을 만든다. 복원은 새 시드/ID/현재 시각을 생성하지 않는다. IndexedDB 연결 불가 시 메모리 플레이와 저장 불가 안내를 제공한다.
+- runtime/startup.ts는 검증된 저장을 복원하거나 빈 저장소에서 새 캠페인을 만든다. 복원 자체는 새 시드/ID를 생성하지 않으며, 이어지는 정산에 현재 시각을 별도로 주입한다. IndexedDB 연결 불가 시 메모리 플레이와 저장 불가 안내를 제공한다.
 - runtime/auto-save.ts는 Store 구독·1초 디바운스·숨김 이벤트·쓰기 직렬화·revision/savedAt/saveId·저장 상태 구독을 담당한다. 성공 쓰기 뒤에만 revision/세대/직전 유효 문자열을 갱신한다. 실패는 UI에 알리고 명시적 재시도까지 자동 반복을 멈춘다. StrictMode 효과 정리는 즉시 저장 조건이 아니다.
-- ui/SaveStatus.tsx는 저장 상태·백업 복원 안내·재시도를 표시한다. 오프라인 회복 미지원 안내를 유지한다. 부분 틱/수동 정지/팝업 열림은 저장하지 않는다.
-- 오프라인 연결 시 savedAt과 settledUntil을 기준으로 실제 저장 이후 구간만 정산해 실시간 진행 중복 지급을 막아야 한다. 아직 이를 구현한 것으로 표시하지 않는다.
+- ui/SaveStatus.tsx는 저장 상태·백업 복원 안내·재시도를 표시한다. 거점 최대 24시간 회복/위험 구역 닫힌 시간 제외 안내를 표시한다. 부분 틱/수동 정지/팝업 열림은 저장하지 않는다.
+- auto-save는 초기 정산으로 settledUntil이 달라지면 구독 시작 전에도 저장 대상으로 삼는다. main에서 만든 동일 루프를 UI와 저장에 주입하며, beforeSnapshot으로 미처리 실행분을 반영한 뒤 savedAt/상태를 함께 캡처한다. 상태 변경이 없는 정지 중에도 숨김 이벤트는 시각 체크포인트를 남긴다. 부분 틱/정지 구간을 저장 시각 뒤로 다시 지급하지 않는다.
 
 ### 8.3 버전 변환 `[체인 구조 구현됨]`
 
@@ -555,7 +555,7 @@ S3 첫 단위에서 다음 브라우저 저장/복원 규칙을 연결했다(D-0
 | Content | `src/content/` | 없음(ContentDb) | S0 기반, S1 맵 정의 | 기반·맵/타일/구역·배치 검증 구현됨 |
 | Persistence | `src/persistence/` | 없음(SaveFile) | S0 계약, S1/S2 확장, S3 브라우저 저장 | v4·메모리/IndexedDB·v1/v2/v3 변환·자동 저장/백업 구현됨 |
 | Map & Visibility | `src/engine/systems/map/` | `campaign.exploration`, `character.position` | S1 | 배치·이동·A안 안개·실제 콘텐츠 대조 구현됨 |
-| Time | `src/engine/systems/time/` | `meta.gameTime`·`lastActiveAt`, 이후 `settledUntil` | S2 | advanceTime·일괄 time/tick·하트비트 구현됨. 정산은 S3 |
+| Time | `src/engine/systems/time/` | `meta.gameTime`·`lastActiveAt`·`settledUntil` | S2 | advanceTime·일괄 time/tick·하트비트·거점 time/settle 구현됨 |
 | Stamina & Rest | `src/engine/systems/stamina/`·`rest/` | `character.stamina`·`activity` | S2 | 비용·소모·독립 대기/휴식 회복 구현됨 |
 | Ambush/Rest | `src/engine/systems/ambush/`·`rest/` | character.activity·expedition.pendingAmbush | S2 | 판정·휴식·게이트·임시 팝업 연결됨(D-029) |
 | Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠·GameStore·입력·틱 루프·정지·공백·이동 간격 구현됨 |
@@ -580,9 +580,9 @@ S3 첫 단위에서 다음 브라우저 저장/복원 규칙을 연결했다(D-0
 | INV-04 | 같은 상태, 같은 행동, 같은 `ctx`에서 `dispatch`는 같은 결과를 돌려준다 | 확정 | `[구현됨]` `core/dispatch.test.ts` |
 | INV-05 | `GameState`는 JSON 직렬화 후 복원해도 같다 | 확정 | `[구현됨]` `core/state.test.ts` |
 | INV-06 | 저장 후 불러오기 왕복 시 상태가 같고, 게임 시간이 바뀌지 않는다 | 확정 | `[구현됨]` `persistence/save-file.test.ts`, `migration-roundtrip.test.ts` |
-| INV-07 | 오프라인 정산은 멱등이다. 같은 `to`로 두 번 정산해도 결과는 한 번 정산한 것과 같다 | 확정 | `time/settle.test.ts` |
-| INV-08 | 기기 시각이 뒤로 가도 자원, 타이머, 게임 시간이 줄거나 늘지 않는다 | 확정 | `time/settle.test.ts` |
-| INV-09 | 위험지대에서 실행되지 않은 시간(창 닫힘, 하트비트 공백)에는 회복도 습격 판정도 없다 | 확정 | `time/settle.test.ts`, `runtime/*.test.ts` |
+| INV-07 | 오프라인 정산은 멱등이다. 같은 `to`로 두 번 정산해도 결과는 한 번 정산한 것과 같다 | 확정 | `time/settle.test.ts`, `runtime/startup.test.ts` |
+| INV-08 | 기기 시각이 뒤로 가도 자원, 타이머, 게임 시간이 줄거나 늘지 않는다 | 확정 | `time/settle.test.ts`, `runtime/startup.test.ts` |
+| INV-09 | 위험지대에서 실행되지 않은 시간(창 닫힘, 하트비트 공백)에는 회복도 습격 판정도 없다 | 확정 | `time/settle.test.ts`, `runtime/startup.test.ts`, `runtime/*.test.ts` |
 | INV-10 | 정지 중에는 Game Time 기반 효과가 진행되지 않고, 방치 작업만 진행된다 | 확정 | `runtime/*.test.ts` |
 | INV-11 | 방치 작업의 결과는 한 번만 지급된다 | 확정 | `idle/*.test.ts` |
 | INV-12 | 방치 작업의 결과로 영구 사망이 일어나지 않는다 | 확정 | `idle/*.test.ts` |
@@ -624,4 +624,4 @@ D-029 승인에 따라 CharacterState.activity·ExpeditionState.pendingAmbush와
 - 임시 ambush/resolve의 defeated/escaped는 pendingAmbush만 해제하고 사건을 반환한다. 위치·자원·시간·난수는 유지한다. runtime은 해결 후 전체 간격부터 재개하고 수동/설정 정지를 유지한다.
 - Store 생성/복원은 구조·탐사·실제 위험 구역 검증을 모두 통과해야 한다. 휴식은 위치 있음·위험 구역·최대치 미만이어야 하고, 미처리 습격은 위치 있음·위험 구역·waiting·triggeredAt≤gameTime이어야 한다.
 - 팝업 열림은 React의 일시적 UI 상태다. 닫기/ESC 뒤에도 엔진 게이트·앱 안내·재열기 버튼과 탭 제목 알림이 남는다. OS 알림 권한은 사용하지 않는다.
-- 임시 확률은 time-rules.json의 대기 2%·휴식 10%/전역 틱이다. 지역별 보정·실제 전투·원정 수명 주기·IndexedDB·오프라인 정산은 후속 단계다.
+- 임시 확률은 time-rules.json의 대기 2%·휴식 10%/전역 틱이다. 지역별 보정·실제 전투·원정 수명 주기는 후속 단계다. IndexedDB·거점 오프라인 정산은 D-030/031에서 연결했다.
