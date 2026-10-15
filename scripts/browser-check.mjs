@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { checkInventory } from './browser-inventory.mjs';
+import { checkWalls } from './browser-walls.mjs';
 import { checkRecords } from './browser-records.mjs';
 import { checkCombat } from './browser-combat.mjs';
 
@@ -104,6 +105,7 @@ try {
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth));
       assert.deepEqual(errors, []);
       await page.screenshot({ path: path.join(artifacts, `app-${width}.png`), fullPage: true });
+      results.push(await checkWalls({ page, width, artifacts }));
       const nav = page.getByRole('navigation', { name: '주 메뉴' });
       await nav.getByRole('button', { name: '캐릭터', exact: true }).click();
       if (width > 760) {
@@ -159,10 +161,11 @@ try {
       const far = page.locator(`[data-x="${size - 1}"][data-y="${size - 1}"]`);
       assert.equal(await far.getAttribute('data-visibility'), 'unexplored');
       assert(!await far.getAttribute('class').then(value => value.includes('is-wall')));
+      assert.equal(await far.locator('.wall-object').count(), 0);
       assert.equal(await far.getAttribute('aria-colindex'), String(size));
       await page.keyboard.press('ArrowRight');
       await page.locator('.map-cell.is-player').waitFor();
-      assert.equal(await page.locator('[data-x="1"][data-y="0"]').getAttribute('data-visibility'), 'unexplored');
+      assert.equal(await page.locator('[data-x="1"][data-y="0"]').getAttribute('data-visibility'), 'explored');
       const followed = await page.locator('.map-cell.is-player').evaluate(element => {
         const a = element.getBoundingClientRect(), b = element.closest('.map-viewport').getBoundingClientRect();
         return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom;

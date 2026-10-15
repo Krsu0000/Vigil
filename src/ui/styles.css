@@ -270,7 +270,7 @@ small,.muted,.empty-note {
   color:#111;
 }
 .map-cell.is-wall {
-  background:#7c7c7c;
+  background:transparent;
 }
 .map-cell.is-player {
   font:600 24px/1 'Segoe UI Symbol',serif;
@@ -1240,8 +1240,14 @@ small,.muted,.empty-note {
   background:#626262;
   color:#f2f2f2;
 }
-.map-cell.is-wall {
-  background:#c8c8c8;
+/* 확인한 길 둘레에 같은 1칸 크기의 막힌 벽 타일을 이어 표시한다. */
+.map-viewport { background:#202020; }
+.map-cell.is-wall { background:transparent; }
+.wall-object {
+  display:block;
+  width:100%;
+  height:100%;
+  background:#969696;
 }
 .map-cell.is-player {
   background:#f0f0f0;

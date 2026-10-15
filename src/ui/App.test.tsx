@@ -47,7 +47,7 @@ describe('App', () => {
     expect(hidden).not.toContain('tile.wall');
   });
 
-  it('이동 후 시야 밖 벽을 숨기고 탐사한 칸 수에는 추가하지 않는다', () => {
+  it('이동 후 길의 벽 경계를 표시하되 탐사한 칸 수에는 추가하지 않는다', () => {
     const ctx = mapContext();
     const store = createNewGameStore(ctx.content, [1, 2, 3, 4], () => ctx.now);
     store.dispatch({ type: 'move/step', direction: 'east' });
@@ -55,9 +55,9 @@ describe('App', () => {
     const html = renderToString(<App store={store} />);
     const wall = html.match(/<div role="gridcell"[^>]*data-x="1"[^>]*data-y="0"[^>]*>.*?<\/div>/)?.[0];
     expect(wall).toBeDefined();
-    expect(wall).toContain('is-unexplored');
-    expect(wall).not.toContain('is-wall');
-    expect(wall).not.toContain('벽 (1, 0)');
+    expect(wall).toContain('is-explored is-wall');
+    expect(wall).toContain('wall-object');
+    expect(wall).toContain('벽 (1, 0)');
     expect(Object.keys(store.getSnapshot().campaign.exploration['map.s1_test']!.visited)).toHaveLength(3);
   });
 

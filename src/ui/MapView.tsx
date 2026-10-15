@@ -82,7 +82,7 @@ export const MapView = memo(function MapView({ content, map, position, memory, o
                 return <div role="gridcell" aria-colindex={x + 1} key={x} aria-label={label}
                   className={`map-cell is-${seen}${tile && !tile.walkable ? ' is-wall' : ''}${player ? ' is-player' : ''}`}
                   data-x={x} data-y={y} data-visibility={seen}>
-                  <span aria-hidden="true">{player ? strings.playerGlyph : enemy ? enemy.glyph : chest ? chest.glyph : tile?.walkable ? tile.glyph : ''}</span>
+                  <span aria-hidden="true" className={tile && !tile.walkable ? 'wall-object' : undefined}>{player ? strings.playerGlyph : enemy ? enemy.glyph : chest ? chest.glyph : tile?.walkable ? tile.glyph : ''}</span>
                 </div>;
               })}
             </div>;
