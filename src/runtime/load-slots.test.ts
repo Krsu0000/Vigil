@@ -1,7 +1,7 @@
 import { describe,expect,it,vi } from 'vitest';
-import v3 from './fixtures/v3-explored.json' with {type:'json'};
+import v3 from '../persistence/fixtures/v3-explored.json' with {type:'json'};
 import { mapContext,startedState,walk } from '../engine/systems/map/test-fixtures.ts';
-import { createSaveFile,serializeSave } from './save-file.ts';
+import { createSaveFile,serializeSave } from '../persistence/save-file.ts';
 import { loadSaveSlots } from './load-slots.ts';
 import { loadSavedGame } from '../runtime/startup.ts';
 

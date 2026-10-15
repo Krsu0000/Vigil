@@ -1,5 +1,5 @@
 import type { SaveRepository } from '../persistence/browser-repository.ts';
-import type { LoadedSave } from '../persistence/load-slots.ts';
+import type { LoadedSave } from './load-slots.ts';
 import { createSaveFile, parseSave, serializeSave } from '../persistence/save-file.ts';
 import type { SaveFile } from '../persistence/save-file.ts';
 import { createGameStore } from './store.ts';
@@ -33,6 +33,8 @@ export function createAutoSave(store: GameStore, repository: SaveRepository | nu
   let active = false;
   let unsubscribe: (() => void) | undefined;
   let timer: unknown;
+  let maxTimer: unknown;
+  let maxEpoch = 0;
   let pending: Promise<boolean> | undefined;
   let importing = false;
   let epoch = 0;
@@ -41,7 +43,13 @@ export function createAutoSave(store: GameStore, repository: SaveRepository | nu
     status = Object.freeze({ ...status, ...patch });
     for (const listener of [...listeners]) listener();
   };
-  const cancel = () => { epoch += 1; if (timer !== undefined) scheduler.cancel(timer); timer = undefined; };
+  const cancelDebounce = () => { epoch += 1; if (timer !== undefined) scheduler.cancel(timer); timer = undefined; };
+  const cancel = () => {
+    cancelDebounce();
+    maxEpoch += 1;
+    if (maxTimer !== undefined) scheduler.cancel(maxTimer);
+    maxTimer = undefined;
+  };
   const save = async (): Promise<boolean> => {
     if (importing) return false;
     if (!repository) return false;
@@ -52,7 +60,7 @@ export function createAutoSave(store: GameStore, repository: SaveRepository | nu
       return save();
     }
     try { beforeSnapshot(); }
-    catch { dirty = true; publish({ phase: 'error' }); return false; }
+    catch { cancel(); dirty = true; publish({ phase: 'error' }); return false; }
     cancel();
     if (!dirty) return true;
     dirty = false;
@@ -71,6 +79,7 @@ export function createAutoSave(store: GameStore, repository: SaveRepository | nu
         publish({ phase: 'saved', savedAt });
         return true;
       } catch {
+        cancel();
         dirty = true;
         publish({ phase: 'error' });
         return false;
@@ -82,9 +91,18 @@ export function createAutoSave(store: GameStore, repository: SaveRepository | nu
   };
   const changed = () => {
     dirty = true;
-    cancel();
+    cancelDebounce();
     if (!active || importing || !repository || status.phase === 'error') return;
     if (status.phase !== 'saving') publish({ phase: 'idle' });
+    // 연속 조작도 첫 변경 뒤 최대 5초에 저장을 시도한다. 쓰기 완료 보장과는 구분한다.
+    if (maxTimer === undefined) {
+      const maxToken = maxEpoch;
+      maxTimer = scheduler.schedule(() => {
+        if (!active || maxToken !== maxEpoch) return;
+        maxTimer = undefined;
+        void save();
+      }, 5_000);
+    }
     const token = epoch;
     timer = scheduler.schedule(() => {
       if (!active || token !== epoch) return;
@@ -153,6 +171,7 @@ export function createAutoSave(store: GameStore, repository: SaveRepository | nu
         publish({ phase: repository ? 'saved' : 'unavailable', savedAt: importedAt, recovered: false });
         return true;
       } catch {
+        cancel();
         dirty = true;
         publish({ phase: repository ? 'error' : 'unavailable' });
         return false;

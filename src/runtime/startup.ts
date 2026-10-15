@@ -1,7 +1,7 @@
 import type { ContentDb } from '../content/types.ts';
 import type { SaveRepository } from '../persistence/browser-repository.ts';
-import { loadSaveSlots } from '../persistence/load-slots.ts';
-import type { LoadedSave } from '../persistence/load-slots.ts';
+import { loadSaveSlots } from './load-slots.ts';
+import type { LoadedSave } from './load-slots.ts';
 import { createGameStore, createNewGameStore } from './store.ts';
 
 export async function loadSavedGame(content: ContentDb, repository: SaveRepository | null,

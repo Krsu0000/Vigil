@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mapContext } from '../engine/systems/map/test-fixtures.ts';
 import { createNewGameStore } from './store.ts';
 import { createAutoSave } from './auto-save.ts';
@@ -21,7 +21,7 @@ function setup() {
   const visibility = { hidden:false, addEventListener:vi.fn(),removeEventListener:vi.fn() };
   const loaded = { save:null,source:'empty' as const,previousValid:null,generation:0 };
   const auto = createAutoSave(store,repository,loaded,()=>now,scheduler,visibility,()=>ctx.now === now ? store.getSnapshot().meta.campaignId : 'bad');
-  const fire = async () => { const entry=[...tasks][0]; if(entry){tasks.delete(entry[0]);entry[1]();} await new Promise(resolve=>setTimeout(resolve,0)); };
+  const fire = async () => { const entry=[...tasks].at(-1); if(entry){tasks.delete(entry[0]);entry[1]();} await new Promise(resolve=>setTimeout(resolve,0)); };
   return { store,repository,auto,scheduler,visibility,tasks,cancelled,fire,clock:(value:number)=>{now=value;},slots:()=>({primary,backup,generation}) };
 }
 
@@ -29,7 +29,7 @@ describe('자동 저장 연결부', () => {
   it('성공 행동을 1초로 모으고 직전 유효 세이브를 백업 한 개에 원자적으로 전달한다', async () => {
     const t=setup();t.auto.start();await t.auto.flush();const first=t.slots().primary;
     t.store.dispatch({type:'move/step',direction:'east'});t.store.dispatch({type:'move/step',direction:'east'});
-    expect(t.tasks.size).toBe(1);expect(t.scheduler.schedule).toHaveBeenLastCalledWith(expect.any(Function),1000);
+    expect(t.tasks.size).toBe(2);expect(t.scheduler.schedule).toHaveBeenLastCalledWith(expect.any(Function),1000);
     expect(t.slots().primary).toBe(first);await t.fire();
     const slots=t.slots();expect(slots.backup).toBe(first);expect(deserializeSave(slots.primary!).revision).toBe(2);
     expect(deserializeSave(slots.primary!).state).toEqual(t.store.getSnapshot());
@@ -87,5 +87,28 @@ describe('자동 저장 연결부', () => {
     const auto=createAutoSave(t.store,null,loaded,()=>0,t.scheduler,t.visibility,()=>t.store.getSnapshot().meta.campaignId);
     auto.start();t.store.dispatch({type:'move/step',direction:'east'});expect(await auto.flush()).toBe(false);
     expect(auto.getSnapshot().phase).toBe('unavailable');expect(t.tasks.size).toBe(0);
+  });
+});
+
+
+describe('연속 조작의 저장 상한', () => {
+  afterEach(() => vi.useRealTimers());
+  it('1초 미만 간격으로 계속 이동해도 첫 변경부터 5초에 저장하고 다음 변경도 새 상한으로 저장한다', async () => {
+    vi.useFakeTimers();
+    const t = setup();
+    let now = 0;
+    const auto = createAutoSave(t.store, t.repository, { save: null, source: 'empty', previousValid: null, generation: 0 },
+      () => 1_700_000_000_000 + now,
+      { schedule: (cb, delay) => setTimeout(cb, delay), cancel: handle => clearTimeout(handle as ReturnType<typeof setTimeout>) },
+      t.visibility, () => t.store.getSnapshot().meta.campaignId);
+    await auto.flush(); auto.start();
+    const writes = vi.mocked(t.repository.write);
+    for (let i = 0; i < 100; i += 1) {
+      t.store.dispatch({ type: 'move/step', direction: i % 2 ? 'west' : 'east' });
+      now += 100; await vi.advanceTimersByTimeAsync(100);
+      expect(writes).toHaveBeenCalledTimes(1 + Math.floor((i + 1) / 50));
+    }
+    auto.stop(); await vi.advanceTimersByTimeAsync(10_000);
+    expect(writes).toHaveBeenCalledTimes(3);
   });
 });
