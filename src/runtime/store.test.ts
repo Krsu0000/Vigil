@@ -79,7 +79,7 @@ describe('GameStore', () => {
     const notify = vi.fn();
     store.subscribe(notify);
     const save = createSaveFile(before, metadata);
-    const mismatch = { ...save, state: { ...save.state, campaign: { exploration: {
+    const mismatch = { ...save, state: { ...save.state, campaign: { openedChests: {}, exploration: {
       'map.s1_test': { ...save.state.campaign.exploration['map.s1_test']!, mapVersion: 2 },
     } } } };
     for (const raw of ['{', mismatch]) {
@@ -104,7 +104,7 @@ describe('GameStore', () => {
   it('검증되지 않은 초기 상태로 저장소를 만들지 않는다', () => {
     const ctx = mapContext();
     const state = createCampaign(ctx.content, seed, ctx.now);
-    expect(() => createGameStore(ctx.content, { ...state, campaign: { exploration: {
+    expect(() => createGameStore(ctx.content, { ...state, campaign: { openedChests: {}, exploration: {
       'map.missing': { mapVersion: 1, visited: {} },
     } } }, () => ctx.now)).toThrow();
   });

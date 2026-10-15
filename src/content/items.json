@@ -1,0 +1,42 @@
+[
+  {
+    "kind": "item",
+    "id": "item.travel_ration",
+    "name": "여행 식량",
+    "description": "말린 과일과 곡물로 만든 식량. 스태미나를 즉시 120 회복한다.",
+    "tags": [
+      "food",
+      "ration"
+    ],
+    "weightGrams": 250,
+    "category": "food",
+    "effects": [
+      {
+        "type": "stamina/restore",
+        "params": {
+          "amount": 120
+        }
+      }
+    ]
+  },
+  {
+    "kind": "item",
+    "id": "item.trail_boots",
+    "name": "탐험용 장화",
+    "description": "이동 기본 비용을 2 줄인다. 탐사 경로 감면 전에 적용된다.",
+    "tags": [
+      "equipment",
+      "feet"
+    ],
+    "weightGrams": 800,
+    "category": "equipment",
+    "slot": "feet",
+    "modifiers": [
+      {
+        "target": "move_cost",
+        "op": "add",
+        "value": -2
+      }
+    ]
+  }
+]

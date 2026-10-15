@@ -121,3 +121,20 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
 .return-controls button:disabled { opacity: .45; cursor: default; }
 .return-controls p { flex: 1 1 160px; margin: 0; font-size: 12px; line-height: 1.7; color: #a3a4ad; }
 @media (max-width: 680px) { .return-controls { grid-column: 1 / -1; } }
+
+/* 소지품은 작은 화면에서도 한 열로 표시한다. */
+.inventory-dialog { width: min(560px, calc(100% - 24px)); }
+.inventory-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.inventory-heading h2 { margin: 0; }
+.inventory-summary { font-size: 14px; }
+.inventory-summary > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 6px 0; }
+.inventory-summary dd { margin: 0; }
+.inventory-list { list-style: none; padding: 0; margin: 20px 0; display: grid; gap: 12px; }
+.inventory-item { border: 1px solid #45464d; border-radius: 8px; padding: 14px; display: grid; gap: 8px; }
+.inventory-item h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.inventory-item h3 span, .inventory-item small { color: #babbc2; font-size: 13px; }
+.inventory-item p { margin: 6px 0; }
+.inventory-item button { justify-self: end; min-width: 76px; }
+.chest-controls { margin: 16px 0; padding: 12px; border: 1px solid #575963; border-radius: 8px; }
+.chest-controls p { margin: 4px 0 10px; font-size: 14px; }
+.chest-controls button { min-height: 44px; padding: 0 16px; border: 1px solid #575963; border-radius: 8px; background: #292b33; }

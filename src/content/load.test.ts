@@ -15,7 +15,7 @@ describe('콘텐츠 로더', () => {
     const result = loadContent(testSources(), rejectEffects);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error('기본 데이터 검증 실패');
-    expect(result.content.contentVersion).toBe('0.2.5');
+    expect(result.content.contentVersion).toBe('0.3.0');
     expect(result.content.timeRules).toMatchObject({
       id: 'rules.time', tickMs: 2_000, minimumMoveIntervalMs: 100, maxOfflineMs: 86_400_000,
       heartbeatIntervalMs: 15_000, heartbeatGraceMs: 120_000,
@@ -29,10 +29,10 @@ describe('콘텐츠 로더', () => {
   });
 
   it('ID별 조회를 만들고 생략된 메타데이터 목록을 빈 배열로 초기화한다', () => {
-    const result = loadContent(testSources([{ id: 'item.test' }]), rejectEffects);
+    const result = loadContent(testSources([{ id: 'example.test' }]), rejectEffects);
     if (!result.ok) throw new Error('정의 로딩 실패');
-    expect(result.content.byId['item.test']).toEqual({ id: 'item.test', references: [], dependsOn: [], effects: [] });
-    expect(result.content.byId['item.test']).toBe(result.content.definitions[0]);
+    expect(result.content.byId['example.test']).toEqual({ id: 'example.test', references: [], dependsOn: [], effects: [] });
+    expect(result.content.byId['example.test']).toBe(result.content.definitions[0]);
   });
 
   it('필수 매니페스트가 없으면 실패한다', () => {
@@ -117,7 +117,7 @@ describe('콘텐츠 로더', () => {
   });
 
   it('규칙의 ID 형식·종류와 정의의 ID 형식이 올바르지 않으면 실패한다', () => {
-    for (const id of ['rules', 'Rules.time', 'rules.bad-name', 'item.time']) {
+    for (const id of ['rules', 'Rules.time', 'rules.bad-name', 'example.time']) {
       const sources = testSources();
       sources['time-rules.json'].id = id;
       expectFailure(loadContent(sources, rejectEffects), 'invalid_schema', 'time-rules.json');
@@ -126,7 +126,7 @@ describe('콘텐츠 로더', () => {
   });
 
   it('정의 배열과 메타데이터 형식·추가 필드를 검증한다', () => {
-    for (const definitions of [[{ id: 'item.test', references: 'rules.time' }], [{ id: 'item.test', extra: true }], [null]]) {
+    for (const definitions of [[{ id: 'example.test', references: 'rules.time' }], [{ id: 'example.test', extra: true }], [null]]) {
       expectFailure(loadContent(testSources(definitions), rejectEffects), 'invalid_schema', 'definitions.json');
     }
     const sources = testSources([]);
@@ -135,23 +135,23 @@ describe('콘텐츠 로더', () => {
   });
 
   it('같은 파일·다른 파일·시간 규칙과의 ID 중복을 모두 거부한다', () => {
-    expectFailure(loadContent(testSources([{ id: 'item.test' }, { id: 'item.test' }]), rejectEffects), 'duplicate_id');
+    expectFailure(loadContent(testSources([{ id: 'example.test' }, { id: 'example.test' }]), rejectEffects), 'duplicate_id');
     expectFailure(loadContent(testSources([{ id: 'rules.time' }]), rejectEffects), 'duplicate_id');
-    const sources = testSources([{ id: 'item.test' }]);
+    const sources = testSources([{ id: 'example.test' }]);
     sources['manifest.json'].definitionFiles.push('second.json');
-    sources['second.json'] = [{ id: 'item.test' }];
+    sources['second.json'] = [{ id: 'example.test' }];
     expectFailure(loadContent(sources, rejectEffects), 'duplicate_id', 'second.json');
   });
 
   it('파일 순서와 무관하게 실제 존재하는 참조를 찾는다 (INV-15)', () => {
-    const sources = testSources([{ id: 'item.first', references: ['item.second', 'rules.time'] }]);
+    const sources = testSources([{ id: 'example.first', references: ['example.second', 'rules.time'] }]);
     sources['manifest.json'].definitionFiles.push('second.json');
-    sources['second.json'] = [{ id: 'item.second' }];
+    sources['second.json'] = [{ id: 'example.second' }];
     expect(loadContent(sources, rejectEffects).ok).toBe(true);
   });
 
   it('일반 참조와 선행 의존의 누락을 위치와 함께 보고한다 (INV-15)', () => {
-    const result = loadContent(testSources([{ id: 'item.test', references: ['item.missing'], dependsOn: ['item.other'] }]), rejectEffects);
+    const result = loadContent(testSources([{ id: 'example.test', references: ['example.missing'], dependsOn: ['example.other'] }]), rejectEffects);
     expectFailure(result, 'missing_reference', 'definitions.json');
     if (result.ok) throw new Error('누락 참조가 통과함');
     expect(result.errors.map((error) => error.path)).toEqual(['0.references.0', '0.dependsOn.0']);
@@ -159,33 +159,33 @@ describe('콘텐츠 로더', () => {
 
   it('일반 참조의 상호 연결은 허용한다', () => {
     expect(loadContent(testSources([
-      { id: 'item.first', references: ['item.second'] },
-      { id: 'item.second', references: ['item.first'] },
+      { id: 'example.first', references: ['example.second'] },
+      { id: 'example.second', references: ['example.first'] },
     ]), rejectEffects).ok).toBe(true);
   });
 
   it('자기 의존과 여러 정의의 순환 의존을 거부한다', () => {
-    expectFailure(loadContent(testSources([{ id: 'item.self', dependsOn: ['item.self'] }]), rejectEffects), 'dependency_cycle');
+    expectFailure(loadContent(testSources([{ id: 'example.self', dependsOn: ['example.self'] }]), rejectEffects), 'dependency_cycle');
     const result = loadContent(testSources([
-      { id: 'item.first', dependsOn: ['item.second'] },
-      { id: 'item.second', dependsOn: ['item.third'] },
-      { id: 'item.third', dependsOn: ['item.first'] },
+      { id: 'example.first', dependsOn: ['example.second'] },
+      { id: 'example.second', dependsOn: ['example.third'] },
+      { id: 'example.third', dependsOn: ['example.first'] },
     ]), rejectEffects);
     expectFailure(result, 'dependency_cycle');
     if (result.ok) throw new Error('순환 의존이 통과함');
-    expect(result.errors[0]?.message).toContain('item.first → item.second → item.third → item.first');
+    expect(result.errors[0]?.message).toContain('example.first → example.second → example.third → example.first');
   });
 
   it('공유 선행 조건과 긴 의존 관계를 순환으로 오인하지 않는다', () => {
     const definitions = Array.from({ length: 3000 }, (_, index) => ({
-      id: `item.n${index}`, dependsOn: index < 2999 ? [`item.n${index + 1}`, 'rules.time'] : ['rules.time'],
+      id: `example.n${index}`, dependsOn: index < 2999 ? [`example.n${index + 1}`, 'rules.time'] : ['rules.time'],
     }));
     expect(loadContent(testSources(definitions), rejectEffects).ok).toBe(true);
   });
 
   it('모든 효과를 전달받은 검증기로 검사하고 실행은 하지 않는다 (INV-16)', () => {
     const validate = vi.fn(rejectEffects);
-    const result = loadContent(testSources([{ id: 'item.test', effects: [{ type: 'test/missing', params: {} }] }]), validate);
+    const result = loadContent(testSources([{ id: 'example.test', effects: [{ type: 'test/missing', params: {} }] }]), validate);
     expectFailure(result, 'unknown_effect', 'definitions.json');
     expect(validate).toHaveBeenCalledOnce();
     expect(validate).toHaveBeenCalledWith({ type: 'test/missing', params: {} });
@@ -194,14 +194,14 @@ describe('콘텐츠 로더', () => {
   it('효과 외피와 JSON이 아닌 매개변수는 효과 검증 전 실패한다', () => {
     const validate = vi.fn(rejectEffects);
     for (const effect of [{ type: '', params: {} }, { type: 'test/emit' }, { type: 'test/emit', params: () => 1 }]) {
-      expectFailure(loadContent(testSources([{ id: 'item.test', effects: [effect] }]), validate), 'invalid_schema');
+      expectFailure(loadContent(testSources([{ id: 'example.test', effects: [effect] }]), validate), 'invalid_schema');
     }
     expect(validate).not.toHaveBeenCalled();
   });
 
   it('결과는 중첩까지 고정하고 입력이나 효과 매개변수와 객체를 공유하지 않는다', () => {
     const params = { nested: { values: [1, 2] } };
-    const definition = { id: 'item.test', references: ['rules.time'], effects: [{ type: 'test/json', params }] };
+    const definition = { id: 'example.test', references: ['rules.time'], effects: [{ type: 'test/json', params }] };
     const sources = testSources([definition]);
     const before = structuredClone(sources);
     const result = loadContent(sources, () => ({ ok: true }));
@@ -214,13 +214,13 @@ describe('콘텐츠 로더', () => {
     const saved = result.content.definitions[0]?.effects[0]?.params as typeof params;
     expect(Object.isFrozen(saved.nested.values)).toBe(true);
     params.nested.values.push(3);
-    definition.references.push('item.absent');
+    definition.references.push('example.absent');
     expect(saved.nested.values).toEqual([1, 2]);
     expect(result.content.definitions[0]?.references).toEqual(['rules.time']);
   });
 
   it('같은 입력은 같은 DB와 검증 결과를 만든다', () => {
-    const sources = testSources([{ id: 'item.test', references: ['rules.time'] }]);
+    const sources = testSources([{ id: 'example.test', references: ['rules.time'] }]);
     expect(loadContent(sources, rejectEffects)).toEqual(loadContent(sources, rejectEffects));
   });
 });

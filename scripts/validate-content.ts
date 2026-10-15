@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadContent } from '../src/content/load.ts';
 import type { ContentDb, ContentError, EffectValidator } from '../src/content/types.ts';
-import { effectRegistry } from '../src/engine/core/effects.ts';
+import { itemEffectRegistry } from '../src/engine/systems/inventory/effects.ts';
 
 export type ContentCheckResult = {
   checkedFiles: string[];
@@ -14,7 +14,7 @@ export type ContentCheckResult = {
 
 export function checkContentFiles(
   rootDir: string,
-  validateEffect: EffectValidator = effectRegistry.validate,
+  validateEffect: EffectValidator = itemEffectRegistry.validate,
 ): ContentCheckResult {
   let checkedFiles: string[];
   try {

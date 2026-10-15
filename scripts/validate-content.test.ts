@@ -55,7 +55,7 @@ describe('checkContentFiles와 실제 CLI', () => {
   });
 
   it('문법이 올바른 JSON의 스키마·참조 오류도 실패로 보고한다', () => {
-    const sources = testSources([{ id: 'item.test', references: ['item.missing'] }]);
+    const sources = testSources([{ id: 'example.test', references: ['item.missing'] }]);
     writePack(sources);
     expect(checkContentFiles(rootDir).errors[0]).toMatchObject({ code: 'missing_reference', path: '0.references.0' });
     sources['time-rules.json'].stamina.max = -1;
@@ -64,7 +64,7 @@ describe('checkContentFiles와 실제 CLI', () => {
   });
 
   it('기본 효과 목록에서 미등록 효과를 차단한다', () => {
-    writePack(testSources([{ id: 'item.test', effects: [{ type: 'test/emit', params: {} }] }]));
+    writePack(testSources([{ id: 'example.test', effects: [{ type: 'test/emit', params: {} }] }]));
     expect(checkContentFiles(rootDir).errors[0]).toMatchObject({ code: 'unknown_effect', path: '0.effects.0' });
   });
 
@@ -72,9 +72,9 @@ describe('checkContentFiles와 실제 CLI', () => {
     const registry = createEffectRegistry({
       'test/checked': defineEffect({ params: z.strictObject({ amount: z.number().int() }), apply: (state) => ({ state, events: [] }) }),
     });
-    writePack(testSources([{ id: 'item.test', effects: [{ type: 'test/checked', params: { amount: 2 } }] }]));
+    writePack(testSources([{ id: 'example.test', effects: [{ type: 'test/checked', params: { amount: 2 } }] }]));
     expect(checkContentFiles(rootDir, registry.validate).errors).toEqual([]);
-    writePack(testSources([{ id: 'item.test', effects: [{ type: 'test/checked', params: { amount: '2' } }] }]));
+    writePack(testSources([{ id: 'example.test', effects: [{ type: 'test/checked', params: { amount: '2' } }] }]));
     expect(checkContentFiles(rootDir, registry.validate).errors[0]?.code).toBe('invalid_effect_params');
   });
 
@@ -84,7 +84,7 @@ describe('checkContentFiles와 실제 CLI', () => {
     const good = spawnSync(process.execPath, [script, rootDir], { encoding: 'utf8' });
     expect(good.status).toBe(0);
     expect(good.stdout).toContain('JSON 파일 2개, 오류 0개');
-    writePack(testSources([{ id: 'item.test', references: ['item.missing'] }]));
+    writePack(testSources([{ id: 'example.test', references: ['item.missing'] }]));
     const bad = spawnSync(process.execPath, [script, rootDir], { encoding: 'utf8' });
     expect(bad.status).toBe(1);
     expect(bad.stderr).toContain('missing_reference');

@@ -4,7 +4,7 @@
 
 ## 0. 문서 상태와 표기
 
-- **현재 상태: S0~S3 구현·사용자 마감 수용, S3 후속 정리 중(D-037).** 입력 원복·저장/파일 교환·거점 오프라인/귀환까지 구현했다. 사용자가 현재 단계 확인 완료와 다음 준비를 수용했다. 실제 전투는 S5이며 SaveFile v4/v1~v3 변환을 유지한다. 상세 항목별 실제 기기 측정 결과를 새로 받은 것으로 쓰지 않는다. `[구현됨]` 표시가 없는 항목은 계획이다.
+- **현재 상태: S0~S3 사용자 마감 수용, S4 최소 아이템 구현·검증(D-038).** 상자·소지품·음식·발 장비 1종과 SaveFile v5/v1~v4 변환을 연결했다. 실제 전투는 S5다. 사용자 실제 기기 확인은 별도다. `[구현됨]` 표시가 없는 항목은 계획이다.
 - 각 항목의 상태 표기:
   - `[구현됨]` 코드와 테스트가 있다
   - `[설계]` 합의된 설계, 아직 구현하지 않음
@@ -104,7 +104,7 @@ IndexedDB ──▶ persistence(형식 확인 → 버전 변환 → Zod 검증) 
 
 ### 2.2 상태 타입의 최소형 `[구현됨]`
 
-S0의 뼈대에 S1 위치·탐사 기록(D-022)과 S2 스태미나·이동 표시(D-025)를 추가했다. 다른 시스템의 필드는 해당 단계에서 추가한다.
+S0의 뼈대에 S1 위치·탐사 기록(D-022), S2 스태미나·활동/습격(D-025/029), S4 소지품·장착/열린 상자(D-038)를 추가했다. 다른 시스템의 필드는 해당 단계에서 추가한다.
 
 ```ts
 // src/engine/core/state.ts
@@ -115,9 +115,15 @@ export type MapExploration = Readonly<{
 }>;
 export type CampaignState = Readonly<{
   exploration: Readonly<Record<string, MapExploration>>;
+  openedChests: Readonly<Record<string, true>>;
+}>;
+export type InventoryState = Readonly<{
+  stacks: Readonly<Record<string, number>>;
+  equipment: Readonly<{ feet: string | null }>;
 }>;
 export type StaminaState = Readonly<{ current: number; max: number }>;
 export type CharacterState = Readonly<{
+  inventory: InventoryState;
   position: MapPosition | null;
   stamina: StaminaState;
   movedSinceLastTick: boolean;
@@ -497,7 +503,7 @@ export function computeValue(base: number, mods: Modifier[], rule: ValueRule): n
 // 실제 타입은 SaveFileSchema에서 추론하며 state는 코어 GameState 계약을 사용한다.
 export type SaveFile = Readonly<{
   format: 'last-vigil-save';
-  schemaVersion: 4;         // 휴식 활동·미처리 습격 추가
+  schemaVersion: 5;         // 소지품·장착·열린 상자 추가
   contentVersion: string;   // 저장 당시 콘텐츠 버전
   saveId: string;           // UUID
   revision: number;         // 저장할 때마다 1씩 증가. 기기 간 비교에 사용
@@ -508,8 +514,8 @@ export type SaveFile = Readonly<{
 
 - 세이브에 넣지 않는 것: `ContentDb`, 세션 런타임, UI 상태.
 - 내보내기·가져오기는 같은 `SaveFile` JSON을 쓰고, 가져올 때도 같은 검증 경로를 거친다.
-- `SaveFileSchema`·`GameStateSchema`는 모든 객체에서 미정의 필드를 거부한다. UUID, 0 이상의 안전한 정수인 revision·시각·게임 시간, uint32 4개인 난수 상태와 위치·탐사 기록을 검증한다. 좌표 키는 정규 floor:x:y이고 값은 true만 허용한다. 현재 위치가 탐사 기록에 있어야 한다. 스태미나 정수·최대치·상한과 이동 표시 boolean을 검증한다. v4는 활동·미처리 습격 구조·발생 시각과 현재 활동의 일치도 검증한다.
-- 구조 검증은 콘텐츠를 읽지 않는다. 실제 콘텐츠 대조는 runtime/validate-state.ts의 validateStateContent로 모은다. 그 안에서 validateMapState와 validateActivityState를 호출하며 새 시스템 검증도 이곳에 등록한다. 슬롯별 검증 후 백업 선택/상태 교체하는 순서를 유지한다. 맵 버전 변경에 따른 기록 이전은 아직 없다.
+- `SaveFileSchema`·`GameStateSchema`는 모든 객체에서 미정의 필드를 거부한다. UUID, 0 이상의 안전한 정수인 revision·시각·게임 시간, uint32 4개인 난수 상태와 위치·탐사 기록을 검증한다. 좌표 키는 정규 floor:x:y이고 값은 true만 허용한다. 현재 위치가 탐사 기록에 있어야 한다. 스태미나 정수·최대치·상한과 이동 표시 boolean을 검증한다. v4는 활동·미처리 습격 구조·발생 시각과 현재 활동의 일치도 검증한다. v5는 이를 보존하고 양의 정수 소지 수량·장착품 소유·열린 상자 키도 검증한다.
+- 구조 검증은 콘텐츠를 읽지 않는다. 실제 콘텐츠 대조는 runtime/validate-state.ts의 validateStateContent로 모은다. 그 안에서 validateMapState·validateActivityState·validateInventoryState를 호출하며 새 시스템 검증도 이곳에 등록한다. 슬롯별 검증 후 백업 선택/상태 교체하는 순서를 유지한다. 맵 버전 변경에 따른 기록 이전은 아직 없다.
 - `parseSave`는 먼저 JSON 데이터만 허용해 입력과 분리한 뒤 검증한다. 함수·Date·Map·Set·undefined·NaN·무한대를 JSON 변환으로 조용히 손실시키지 않는다. `GameStateSchema`는 기존 코어 타입과 호환되는지 TypeScript로 검사한다.
 - 콘텐츠 버전은 매니페스트와 같은 문자열 스키마로 검증하고 저장된 값을 보존한다. 콘텐츠 버전별 호환성 정책·콘텐츠 변환은 아직 없으며 구조 버전 변환과 구분한다.
 
@@ -587,7 +593,7 @@ S3 세 번째 단위의 파일 전송 규칙(D-034):
 | Stamina & Rest | `src/engine/systems/stamina/`·`rest/` | `character.stamina`·`activity` | S2 | 비용·소모·독립 대기/휴식 회복 구현됨 |
 | Ambush/Rest | `src/engine/systems/ambush/`·`rest/` | character.activity·expedition.pendingAmbush | S2 | 판정·휴식·게이트·임시 팝업 연결됨(D-029) |
 | Runtime | `src/runtime/` | 세션 런타임 | S0 콘텐츠, S1 상태, S2 시간 | 콘텐츠·GameStore·입력·틱 루프·정지·공백·이동 간격 구현됨 |
-| Inventory & Items | `src/engine/systems/inventory/` | `character` 휴대품·장비, `campaign` 창고 | S4 | 설계 |
+| Inventory & Items | `src/engine/systems/inventory/` | `character.inventory` 수량·장착, `campaign.openedChests` | S4 | 최소 구현됨 |
 | Combat | `src/engine/systems/combat/` | `expedition` 진행 중 전투 | S5 | 설계 |
 | Character & Corruption | `src/engine/systems/character/` | `character` 능력치·오염·정신력 | S6 | 설계 |
 | Codex & Quest | `src/engine/systems/codex/`, `quest/` | `campaign` 코덱스·퀘스트 | S6 | 설계 |
@@ -653,3 +659,15 @@ D-029 승인에 따라 CharacterState.activity·ExpeditionState.pendingAmbush와
 - Store 생성/복원은 구조·탐사·실제 위험 구역 검증을 모두 통과해야 한다. 휴식은 위치 있음·위험 구역·최대치 미만이어야 하고, 미처리 습격은 위치 있음·위험 구역·waiting·triggeredAt≤gameTime이어야 한다.
 - 팝업 열림은 React의 일시적 UI 상태다. 닫기/ESC 뒤에도 엔진 게이트·앱 안내·재열기 버튼과 탭 제목 알림이 남는다. OS 알림 권한은 사용하지 않는다.
 - 임시 확률은 time-rules.json의 대기 2%·휴식 10%/전역 틱이다. 지역별 보정·실제 전투·원정 수명 주기는 후속 단계다. IndexedDB·거점 오프라인 정산은 D-030/031에서 연결했다.
+
+
+## S4 아이템 연결 계약 `[구현됨]` (D-038)
+
+- `CharacterState.inventory`: `{ stacks: Record<itemId, 양의 정수>, equipment: { feet: itemId | null } }`. 장착은 소지 스택을 참조하며 수량/중량을 중복하지 않는다.
+- `CampaignState.openedChests`: `{ [chestId]: true }`. 전리품 지급과 열린 기록을 한 dispatch에서 갱신한다. 파생 중량/가격·장비 수정치는 저장하지 않는다.
+- `inventory/open_chest(chestId)`, `inventory/use(itemId)`, `inventory/equip(itemId)`, `inventory/unequip(slot)`를 RuntimeAction에 등록한다. 코어 dispatcher/효과 인터페이스는 유지한다. 행동 실패는 동일 상태 참조와 자원/난수/시간을 보존한다.
+- `inventory/selectors`의 equipmentModifiers가 move_cost 수정치를 공급한다. getMoveCost와 UI movementCosts가 동일한 calculateMoveCost/computeValue 경로를 공유한다. 안전 비용은 장비와 무관하게 기존 콘텐츠 값을 쓴다.
+- 제품 효과 목록은 `inventory/effects.ts`에 둔다. core는 systems를 import하지 않고, 연결부가 제품 레지스트리를 로더/CLI에 전달한다. content는 엔진을 import하지 않는다. persistence는 이전 스키마/변환·JSON 계약만 담당하고 runtime.validateStateContent에서 실제 콘텐츠를 대조한다.
+- `MapView`는 openedChests 참조를 추가로 받아 열린 상자 기호를 갱신한다. 시간·회복·장착 변경만으로 지도는 다시 렌더링하지 않는다. chestId는 인덱스된 칸에서 얻어 전체 상자를 순회하지 않는다. 미탐사 상자 정보는 DOM에 넣지 않는다.
+- `loop.inventoryAction`은 기존 pump를 먼저 실행하고 running일 때만 dispatch한다. 소지품 창은 루프를 정지하지 않는다. 습격 발생 시 창을 닫아 기존 처리 화면을 표시한다.
+- SaveFile v5는 v4의 모든 형식/교차 조건을 safeExtend로 보존한다. `schemas-v4.ts`는 배포된 v4 형식을 고정한다. v4→v5는 새 필드 기본값만 더하며 JSON 왕복/이전 변환/복원 후 행동 연속성을 검사한다.

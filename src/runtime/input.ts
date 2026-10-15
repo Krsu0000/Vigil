@@ -15,7 +15,7 @@ export function bindMovementKeys(target: EventTarget, move: (direction: Directio
     const event = raw as KeyboardEvent;
     if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
     if (typeof Element !== 'undefined' && event.target instanceof Element &&
-      event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+      event.target.closest('dialog[open], input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
     const direction = movementDirection(event.key);
     if (!direction) return;
     event.preventDefault();

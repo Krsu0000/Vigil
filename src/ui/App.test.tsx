@@ -93,7 +93,7 @@ describe('휴식·습격 표시', () => {
     const state = store.getSnapshot();
     const pending = { ...state, character: { ...state.character!, activity: 'waiting' as const },
       expedition: { pendingAmbush: { triggeredAt: 0, activityAtTrigger: 'resting' as const } } };
-    const save = { format: 'last-vigil-save',schemaVersion: 4,contentVersion: '0.2.4',saveId: state.meta.campaignId,revision: 0,savedAt: ctx.now,state: pending };
+    const save = { format: 'last-vigil-save',schemaVersion: 5,contentVersion: '0.2.4',saveId: state.meta.campaignId,revision: 0,savedAt: ctx.now,state: pending };
     store.restore(save);
     const html = renderToString(<App store={store} />);
     expect(html).toContain(strings.ambushPending);

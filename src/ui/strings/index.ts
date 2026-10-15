@@ -1,5 +1,16 @@
 // UI 시스템 문구. 게임 콘텐츠 텍스트는 src/content/에 둔다 (architecture 6장).
 export const strings = {
+  foodCategory: '음식', equipmentCategory: '장비', inventory: '소지품', closeInventory: '소지품 닫기', inventoryEmpty: '아직 소지품이 없습니다. 상자가 있는 칸에서 상자를 열어 보세요.',
+  carryWeight: '소지 중량', moveCost: '이동 비용', newRoute: '미탐사', knownRoute: '탐사 경로',
+  weightDisplayOnly: '장착한 장비를 포함한 총중량입니다. 현재는 중량만 표시합니다.',
+  inventoryTimeRuns: '소지품을 확인하는 동안에도 시간과 회복·습격 판정이 진행됩니다.',
+  inventoryBlocked: '현재는 아이템을 사용하거나 장비를 변경할 수 없습니다.',
+  equipped: '장착 중', eat: '먹기', equip: '장착', unequip: '해제', perItem: ' / 개',
+  openChest: '상자 열기', chestEmpty: '이미 연 상자입니다.', chestHint: '상자 칸에서 열 수 있습니다.', chestLegend: '상자',
+  lootReceived: '상자의 물품을 소지품에 담았습니다.', itemUsed: '음식을 먹었습니다. 스태미나 회복량: ',
+  itemEquipped: '장비를 장착했습니다. 이동 비용을 확인해 보세요.', itemUnequipped: '장비를 해제했습니다.',
+  inventoryActionBlocked: '지금은 이 행동을 할 수 없습니다.',
+
   saveFiles: '세이브 파일',
   saveFilesHelp: 'JSON 파일로 탐험을 보관하거나 다른 브라우저·기기로 옮길 수 있습니다. 최대 10MB 파일을 가져올 수 있습니다.',
   exportSave: '파일로 내보내기', chooseSaveFile: '가져올 파일 선택', applySaveFile: '이 탐험으로 교체', cancelImport: '가져오기 취소',

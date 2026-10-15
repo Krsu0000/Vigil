@@ -36,7 +36,7 @@ describe('브라우저 세이브 후보 검증·시작 복원',()=>{
 
   it('v3를 변환해 불러오되 기존 원문·revision·자원·시간·난수를 보존한다',()=>{
     const raw=JSON.stringify(v3);const result=loadSaveSlots({primary:raw,backup:null,generation:1},ctx.content);
-    expect(result.save!.schemaVersion).toBe(4);expect(result.previousValid).toBe(raw);
+    expect(result.save!.schemaVersion).toBe(5);expect(result.previousValid).toBe(raw);
     expect(result.save!.state.meta).toEqual(v3.state.meta);expect(result.save!.state.character!.stamina).toEqual(v3.state.character.stamina);
     expect(result.save!.revision).toBe(v3.revision);
   });

@@ -1,5 +1,11 @@
 {
-  "contentVersion": "0.2.5",
+  "contentVersion": "0.3.0",
   "timeRulesFile": "time-rules.json",
-  "definitionFiles": ["tiles.json", "zones.json", "maps/s1-test.json"]
+  "definitionFiles": [
+    "tiles.json",
+    "zones.json",
+    "maps/s1-test.json",
+    "items.json",
+    "chests.json"
+  ]
 }

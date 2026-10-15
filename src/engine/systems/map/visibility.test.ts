@@ -71,7 +71,7 @@ describe('A안 전장의 안개', () => {
     const state = startedState(ctx);
     expect(getTileVisibility(state, { ...at(1, 0), floor: -1 }, ctx.content)).toBe('unexplored');
     expect(getTileVisibility(state, { ...at(1, 0), mapId: 'map.other' }, ctx.content)).toBe('unexplored');
-    const remembered = { ...state, campaign: { exploration: {
+    const remembered = { ...state, campaign: { openedChests: {}, exploration: {
       ...state.campaign.exploration,
       'map.other': { mapVersion: 1, visited: { '-1:1:1': true as const } },
     } } };
@@ -108,7 +108,7 @@ describe('A안 전장의 안개', () => {
     const state = startedState(ctx);
     const target = { ...at(1, 1), mapId: 'map.other' };
     expect(getTileVisibility(state, target, ctx.content)).toBe('unexplored');
-    const remembered = { ...state, campaign: { exploration: {
+    const remembered = { ...state, campaign: { openedChests: {}, exploration: {
       ...state.campaign.exploration, 'map.other': { mapVersion: 1, visited: { '0:1:1': true as const } },
     } } };
     expect(getTileVisibility(remembered, target, ctx.content)).toBe('explored');
