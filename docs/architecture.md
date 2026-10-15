@@ -671,3 +671,8 @@ D-029 승인에 따라 CharacterState.activity·ExpeditionState.pendingAmbush와
 - `MapView`는 openedChests 참조를 추가로 받아 열린 상자 기호를 갱신한다. 시간·회복·장착 변경만으로 지도는 다시 렌더링하지 않는다. chestId는 인덱스된 칸에서 얻어 전체 상자를 순회하지 않는다. 미탐사 상자 정보는 DOM에 넣지 않는다.
 - `loop.inventoryAction`은 기존 pump를 먼저 실행하고 running일 때만 dispatch한다. 소지품 창은 루프를 정지하지 않는다. 습격 발생 시 창을 닫아 기존 처리 화면을 표시한다.
 - SaveFile v5는 v4의 모든 형식/교차 조건을 safeExtend로 보존한다. `schemas-v4.ts`는 배포된 v4 형식을 고정한다. v4→v5는 새 필드 기본값만 더하며 JSON 왕복/이전 변환/복원 후 행동 연속성을 검사한다.
+
+
+### 상호작용 입력과 획득 표시 `[구현됨]` (D-039)
+
+`runtime/input.ts`의 bindInteractionKeys가 Z/Space를 연결한다. 이동 입력과 공통 모달/편집/수정키 필터를 사용하고, 상호작용만 반복 keydown 및 포커스된 버튼/링크를 추가로 제외한다. MapScreen의 interact는 최신 Store 스냅샷에서 상자를 조회해 같은 loop.inventoryAction으로 실행한다. lootedChestId는 획득 성공 때만 설정하고 위치 참조가 바뀌면 지우는 일시적 UI 상태다. 엔진/세이브의 열린 상자 기록과 별도로 저장하거나 수정하지 않는다.

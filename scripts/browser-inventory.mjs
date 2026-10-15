@@ -11,8 +11,26 @@ export async function checkInventory({ page, width, artifacts, readSlot, font })
   await move('ArrowRight'); await move('ArrowRight');
   assert.equal(await page.getByTestId('position').textContent(), '(3, 1)');
   const chestButton = button('상자 열기');
-  if (width < 500) await chestButton.tap(); else await chestButton.click();
+  // 일시정지 중 단축키로 획득할 수 없다.
+  await button('일시정지').click(); await page.locator('.map-grid').focus();
+  await page.keyboard.press('z'); assert.equal(await page.getByTestId('chest-status').count(), 0);
+  await button('재개').click(); await page.locator('.map-grid').focus();
+  if (width === 390) await page.keyboard.press('z');
+  else if (width === 320) await page.keyboard.press('Space');
+  else await chestButton.click();
   assert(await chestButton.isDisabled());
+  const receipt = await page.getByTestId('chest-status').textContent();
+  assert(receipt.includes('상자를 열어 다음 물품을 얻었습니다.'));
+  assert(receipt.includes('여행 식량 ×3')); assert(receipt.includes('탐험용 장화 ×1'));
+  assert(!receipt.includes('이미 연 상자입니다.'));
+  // 반복 입력으로 획득 결과가 빈 상자 안내로 덮이지 않는다.
+  await page.locator('.map-grid').focus(); await page.keyboard.press('z');
+  assert.equal(await page.getByTestId('chest-status').textContent(), receipt);
+  if (width < 500) assert(await page.locator('.chest-controls').evaluate(el =>
+    el.getBoundingClientRect().width > el.closest('.travel-panel').clientWidth * 0.7));
+  await page.screenshot({ path: path.join(artifacts, `chest-receipt-${width}.png`), fullPage: true });
+  await move('ArrowLeft'); await move('ArrowRight');
+  assert.equal(await page.getByTestId('chest-status').textContent(), '이미 연 상자입니다.');
   await button('소지품').click();
   const dialog = page.getByRole('dialog', { name: '소지품', exact: true });
   await dialog.waitFor();
@@ -21,7 +39,7 @@ export async function checkInventory({ page, width, artifacts, readSlot, font })
   assert.equal(await page.getByTestId('inventory-weight').textContent(), '1550 g');
   assert(await button('먹기').isDisabled());
   // 소지품 내부 화살표 키는 지도 이동으로 새지 않는다.
-  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft'); await page.keyboard.press('z');
   assert.equal(await page.getByTestId('position').textContent(), '(3, 1)');
   await button('장착').click();
   assert((await page.getByTestId('inventory-move-cost').textContent()).includes('미탐사 4 · 탐사 경로 2'));
@@ -61,5 +79,6 @@ export async function checkInventory({ page, width, artifacts, readSlot, font })
   assert((await page.getByTestId('inventory-move-cost').textContent()).includes('미탐사 4 · 탐사 경로 2'));
   await button('소지품 닫기').click();
   await move('ArrowRight'); await move('ArrowRight'); assert(await chestButton.isDisabled());
-  return { width, inventoryLootUseEquip: true, recoveryWithInventoryOpen: true, persistedInventory: true, noHorizontalOverflow: true };
+  assert.equal(await page.getByTestId('chest-status').textContent(), '이미 연 상자입니다.');
+  return { width, inventoryLootUseEquip: true, lootReceipt: true, interactionShortcut: width === 390 ? 'Z' : width === 320 ? 'Space' : 'button', recoveryWithInventoryOpen: true, persistedInventory: true, noHorizontalOverflow: true };
 }

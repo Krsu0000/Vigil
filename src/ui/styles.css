@@ -135,6 +135,8 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
 .inventory-item h3 span, .inventory-item small { color: #babbc2; font-size: 13px; }
 .inventory-item p { margin: 6px 0; }
 .inventory-item button { justify-self: end; min-width: 76px; }
-.chest-controls { margin: 16px 0; padding: 12px; border: 1px solid #575963; border-radius: 8px; }
+.chest-controls { grid-column: 1 / -1; margin: 16px 0; padding: 12px; border: 1px solid #575963; border-radius: 8px; }
 .chest-controls p { margin: 4px 0 10px; font-size: 14px; }
 .chest-controls button { min-height: 44px; padding: 0 16px; border: 1px solid #575963; border-radius: 8px; background: #292b33; }
+
+.chest-loot { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.8; }

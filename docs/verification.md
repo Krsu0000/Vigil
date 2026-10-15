@@ -48,3 +48,6 @@ Codex의 준비된 실행 환경에서는 `CODEX_PRIMARY_RUNTIME_NODE_MODULES`�
 `test:browser`는 `scripts/browser-inventory.mjs`도 실행한다. 제품 배포 빌드의 입력으로 보급 상자 획득, 소지품 내 키 입력, 최대치 음식 차단, 장착/해제 비용 표시와 실제 이동 차감, 창을 열어 둔 시간/회복, 음식 한 개 소모/총중량, IndexedDB 저장 후 새로고침/중복 상자 차단을 1280/390/320px에서 검사한다. 제품 전역에 검사 API를 추가하지 않는다.
 
 S4 엔진/콘텐츠/저장 회귀는 `src/engine/systems/inventory/actions.test.ts`, `src/content/items.test.ts`, `src/runtime/inventory.test.ts`에 있다. 제품 JSON을 사용하는 회귀와 기존 맵만의 독립 검사를 구분한다. 실제 폰 플레이에서는 (3,1) 보급 상자 → 소지품 장화 장착 → (4,3) 위험 구역 → 음식 → 귀환 → 새로고침을 확인한다.
+
+
+D-039 후속 검사는 상자 열기 직후 성공 안내/품목/수량, 재방문 시 빈 상자 안내, 기존 결과를 덮지 않는 재입력, 정지 중 단축키 차단을 포함한다. 배포 빌드의 1280px은 버튼, 390px은 Z, 320px은 Space로 획득한다. 포커스된 이동 버튼의 기본 Space/Enter와 모달 내 입력 회귀도 함께 확인한다.

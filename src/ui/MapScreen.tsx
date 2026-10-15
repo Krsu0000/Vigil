@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { AutoSave } from '../runtime/auto-save.ts';
 import type { GameStore } from '../runtime/store.ts';
 import { initialMapId } from '../runtime/store.ts';
-import { bindMovementKeys } from '../runtime/input.ts';
+import { bindInteractionKeys, bindMovementKeys } from '../runtime/input.ts';
 import { browserClock, browserScheduler } from '../runtime/clock.ts';
 import { createGameLoop } from '../runtime/loop.ts';
 import { AmbushDialog } from './AmbushDialog.tsx';
@@ -12,7 +12,7 @@ import { currentLocation, findCell, getReturnDestination } from '../engine/syste
 import { MapView } from './MapView.tsx';
 import { InventoryDialog } from './InventoryDialog.tsx';
 import type { InventoryAction } from '../engine/systems/inventory/actions.ts';
-import { currentChest } from '../engine/systems/inventory/selectors.ts';
+import { currentChest, findItem } from '../engine/systems/inventory/selectors.ts';
 import { strings } from './strings/index.ts';
 
 const controls: readonly { direction: Direction; glyph: string }[] = [
@@ -35,6 +35,8 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
   }, [pendingAmbush]);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   useEffect(() => { if (pendingAmbush) setInventoryOpen(false); }, [pendingAmbush]);
+  const [lootedChestId, setLootedChestId] = useState<string | null>(null);
+  useEffect(() => { setLootedChestId(null); }, [state.character?.position]);
   const [message, setMessage] = useState<string>(strings.moveHelp);
   const move = useCallback((direction: Direction) => {
     const result = loop.move(direction);
@@ -46,14 +48,22 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
     }
   }, [loop]);
   useEffect(() => bindMovementKeys(window, move), [move]);
-  const inventoryAction = (action: InventoryAction) => {
+  const inventoryAction = useCallback((action: InventoryAction) => {
     const result = loop.inventoryAction(action);
     if (!result.ok) { setMessage(strings.inventoryActionBlocked); return; }
     const event = result.events.find(entry => entry.type.startsWith('inventory/'));
+    if (event?.type === 'inventory/looted') setLootedChestId(event.chestId);
     setMessage(event?.type === 'inventory/used' ? strings.itemUsed + event.recovered :
       event?.type === 'inventory/equipped' ? strings.itemEquipped :
       event?.type === 'inventory/unequipped' ? strings.itemUnequipped : strings.lootReceived);
-  };
+  }, [loop]);
+  const interact = useCallback(() => {
+    const current = store.getSnapshot();
+    const chest = currentChest(current, store.content);
+    if (!chest || current.campaign.openedChests[chest.id]) return;
+    inventoryAction({ type: 'inventory/open_chest', chestId: chest.id });
+  }, [store, inventoryAction]);
+  useEffect(() => bindInteractionKeys(window, interact), [interact]);
   const settingsDialog = session.settingsOpen && <SettingsDialog persistent={persistent} autoSave={autoSave} content={store.content} onClose={() => loop.setSettingsOpen(false)} />;
   const location = currentLocation(state, store.content);
   const exploredCount = useMemo(() => location ? Object.keys(location.memory.visited).length : 0, [location?.memory]);
@@ -101,9 +111,13 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false, autoS
           <div><dt>{strings.gameTime}</dt><dd data-testid="game-time">{state.meta.gameTime}{strings.tickUnit}</dd></div>
         </dl>
         {chest && <div className="chest-controls"><p>{chest.name}</p>
-          <button type="button" disabled={!session.running || !!chestOpened}
-            onClick={() => inventoryAction({ type: 'inventory/open_chest', chestId: chest.id })}>{strings.openChest}</button>
-          {chestOpened && <p>{strings.chestEmpty}</p>}
+          <button type="button" aria-keyshortcuts="Z Space" disabled={!session.running || !!chestOpened}
+            onClick={interact}>{strings.openChest}</button>
+          {chestOpened && <div data-testid="chest-status" role="status">{lootedChestId === chest.id ? <>
+            <p>{strings.chestLooted}</p>
+            <ul className="chest-loot">{chest.loot.map((entry, index) =>
+              <li key={`${entry.itemId}:${index}`}>{findItem(store.content, entry.itemId)!.name} ×{entry.quantity}</li>)}</ul>
+          </> : <p>{strings.chestEmpty}</p>}</div>}
         </div>}
         <div className="movement-controls" role="group" aria-label={strings.move}>
           {controls.map(({ direction, glyph }) => (
