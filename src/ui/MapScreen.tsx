@@ -25,6 +25,7 @@ import { SaveStatus } from './SaveStatus.tsx';
 import { formatRecordTime } from './record-time.ts';
 import { strings } from './strings/index.ts';
 
+const compactQuery='(max-width: 760px), (max-width: 1024px) and (max-height: 500px)';
 const emptyRecords:readonly RecentRecord[]=[];
 type Tab='explore'|'inventory'|'character'|'base'|'more';
 const tabs:readonly {id:Tab;label:string;glyph:string}[]=[{id:'explore',label:'탐험',glyph:'♘'},{id:'inventory',label:'소지품',glyph:'▤'},{id:'character',label:'캐릭터',glyph:'◐'},{id:'base',label:'거점',glyph:'⌂'},{id:'more',label:'더보기',glyph:'⋯'}];
@@ -34,8 +35,8 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave}:{s
   const loop=useMemo(()=>suppliedLoop??createGameLoop(store,browserClock,browserScheduler),[store,suppliedLoop]);
   const session=useSyncExternalStore(loop.subscribe,loop.getSnapshot,loop.getSnapshot);
   useEffect(()=>{loop.start();return()=>loop.stop();},[loop]);
-  const [compact,setCompact]=useState(()=>typeof window!=='undefined'&&window.matchMedia('(max-width: 760px)').matches);
-  useEffect(()=>{const query=window.matchMedia('(max-width: 760px)');const update=()=>setCompact(query.matches);query.addEventListener('change',update);update();return()=>query.removeEventListener('change',update);},[]);
+  const [compact,setCompact]=useState(()=>typeof window!=='undefined'&&window.matchMedia(compactQuery).matches);
+  useEffect(()=>{const query=window.matchMedia(compactQuery);const update=()=>setCompact(query.matches);query.addEventListener('change',update);update();return()=>query.removeEventListener('change',update);},[]);
   const [mapViewport,setMapViewport]=useState<MapViewport>();
   const reportViewport=useCallback((value:MapViewport)=>setMapViewport(previous=>previous&&Object.keys(value).every(key=>previous[key as keyof MapViewport]===value[key as keyof MapViewport])?previous:value),[]);
   const [tab,setTab]=useState<Tab>('explore');const [characterTab,setCharacterTab]=useState('캐릭터');
@@ -104,15 +105,15 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave}:{s
       <section className={`exploration-center${compact&&tab!=='explore'&&!combat?' tab-hidden':''}`} aria-label="탐험">
         <header className="region-header"><div><h2>{mapName}</h2><span className="muted">{position.floor}층 · {zone.name}</span></div><span className="region-meta">{zone.safety==='safe'?'안전지대':'위험지대'} · <span className="n" data-testid="visited">{exploredCount}</span>칸</span></header>
         <div className="map-stage">{mapView}{compact&&miniMap}</div>
-        <div className="situation" role="status">{chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:zone.description}<span className="n" data-testid="position">({position.x}, {position.y})</span></div>
+        <div className="situation" role="status"><span className="situation-text">{compact&&message?message:chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:zone.description}</span><span className="n" data-testid="position">({position.x}, {position.y})</span></div>
         {chest&&<section className="chest-controls"><button disabled={!session.running||!!chestOpened} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}</button>
           {chestOpened&&<div data-testid="chest-status" role="status">{lootedChestId===chest.id?<><p>{strings.chestLooted}</p><ul>{chest.loot.map((entry,index)=><li key={index}>{findItem(store.content,entry.itemId)!.name} ×{entry.quantity}</li>)}</ul></>:<p>{strings.chestEmpty}</p>}</div>}</section>}
         <div className="exploration-commands"><div className="movement-controls" role="group" aria-label={strings.move}>{controls.map(({direction,glyph})=><button type="button" className={`move-${direction}`} key={direction} aria-label={strings[direction]} disabled={!session.running}
           onPointerDown={event=>{if(event.isPrimary&&event.button===0)move(direction);}} onClick={event=>{if(event.detail===0)move(direction);}}>{glyph}</button>)}</div>
           <button className="command" disabled={!session.running||!resting&&(zone.safety!=='danger'||state.character!.stamina.current===state.character!.stamina.max)} onClick={rest}><b>{resting?'휴식 중지':'휴식'}</b><small>R · 회복↑ 습격↑</small></button>
           <button className="command" aria-label="귀환" disabled={!session.running||!getReturnDestination(state,store.content)} onClick={returnHome}><b>귀환</b><small>B · 즉시 · 거점</small></button></div>
-        {message&&<p className="action-feedback" role="status">{message}</p>}
-        <section ref={recordView} className="recent-log" aria-label="최근 기록"><h2 className="section-title">최근 기록</h2>{logs.slice(compact?-2:-8).map((entry,index)=><p key={index}><time className="n" dateTime={new Date(entry.at).toISOString()} data-testid="record-time">{formatRecordTime(entry.at)}</time>{entry.text}</p>)}</section>
+        {message&&!compact&&<p className="action-feedback" role="status">{message}</p>}
+        <section ref={recordView} className="recent-log" aria-label="최근 기록"><h2 className="section-title">최근 기록</h2>{logs.slice(compact?-2:-8).map((entry,index)=><p key={index}><time className="n" dateTime={new Date(entry.at).toISOString()} data-testid="record-time">{formatRecordTime(entry.at)}</time><span className="record-text">{entry.text}</span></p>)}</section>
         {pending&&!ambushOpen&&!combat&&<button className="pending-notice" onClick={()=>setAmbushOpen(true)}>미처리 조우 · 다시 열기</button>}
       </section>
       {!compact&&<aside className="right-column">{miniMap}{inventory}<section><h2 className="section-title">퀘스트</h2><p className="empty-note">기록된 퀘스트 없음</p></section><section><h2 className="section-title">코덱스</h2><p className="empty-note">기록된 문서 없음</p></section></aside>}

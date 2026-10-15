@@ -834,7 +834,7 @@ small,.muted,.empty-note {
     min-height:40px;
   }
 }
-@media(max-width:760px) {
+@media(max-width:760px), (max-width:1024px) and (max-height:500px) {
   :root {
     --cell-size:min(28px,calc((100vw - 26px)/13));
   }
@@ -1167,7 +1167,7 @@ small,.muted,.empty-note {
   background:#262626;
   border-bottom:1px solid #555;
 }
-@media(max-width:760px) {
+@media(max-width:760px), (max-width:1024px) and (max-height:500px) {
   .game-top .save-status.has-warning {
     display:block;
     position:fixed;
@@ -1189,7 +1189,7 @@ small,.muted,.empty-note {
     top:44px;
   }
 }
-@media(max-width:760px) {
+@media(max-width:760px), (max-width:1024px) and (max-height:500px) {
   .character-column {
     padding:8px 13px;
   }
@@ -1267,12 +1267,94 @@ small,.muted,.empty-note {
   .recent-log { flex:0 0 92px; overflow:auto; }
   .recent-log .movement-status { margin-top:2px; }
 }
-@media(max-width:760px) {
+@media(max-width:760px), (max-width:1024px) and (max-height:500px) {
   :root { --cell-size:min(28px,calc((100vw - 16px)/13)); }
   .map-stage { margin:0 8px; }
-  .map-viewport { height:max(calc(13 * var(--cell-size)),calc(100dvh - 440px)); }
   .has-combat .map-viewport { height:calc(5 * var(--cell-size)); }
 }
 
 .action-feedback { flex-shrink:0; padding:4px 20px; font-size:11px; color:#a3a3a3; }
-@media(max-width:760px) { .action-feedback { padding:4px 13px; } }
+
+
+/* 모바일 탐험은 문서 대신 지도의 표시 범위가 남은 화면 높이를 따른다. */
+@media(max-width:760px), (max-width:1024px) and (max-height:500px) {
+  :root {
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  body:has(.game-shell) { overflow:hidden; overscroll-behavior:none; }
+  .game-shell {
+    height:100vh;
+    height:100dvh;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    padding:var(--safe-top) env(safe-area-inset-right,0px) 0 env(safe-area-inset-left,0px);
+  }
+  .game-top { position:relative; flex:0 0 44px; }
+  .game-columns { display:flex; flex-direction:column; flex:1; height:auto; min-height:0; overflow:hidden; }
+  .character-column { flex:none; padding:0 13px 6px; }
+  .character-column .identity { margin:0; min-height:44px; }
+  .character-column .identity>span:last-child { display:flex; align-items:baseline; gap:10px; min-width:0; }
+  .character-column .identity strong { font-size:14px; }
+  .character-column .identity small { margin:0; white-space:nowrap; }
+  .character-column>.vitals { gap:4px 18px; }
+  .character-column .vital>div:first-child { line-height:1.3; }
+  .character-column .stat-track { height:3px; margin-top:2px; }
+  .exploration-center { display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden; }
+  .exploration-center.tab-hidden { display:none; }
+  .region-header,.situation,.chest-controls,.exploration-commands { flex-shrink:0; }
+  .region-header { min-height:40px; padding:4px 13px; }
+  .map-stage { flex:1; min-height:0; }
+  .map-stage>.map-panel,.map-stage .map-viewport { height:100%; }
+  .situation { padding:4px 13px; min-height:28px; align-items:center; }
+  .situation-text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .exploration-commands { padding:6px 13px; }
+  .recent-log[aria-label="최근 기록"] { flex:0 0 42px; padding:3px 13px; overflow:hidden; }
+  .recent-log[aria-label="최근 기록"] p { line-height:18px; }
+  .recent-log .record-text { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .chest-controls { padding:3px 13px; align-items:center; font-size:10px; }
+  .chest-controls ul { margin:0; line-height:1.3; }
+  .chest-controls [data-testid="chest-status"]>p { line-height:1.3; }
+  .bottom-tabs { position:relative; inset:auto; width:auto; flex:0 0 calc(58px + var(--safe-bottom)); height:auto; gap:0; padding:0 0 var(--safe-bottom); }
+  .tab-page { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; }
+  .gap-notice { flex:none; padding:5px 13px; font-size:11px; }
+  .game-top .save-status.has-warning { top:calc(44px + var(--safe-top)); }
+  .has-combat .bottom-tabs { display:none; }
+  .has-combat .map-stage { flex:0 0 min(134px,20dvh); }
+  .has-combat .region-header { min-height:36px; height:36px; }
+  .combat-panel { top:calc(80px + var(--safe-top) + min(134px,20dvh)); padding-bottom:calc(14px + var(--safe-bottom)); }
+  .combat-dim { top:calc(44px + var(--safe-top)); }
+}
+@media(max-width:760px) and (max-height:650px), (max-width:1024px) and (max-height:500px) {
+  .region-header { min-height:34px; padding-top:2px; padding-bottom:2px; }
+  .region-header h2 { font-size:13px; }
+  .exploration-commands { padding-top:4px; padding-bottom:4px; }
+  .movement-controls { grid-template-columns:repeat(3,44px); grid-template-rows:repeat(2,44px); }
+  .movement-controls button { min-width:44px; min-height:44px; }
+  .bottom-tabs { flex-basis:calc(52px + var(--safe-bottom)); }
+  .recent-log[aria-label="최근 기록"] { flex-basis:38px; padding-top:1px; padding-bottom:1px; }
+  .map-stage>.mini-map { width:64px; }
+  .map-stage>.mini-map canvas { height:40px; }
+}
+/* 높이가 짧은 가로 화면에서는 상태와 명령을 지도 옆에 놓는다. */
+@media(min-width:540px) and (max-width:1024px) and (max-height:500px) {
+  .game-columns { flex-direction:row; }
+  .character-column { width:166px; border-right:1px solid var(--line); padding:0 10px; }
+  .character-column .identity>span:last-child { display:block; }
+  .character-column>.vitals { grid-template-columns:1fr; gap:10px; }
+  .exploration-center { display:grid; grid-template-columns:minmax(0,1fr) 150px; grid-template-rows:34px minmax(0,1fr) 28px auto 38px; }
+  .exploration-center.tab-hidden { display:none; }
+  .region-header { grid-column:1/-1; grid-row:1; }
+  .map-stage { grid-column:1; grid-row:2; }
+  .situation { grid-column:1; grid-row:3; padding:2px 8px; }
+  .exploration-commands { grid-column:2; grid-row:2/5; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:91px minmax(44px,1fr); padding:2px 6px; gap:2px; }
+  .exploration-commands .movement-controls { grid-column:1/-1; justify-self:center; }
+  .exploration-commands .command { flex:1; min-height:44px; padding:3px 8px; }
+  .command small { display:none; }
+  .recent-log[aria-label="최근 기록"] { grid-column:1/-1; grid-row:5; }
+  .chest-controls { grid-column:1; grid-row:4; padding-left:8px; padding-right:8px; }
+  .has-combat .game-columns { display:flex; flex-direction:column; }
+  .has-combat .exploration-center { display:flex; }
+}

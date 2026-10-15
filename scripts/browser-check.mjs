@@ -9,6 +9,7 @@ import { createServer } from 'vite';
 import { checkInventory } from './browser-inventory.mjs';
 import { checkWalls } from './browser-walls.mjs';
 import { checkRecords } from './browser-records.mjs';
+import { checkMobile } from './browser-mobile.mjs';
 import { checkCombat } from './browser-combat.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -127,7 +128,7 @@ try {
       assert((await page.locator('body').evaluate(el => getComputedStyle(el).fontFamily)).includes('IBM Plex Sans KR'));
       if (width === 390) {
         const geometry = await page.locator('.map-viewport').evaluate(el => ({ height: el.clientHeight, cell: getComputedStyle(document.querySelector('.map-cell')).width }));
-        assert(geometry.height >= 364); assert.equal(geometry.cell, '28px');
+        assert(geometry.height > 0); assert.equal(geometry.cell, '28px');
       }
       assert.equal(await page.getByRole('button', { name: '일시정지', exact: true }).count(), 0);
       results.push({ width, navigationAndMapModal: true, localPlexFonts: true, noPauseButton: true });
@@ -138,6 +139,7 @@ try {
       results.push({ width, input: true, saveDuringContinuousInput: true, fileRoundtrip: true, errors });
     } finally { await context.close(); }
   }
+  if (process.env.BROWSER_SUITE !== 'map') results.push(await checkMobile({ browser, url:distUrl, artifacts }));
   dev = await createServer({ root, server: { host: '127.0.0.1', port: 0 } }); await dev.listen();
   const fixtureUrl = dev.resolvedUrls.local[0];
   for (const size of [128, 512]) {
