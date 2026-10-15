@@ -31,7 +31,7 @@ export const strings = {
   unexplored: '미탐사',
   player: '현재 위치',
   playerGlyph: '♘',
-  keyboardHelp: '방향키 또는 W A S D로 이동하세요.',
+  keyboardHelp: '방향키·W A S D 또는 화면 버튼으로 이동하세요. 누르고 있으면 연속 이동하고, 떼면 멈춥니다.',
   moveHelp: '이동 버튼으로 주변을 탐험하세요.',
   blocked: '그 방향으로는 이동할 수 없습니다.',
   insufficientStamina: '스태미나가 부족해 이동할 수 없습니다.',

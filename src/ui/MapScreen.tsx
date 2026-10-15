@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { CSSProperties } from 'react';
 import type { GameStore } from '../runtime/store.ts';
 import { initialMapId } from '../runtime/store.ts';
-import { bindMovementKeys } from '../runtime/input.ts';
+import { bindMovementKeys, createMovementInput } from '../runtime/input.ts';
 import { browserClock, browserScheduler } from '../runtime/clock.ts';
 import { createGameLoop } from '../runtime/loop.ts';
 import { AmbushDialog } from './AmbushDialog.tsx';
@@ -39,8 +39,14 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false }: { s
       const event = result.events.find((entry) => entry.type === 'move/stepped');
       setMessage(event?.newlyExplored ? strings.newPath : strings.knownPath);
     }
+    return result.ok || result.reason === 'cooldown';
   }, [loop]);
-  useEffect(() => bindMovementKeys(window, move), [move]);
+  const input = useMemo(() => createMovementInput(move, store.content.timeRules.minimumMoveIntervalMs, browserScheduler), [move, store]);
+  useEffect(() => {
+    const unbind = bindMovementKeys(window, input, document);
+    const unsubscribe = loop.subscribe(() => { if (!loop.getSnapshot().running) input.clear(); });
+    return () => { unbind(); unsubscribe(); };
+  }, [input, loop]);
   const location = currentLocation(state, store.content);
   if (!location) return (
     <section className="unplaced">
@@ -125,7 +131,15 @@ export function MapScreen({ store, loop: suppliedLoop, persistent = false }: { s
           {controls.map(({ direction, glyph }) => (
             <button type="button" className={`move-${direction}`} key={direction}
               aria-label={strings[direction]} disabled={!session.running}
-              onPointerDown={(event) => { if (event.isPrimary && event.button === 0) move(direction); }}
+              onPointerDown={(event) => {
+                if (!event.isPrimary || event.button !== 0) return;
+                event.currentTarget.setPointerCapture(event.pointerId);
+                input.press(`pointer:${event.pointerId}`, direction);
+              }}
+              onPointerUp={(event) => input.release(`pointer:${event.pointerId}`)}
+              onPointerCancel={(event) => input.release(`pointer:${event.pointerId}`)}
+              onLostPointerCapture={(event) => input.release(`pointer:${event.pointerId}`)}
+              onContextMenu={(event) => { event.preventDefault(); input.clear(); }}
               // 포인터는 누를 때 처리한다. 키보드/보조기술의 click(detail=0)만 여기서 처리한다.
               onClick={(event) => { if (event.detail === 0) move(direction); }}>{glyph}</button>
           ))}

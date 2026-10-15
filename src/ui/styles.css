@@ -45,7 +45,7 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; }
 .travel-details div { display: flex; justify-content: space-between; gap: 12px; }
 .travel-details dt { color: #a0a1aa; }.travel-details dd { margin: 0; font-variant-numeric: tabular-nums; }
 .movement-controls { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(2, 48px); gap: 6px; justify-content: center; margin: 24px 0 12px; }
-.movement-controls button { border: 1px solid #575963; border-radius: 8px; background: #292b33; font-size: 22px; min-width: 48px; min-height: 48px; touch-action: manipulation; }
+.movement-controls button { border: 1px solid #575963; border-radius: 8px; background: #292b33; font-size: 22px; min-width: 48px; min-height: 48px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .movement-controls button:hover { background: #3a3d46; }.movement-controls button:active { background: #565a66; }
 .move-north { grid-area: 1 / 2; }.move-west { grid-area: 2 / 1; }.move-south { grid-area: 2 / 2; }.move-east { grid-area: 2 / 3; }
 .keyboard-help { color: #9698a2; text-align: center; font-size: 11px; line-height: 1.7; }
