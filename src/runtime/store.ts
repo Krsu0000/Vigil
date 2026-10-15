@@ -16,6 +16,7 @@ import { restHandlers } from '../engine/systems/rest/actions.ts';
 import type { RestAction, RestEvent } from '../engine/systems/rest/actions.ts';
 import { ambushHandlers } from '../engine/systems/ambush/actions.ts';
 import type { AmbushAction, AmbushEvent } from '../engine/systems/ambush/actions.ts';
+import { recordEvents } from './recent-records.ts';
 import { validateStateContent } from './validate-state.ts';
 import { GameStateSchema, restoreSave } from '../persistence/save-file.ts';
 
@@ -53,9 +54,13 @@ export function createGameStore(content: ContentDb, initial: GameState, now: () 
       return () => { listeners.delete(listener); };
     },
     dispatch(action: RuntimeAction) {
-      const result = run(state, action, { content, now: now() });
-      if (result.ok) publish(result.state);
-      return result;
+      const at = now();
+      const result = run(state, action, { content, now: at });
+      if (!result.ok) return result;
+      // 사건과 기록을 한 번에 공개하므로 자동 저장에서도 서로 어긋나지 않는다.
+      const recorded = { ...result, state: recordEvents(result.state, result.events, content, at) };
+      publish(recorded.state);
+      return recorded;
     },
     restore(raw: unknown) {
       const restored = restoreSave(raw);

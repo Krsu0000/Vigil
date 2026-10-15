@@ -1214,3 +1214,59 @@ small,.muted,.empty-note {
     background:rgb(8 8 8 / 45%);
   }
 }
+
+/* 탐험 지도는 카메라처럼 이동을 따라간다. 전체 지도만 직접 탐색한다. */
+.map-viewport {
+  overflow:hidden;
+  scrollbar-width:none;
+  container-type:size;
+}
+.map-viewport.can-pan {
+  overflow:auto;
+}
+.map-viewport::-webkit-scrollbar {
+  display:none;
+}
+.map-surface {
+  padding:max(0px,calc(50cqh - var(--cell-size)/2)) max(0px,calc(50cqw - var(--cell-size)/2));
+}
+.map-stage,.map-cell {
+  background:#202020;
+}
+.map-cell.is-explored {
+  background:#363636;
+}
+.map-cell.is-visible,.legend-current {
+  background:#626262;
+  color:#f2f2f2;
+}
+.map-cell.is-wall {
+  background:#c8c8c8;
+}
+.map-cell.is-player {
+  background:#f0f0f0;
+  color:#111;
+}
+@media(min-width:1061px) {
+  .game-columns { grid-template-columns:220px minmax(0,1fr) 248px; }
+  .bottom-tabs { width:220px; }
+}
+@media(min-width:761px) {
+  .exploration-center { overflow:hidden; }
+  .region-header { min-height:48px; padding:6px 20px; }
+  .region-header,.situation,.chest-controls,.exploration-commands { flex-shrink:0; }
+  .map-stage { flex:1; min-height:280px; }
+  .map-stage>.map-panel,.map-stage .map-viewport { height:100%; }
+  .map-stage .map-legend { display:none; }
+  .recent-log { flex:0 0 92px; overflow:auto; }
+  .recent-log .movement-status { margin-top:2px; }
+}
+@media(max-width:760px) {
+  :root { --cell-size:min(28px,calc((100vw - 16px)/13)); }
+  .map-stage { margin:0 8px; }
+  .map-viewport { height:max(calc(13 * var(--cell-size)),calc(100dvh - 440px)); }
+  .has-combat .map-viewport { height:calc(5 * var(--cell-size)); }
+}
+
+.action-feedback { flex-shrink:0; padding:4px 20px; font-size:11px; color:#a3a3a3; }
+@media(max-width:760px) { .action-feedback { padding:4px 13px; } }

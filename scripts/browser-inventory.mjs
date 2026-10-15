@@ -41,7 +41,7 @@ export async function checkInventory({ page, width, artifacts, readSlot, font })
   await font(page); assert(!await panel.evaluate(el => el.scrollWidth > el.clientWidth));
   await page.screenshot({ path: path.join(artifacts, `inventory-${width}.png`), fullPage: true });
   await close(); await button('귀환').click(); await page.clock.runFor(5000);
-  const saved = await readSlot(page); assert.equal(saved.schemaVersion, 6); assert.equal(saved.state.character.inventory.equipment.feet, 'item.trail_boots');
+  const saved = await readSlot(page); assert.equal(saved.schemaVersion, 7); assert.equal(saved.state.character.inventory.equipment.feet, 'item.trail_boots');
   assert.equal(saved.state.character.inventory.stacks['item.travel_ration'], 2); assert.equal(saved.state.campaign.openedChests['chest.camp_supply'], true);
   await page.reload(); await page.getByTestId('position').waitFor(); panel = await open();
   assert((await panel.locator('[data-item-id="item.travel_ration"]').textContent()).includes('×2'));

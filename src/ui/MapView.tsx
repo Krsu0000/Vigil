@@ -14,8 +14,8 @@ import { strings } from './strings/index.ts';
 export type MapViewport = Readonly<{ x: number; y: number; width: number; height: number }>;
 
 // 시간·자원만 갱신되면 지도를 재계산하지 않는다. 표시 범위만 DOM에 둔다.
-export const MapView = memo(function MapView({ content, map, position, memory, openedChests, defeatedEnemies, onViewportChange }: {
-  content: ContentDb; map: DeepReadonly<MapDefinition>; position: MapPosition; memory: MapExploration; openedChests?: Readonly<Record<string, true>>; defeatedEnemies?: Readonly<Record<string, true>>; onViewportChange?: (viewport: MapViewport) => void;
+export const MapView = memo(function MapView({ content, map, position, memory, openedChests, defeatedEnemies, onViewportChange, overview = false }: {
+  overview?: boolean; content: ContentDb; map: DeepReadonly<MapDefinition>; position: MapPosition; memory: MapExploration; openedChests?: Readonly<Record<string, true>>; defeatedEnemies?: Readonly<Record<string, true>>; onViewportChange?: (viewport: MapViewport) => void;
 }) {
   const floor = findFloor(map, position.floor)!;
   const viewport = useRef<HTMLDivElement>(null);
@@ -36,7 +36,7 @@ export const MapView = memo(function MapView({ content, map, position, memory, o
     const view = viewport.current!, area = grid.current!;
     const size = area.getBoundingClientRect().width / floor.width;
     const x = area.offsetLeft + position.x * size, y = area.offsetTop + position.y * size;
-    // 플레이어 중심의 화면을 유지한다. 수동 스크롤은 다음 이동까지 유지한다.
+    // 탐험은 이동으로만 화면을 옮긴다. 전체 지도만 직접 둘러볼 수 있다.
     view.scrollLeft = x - (view.clientWidth - size) / 2;
     view.scrollTop = y - (view.clientHeight - size) / 2;
     measure();
@@ -57,7 +57,7 @@ export const MapView = memo(function MapView({ content, map, position, memory, o
       <span className="floor-label">{position.floor}{strings.floorUnit}</span>
     </div>
     <p className="map-description">{map.description}</p>
-    <div className="map-viewport" ref={viewport}>
+    <div className={`map-viewport${overview ? ' can-pan' : ''}`} ref={viewport}>
       <div className="map-surface">
         <div className="map-grid" ref={grid} role="grid" tabIndex={0} aria-label={map.name}
           aria-rowcount={floor.height} aria-colcount={floor.width}

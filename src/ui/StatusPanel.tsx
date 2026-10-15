@@ -4,7 +4,8 @@ import { strings } from './strings/index.ts';
 export function Vitals({state}:{state:GameState}){
   const character=state.character;
   const values=[{label:'체력',value:character?.health,test:'health'},{label:strings.stamina,value:character?.stamina,test:'stamina'},
-    {label:'정신력',value:undefined,test:'sanity'},{label:'오염도',value:undefined,test:'corruption'}];
+    {label:'정신력',value:undefined,test:'sanity'},{label:'오염도',value:undefined,test:'corruption'},
+    ...(character?.archetype==='mage'?[{label:'마나',value:character.mana,test:'mana'}]:[])];
   return <div className="vitals">{values.map(({label,value,test})=><div className="vital" key={test}>
     <div><span>{label}</span><span className="n" data-testid={test}>{value?`${value.current} / ${value.max}`:'—'}</span></div>
     <div className="stat-track" aria-hidden="true"><i style={{width:value?`${100*value.current/value.max}%`:'0%'}} /></div>

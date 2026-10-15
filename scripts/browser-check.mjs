@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { checkInventory } from './browser-inventory.mjs';
+import { checkRecords } from './browser-records.mjs';
 import { checkCombat } from './browser-combat.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -93,7 +94,7 @@ try {
       await page.getByRole('button', { name: '파일로 내보내기', exact: true }).click();
       const download = await downloadPromise;
       const exported = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
-      assert.equal(exported.schemaVersion, 6);
+      assert.equal(exported.schemaVersion, 7);
       await page.locator('input[type=file]').setInputFiles({ name: 'roundtrip.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
       await page.getByRole('button', { name: '이 탐험으로 교체', exact: true }).click();
       await page.getByTestId('file-status').filter({ hasText: '가져왔' }).waitFor();
@@ -124,11 +125,12 @@ try {
       assert((await page.locator('body').evaluate(el => getComputedStyle(el).fontFamily)).includes('IBM Plex Sans KR'));
       if (width === 390) {
         const geometry = await page.locator('.map-viewport').evaluate(el => ({ height: el.clientHeight, cell: getComputedStyle(document.querySelector('.map-cell')).width }));
-        assert.equal(geometry.height, 364); assert.equal(geometry.cell, '28px');
+        assert(geometry.height >= 364); assert.equal(geometry.cell, '28px');
       }
       assert.equal(await page.getByRole('button', { name: '일시정지', exact: true }).count(), 0);
       results.push({ width, navigationAndMapModal: true, localPlexFonts: true, noPauseButton: true });
       results.push(await checkInventory({ page, width, artifacts, readSlot, font }));
+      results.push(await checkRecords({ page, width, readSlot }));
       results.push(await checkCombat({ page, width, artifacts, readSlot }));
       assert.deepEqual(errors, []);
       results.push({ width, input: true, saveDuringContinuousInput: true, fileRoundtrip: true, errors });

@@ -141,6 +141,17 @@ describe('전투 재생·저장·런타임', () => {
     expect(old).toEqual(before); expect(converted).toEqual({ ...old, schemaVersion: 6, state: { ...old.state, character: { ...old.state.character!, health: { current: 100, max: 100 } } } });
     expect(createGameStore(ctx.content, restoreSave(JSON.stringify(old)), () => ctx.now).getSnapshot().character!.health).toEqual({ current: 100, max: 100 });
   });
+  it('진행 중인 v6 전투를 v7로 옮겨도 행동·자원·난수가 그대로 이어진다', () => {
+    const { store, ctx } = start(); act(store, 'defend');
+    const state = store.getSnapshot(); const { recentRecords: _records, ...campaign } = state.campaign;
+    const oldState = { ...state, campaign };
+    const old = deepFreeze({ ...createSaveFile(state, metadata), schemaVersion: 6, state: oldState });
+    const resumed = createGameStore(ctx.content, restoreSave(JSON.stringify(old)), () => ctx.now);
+    expect(resumed.getSnapshot()).toEqual(oldState);
+    const a = act(store, 'attack'), b = act(resumed, 'attack');
+    expect(b.ok).toBe(a.ok); expect(b.state.character).toEqual(a.state.character);
+    expect(b.state.meta).toEqual(a.state.meta); expect(b.state.expedition).toEqual(a.state.expedition);
+  });
   it('손상된 전투를 원자적으로 거부한다', () => {
     const { store } = start(); act(store, 'defend'); const state = store.getSnapshot(); const before = store.getSnapshot(); const listener = vi.fn(); store.subscribe(listener);
     const save = createSaveFile(state, metadata);

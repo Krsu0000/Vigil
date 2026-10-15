@@ -1,3 +1,4 @@
+import { v6ToV7 } from '../persistence/migrations/v6-to-v7.ts';
 import { describe, expect, it, vi } from 'vitest';
 import { createGameStore } from './store.ts';
 import { createGameLoop } from './loop.ts';
@@ -15,7 +16,7 @@ const metadata = { contentVersion: '0.3.0', saveId: '00112233-4455-4677-8899-aab
 describe('아이템 저장과 런타임 연결', () => {
   it('v4의 모든 상태를 보존하면서 빈 소지품·상자 기록만 더하고 v6로 저장한다', () => {
     const old = deepFreeze(SaveFileV4Schema.parse(v3ToV4(legacyV3))); const before = structuredClone(old);
-    const expected = v5ToV6(v4ToV5(old)); const result = parseSave(old);
+    const expected = v6ToV7(v5ToV6(v4ToV5(old))); const result = parseSave(old);
     expect(result).toEqual(expected); expect(old).toEqual(before);
     expect(result.state.meta).toEqual(old.state.meta);
     expect(result.state.campaign.exploration).toEqual(old.state.campaign.exploration);

@@ -13,6 +13,9 @@ export { StaminaSchema } from './schemas-v3.ts';
 export { InventorySchema } from './schemas-v5.ts';
 export const GameStateSchema = GameStateV5Schema.safeExtend({
   character: CombatCharacterSchema.nullable(),
+  campaign: GameStateV5Schema.shape.campaign.extend({
+    recentRecords: z.array(z.strictObject({ at: z.number().int().min(0).max(8640000000000000), text: z.string().min(1) })).max(100).optional(),
+  }),
   expedition: GameStateV5Schema.shape.expedition.unwrap().extend({
     pendingAmbush: GameStateV5Schema.shape.expedition.unwrap().shape.pendingAmbush.unwrap().extend({
       encounterId: ContentIdSchema.optional(), retreat: PositionSchema.optional(),
@@ -21,6 +24,8 @@ export const GameStateSchema = GameStateV5Schema.safeExtend({
     defeatedEnemies: z.record(ContentIdSchema, z.literal(true)).optional(),
   }).nullable(),
 }).superRefine((state,ctx)=>{
+  if(state.character?.mana && state.character.archetype!=='mage')
+    ctx.addIssue({code:'custom',message:'마나는 마법사에게만 허용한다'});
   const combat=state.expedition?.combat;
   if(combat && (!state.character?.position || state.expedition?.pendingAmbush || state.character.activity!=='waiting'))
     ctx.addIssue({code:'custom',message:'전투/조우/캐릭터 상태가 충돌한다'});

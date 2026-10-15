@@ -1,3 +1,4 @@
+import { v6ToV7 } from './migrations/v6-to-v7.ts';
 import { describe, expect, it, vi } from 'vitest';
 import legacyV3 from './fixtures/v3-explored.json' with { type: 'json' };
 import { v5ToV6 } from './migrations/v5-to-v6.ts';
@@ -19,8 +20,8 @@ describe('v3→v4 호환성과 휴식·습격 저장', () => {
       character: { ...old.state.character!, activity: 'waiting' }, expedition: expedition === null ? null : { pendingAmbush: null },
     } };
     expect(v3ToV4(old)).toEqual(expected);
-    expect(parseSave(old)).toEqual(v5ToV6(v4ToV5(expected)));
-    expect(deserializeSave(serializeSave(parseSave(old)))).toEqual(v5ToV6(v4ToV5(expected)));
+    expect(parseSave(old)).toEqual(v6ToV7(v5ToV6(v4ToV5(expected))));
+    expect(deserializeSave(serializeSave(parseSave(old)))).toEqual(v6ToV7(v5ToV6(v4ToV5(expected))));
     expect(old.schemaVersion).toBe(3);
   });
 

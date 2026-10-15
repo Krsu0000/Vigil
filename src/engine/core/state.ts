@@ -4,9 +4,11 @@ export type MapExploration = Readonly<{
   mapVersion: number;
   visited: Readonly<Record<string, true>>; // 정규 좌표 키 floor:x:y
 }>;
+export type RecentRecord = Readonly<{ at: number; text: string }>;
 export type CampaignState = Readonly<{
   exploration: Readonly<Record<string, MapExploration>>;
   openedChests: Readonly<Record<string, true>>;
+  recentRecords?: readonly RecentRecord[];
 }>;
 export type InventoryState = Readonly<{
   stacks: Readonly<Record<string, number>>;
@@ -17,6 +19,8 @@ export type StaminaState = Readonly<{ current: number; max: number }>;
 export type CharacterState = Readonly<{
   inventory: InventoryState;
   health: StaminaState;
+  archetype?: 'warrior' | 'rogue' | 'mage';
+  mana?: StaminaState;
   position: MapPosition | null;
   stamina: StaminaState;
   movedSinceLastTick: boolean;
