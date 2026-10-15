@@ -5,6 +5,8 @@ import zones from './zones.json' with { type: 'json' };
 import maps from './maps/s1-test.json' with { type: 'json' };
 import items from './items.json' with { type: 'json' };
 import chests from './chests.json' with { type: 'json' };
+import monsters from './monsters.json' with { type: 'json' };
+import encounters from './encounters.json' with { type: 'json' };
 import type { EffectValidator } from './types.ts';
 
 export const rejectEffects: EffectValidator = () => ({
@@ -29,7 +31,7 @@ export function mapSources() {
   const sources = testSources();
   sources['manifest.json'].definitionFiles = ['tiles.json', 'zones.json', 'maps/s1-test.json'];
   const testMaps = structuredClone(maps);
-  for (const map of testMaps) for (const floor of map.floors) for (const cell of floor.cells) delete (cell as { chestId?: string }).chestId;
+  for (const map of testMaps) for (const floor of map.floors) for (const cell of floor.cells) { delete (cell as { chestId?: string }).chestId; delete (cell as { encounterId?: string }).encounterId; }
   return {
     ...sources,
     'tiles.json': structuredClone(tiles),
@@ -43,5 +45,5 @@ export function inventorySources() {
   const sources = mapSources();
   sources['manifest.json'].definitionFiles = [...manifest.definitionFiles];
   return { ...sources, 'maps/s1-test.json': structuredClone(maps),
-    'items.json': structuredClone(items), 'chests.json': structuredClone(chests) };
+    'items.json': structuredClone(items), 'chests.json': structuredClone(chests), 'monsters.json': structuredClone(monsters), 'encounters.json': structuredClone(encounters) };
 }

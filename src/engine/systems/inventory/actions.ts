@@ -14,7 +14,7 @@ export type InventoryEvent =
   | Readonly<{ type: 'inventory/equipped'; itemId: string }>
   | Readonly<{ type: 'inventory/unequipped'; itemId: string }>;
 
-function addLoot(inventory: InventoryState, loot: readonly Readonly<{ itemId: string; quantity: number }>[]): InventoryState | null {
+export function addLoot(inventory: InventoryState, loot: readonly Readonly<{ itemId: string; quantity: number }>[]): InventoryState | null {
   const stacks = { ...inventory.stacks };
   for (const entry of loot) {
     const quantity = (stacks[entry.itemId] ?? 0) + entry.quantity;
@@ -27,7 +27,7 @@ export const inventoryHandlers: ActionHandlers<InventoryAction, InventoryEvent> 
   'inventory/open_chest': {
     validate: (state, action, ctx) => {
       if (typeof action.chestId !== 'string') return 'invalid_action';
-      if (!state.character?.position || state.expedition?.pendingAmbush) return 'condition_not_met';
+      if (!state.character?.position || (state.expedition?.pendingAmbush || state.expedition?.combat || state.character?.health.current === 0)) return 'condition_not_met';
       const chest = currentChest(state, ctx.content);
       if (!chest || chest.id !== action.chestId || state.campaign.openedChests[chest.id]) return 'condition_not_met';
       const inventory = addLoot(state.character.inventory, chest.loot);
@@ -45,7 +45,7 @@ export const inventoryHandlers: ActionHandlers<InventoryAction, InventoryEvent> 
   'inventory/use': {
     validate: (state, action, ctx) => {
       if (typeof action.itemId !== 'string') return 'invalid_action';
-      if (!state.character?.position || state.expedition?.pendingAmbush) return 'condition_not_met';
+      if (!state.character?.position || (state.expedition?.pendingAmbush || state.expedition?.combat || state.character?.health.current === 0)) return 'condition_not_met';
       const item = findItem(ctx.content, action.itemId);
       if (!item || item.category !== 'food') return 'invalid_action';
       if (!state.character.inventory.stacks[item.id]) return 'insufficient_resources';
@@ -67,7 +67,7 @@ export const inventoryHandlers: ActionHandlers<InventoryAction, InventoryEvent> 
   'inventory/equip': {
     validate: (state, action, ctx) => {
       if (typeof action.itemId !== 'string') return 'invalid_action';
-      if (!state.character?.position || state.expedition?.pendingAmbush) return 'condition_not_met';
+      if (!state.character?.position || (state.expedition?.pendingAmbush || state.expedition?.combat || state.character?.health.current === 0)) return 'condition_not_met';
       const item = findItem(ctx.content, action.itemId);
       if (!item || item.category !== 'equipment' || item.slot !== 'feet') return 'invalid_action';
       if (!state.character.inventory.stacks[item.id]) return 'insufficient_resources';
@@ -80,7 +80,7 @@ export const inventoryHandlers: ActionHandlers<InventoryAction, InventoryEvent> 
   'inventory/unequip': {
     validate: (state, action) => {
       if (action.slot !== 'feet') return 'invalid_action';
-      return !state.character?.position || state.expedition?.pendingAmbush || !state.character.inventory.equipment.feet ? 'condition_not_met' : null;
+      return !state.character?.position || (state.expedition?.pendingAmbush || state.expedition?.combat || state.character?.health.current === 0) || !state.character.inventory.equipment.feet ? 'condition_not_met' : null;
     },
     execute: (state) => ({ state: { ...state, character: { ...state.character!, inventory: {
       ...state.character!.inventory, equipment: { feet: null },

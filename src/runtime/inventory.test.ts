@@ -4,6 +4,7 @@ import { createGameLoop } from './loop.ts';
 import { lootedState } from '../engine/systems/inventory/test-fixtures.ts';
 import { createSaveFile, parseSave, restoreSave, serializeSave } from '../persistence/save-file.ts';
 import { v3ToV4 } from '../persistence/migrations/v3-to-v4.ts';
+import { v5ToV6 } from '../persistence/migrations/v5-to-v6.ts';
 import { v4ToV5 } from '../persistence/migrations/v4-to-v5.ts';
 import legacyV3 from '../persistence/fixtures/v3-explored.json' with { type: 'json' };
 import { deepFreeze } from '../engine/core/test-fixtures.ts';
@@ -12,9 +13,9 @@ import { SaveFileV4Schema } from '../persistence/schemas-v4.ts';
 
 const metadata = { contentVersion: '0.3.0', saveId: '00112233-4455-4677-8899-aabbccddeeff', revision: 3, savedAt: 1_700_000_000_000 };
 describe('아이템 저장과 런타임 연결', () => {
-  it('v4의 모든 상태를 보존하면서 빈 소지품·상자 기록만 더하고 v5로 저장한다', () => {
+  it('v4의 모든 상태를 보존하면서 빈 소지품·상자 기록만 더하고 v6로 저장한다', () => {
     const old = deepFreeze(SaveFileV4Schema.parse(v3ToV4(legacyV3))); const before = structuredClone(old);
-    const expected = v4ToV5(old); const result = parseSave(old);
+    const expected = v5ToV6(v4ToV5(old)); const result = parseSave(old);
     expect(result).toEqual(expected); expect(old).toEqual(before);
     expect(result.state.meta).toEqual(old.state.meta);
     expect(result.state.campaign.exploration).toEqual(old.state.campaign.exploration);

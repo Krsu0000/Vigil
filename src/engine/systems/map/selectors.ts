@@ -64,7 +64,7 @@ export function validateMapState(state: GameState, content: ContentDb): void {
 
 // 현재 프로토타입은 맵 하나다. 여러 맵/거점 중 임의의 목적지를 고르지 않는다.
 export function getReturnDestination(state: GameState, content: ContentDb): MapPosition | null {
-  if (state.expedition?.pendingAmbush) return null;
+  if (state.expedition?.pendingAmbush || state.expedition?.combat || state.character?.health.current === 0) return null;
   const location = currentLocation(state, content);
   if (!location || content.definitions.filter(entry => entry.kind === 'map').length !== 1) return null;
   const source = findCell(location.map, location.position)!;

@@ -24,6 +24,14 @@ export const TimeRulesSchema = z.strictObject({
   }).refine((rules) => rules.restChancePerTick >= rules.waitChancePerTick, {
     message: '휴식 습격 확률은 대기 확률 이상이어야 한다', path: ['restChancePerTick'],
   }),
+  combat: z.strictObject({
+    healthMax: positiveInteger, safeHealthRegenPerPeriod: nonnegativeInteger,
+    attackMin: positiveInteger, attackMax: positiveInteger,
+    hitChance: z.number().min(0).max(1), defenseMultiplier: z.number().min(0).max(1),
+    skillCost: positiveInteger, skillMultiplier: z.number().min(1).max(10),
+    escapeChance: z.number().min(0).max(1), ticksPerTurn: positiveInteger,
+    ambushEncounterId: ContentIdSchema,
+  }).refine(rules => rules.attackMin <= rules.attackMax, { message: '공격 범위가 유효하지 않다' }),
   stamina: z.strictObject({
     recoveryIntervalMs: positiveInteger,
     max: positiveInteger,
@@ -92,6 +100,7 @@ export const MapDefinitionSchema = DefinitionSchema.extend({
       tileId: namedId('tile'),
       zoneId: namedId('zone'),
       chestId: namedId('chest').optional(),
+      encounterId: namedId('encounter').optional(),
     })).min(1),
   })).min(1),
 });
@@ -116,12 +125,24 @@ export const ChestDefinitionSchema = DefinitionSchema.extend({
   loot: z.array(z.strictObject({ itemId: namedId('item'), quantity: positiveInteger })).min(1),
 }).refine(chest => chest.effects.length === 0, { message: '상자는 loot로만 아이템을 지급한다' });
 
+export const MonsterDefinitionSchema = DefinitionSchema.extend({
+  kind: z.literal('monster'), id: namedId('monster'), name: text, description: text,
+  glyph: text, level: positiveInteger, health: positiveInteger,
+  damageMin: positiveInteger, damageMax: positiveInteger,
+  hitChance: z.number().min(0).max(1), intent: text,
+  loot: z.array(z.strictObject({ itemId: namedId('item'), quantity: positiveInteger })),
+}).refine(monster => monster.damageMin <= monster.damageMax && monster.effects.length === 0, { message: '적의 피해 범위/효과가 유효하지 않다' });
+export const EncounterDefinitionSchema = DefinitionSchema.extend({
+  kind: z.literal('encounter'), id: namedId('encounter'), name: text,
+  enemies: z.array(z.strictObject({ monsterId: namedId('monster'), row: z.enum(['front', 'back']) })).min(1).max(6),
+}).refine(encounter => encounter.enemies.some(enemy => enemy.row === 'front') && encounter.effects.length === 0,
+  { message: '전열에 적이 한 명 이상 필요하다' });
 const GenericDefinitionSchema = DefinitionSchema.extend({ kind: z.undefined().optional() }).refine(
-  (definition) => !/^(map|tile|zone|item|chest)\./.test(definition.id),
+  (definition) => !/^(map|tile|zone|item|chest|monster|encounter)\./.test(definition.id),
   { message: 'map·tile·zone·item·chest ID에는 해당 종류의 구체적인 정의가 필요하다', path: ['id'] },
 );
 export const ContentDefinitionSchema = z.discriminatedUnion('kind', [
-  MapDefinitionSchema, TileDefinitionSchema, ZoneDefinitionSchema, ItemDefinitionSchema, ChestDefinitionSchema, GenericDefinitionSchema,
+  MapDefinitionSchema, TileDefinitionSchema, ZoneDefinitionSchema, ItemDefinitionSchema, ChestDefinitionSchema, MonsterDefinitionSchema, EncounterDefinitionSchema, GenericDefinitionSchema,
 ]);
 export const DefinitionsSchema = z.array(ContentDefinitionSchema);
 
@@ -134,3 +155,6 @@ export type TileDefinition = z.infer<typeof TileDefinitionSchema>;
 export type ZoneDefinition = z.infer<typeof ZoneDefinitionSchema>;
 export type ItemDefinition = z.infer<typeof ItemDefinitionSchema>;
 export type ChestDefinition = z.infer<typeof ChestDefinitionSchema>;
+
+export type MonsterDefinition = z.infer<typeof MonsterDefinitionSchema>;
+export type EncounterDefinition = z.infer<typeof EncounterDefinitionSchema>;

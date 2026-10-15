@@ -22,8 +22,11 @@ import { GameStateSchema, restoreSave } from '../persistence/save-file.ts';
 import { inventoryHandlers } from '../engine/systems/inventory/actions.ts';
 import type { InventoryAction, InventoryEvent } from '../engine/systems/inventory/actions.ts';
 
-export type RuntimeAction = InventoryAction | MapAction | TimeAction | SettleAction | StaminaAction | RestAction | AmbushAction;
-export type RuntimeEvent = InventoryEvent | MapEvent | TimeEvent | SettleEvent | StaminaEvent | RestEvent | AmbushEvent;
+import { combatHandlers } from '../engine/systems/combat/actions.ts';
+import type { CombatAction, CombatEvent } from '../engine/systems/combat/actions.ts';
+
+export type RuntimeAction = CombatAction | InventoryAction | MapAction | TimeAction | SettleAction | StaminaAction | RestAction | AmbushAction;
+export type RuntimeEvent = CombatEvent | InventoryEvent | MapEvent | TimeEvent | SettleEvent | StaminaEvent | RestEvent | AmbushEvent;
 
 export type GameStore = Readonly<{
   content: ContentDb;
@@ -36,7 +39,7 @@ export type GameStore = Readonly<{
 export function createGameStore(content: ContentDb, initial: GameState, now: () => number): GameStore {
   let state: GameState = GameStateSchema.parse(initial);
   validateStateContent(state, content);
-  const run = createDispatcher<RuntimeAction, RuntimeEvent>({ ...mapHandlers, ...timeHandlers, ...settleHandlers, ...staminaHandlers, ...restHandlers, ...ambushHandlers, ...inventoryHandlers });
+  const run = createDispatcher<RuntimeAction, RuntimeEvent>({ ...mapHandlers, ...timeHandlers, ...settleHandlers, ...staminaHandlers, ...restHandlers, ...ambushHandlers, ...inventoryHandlers, ...combatHandlers });
   const listeners = new Set<() => void>();
   const publish = (next: GameState) => {
     state = next;

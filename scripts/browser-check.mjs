@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
 import { checkInventory } from './browser-inventory.mjs';
+import { checkCombat } from './browser-combat.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const require = createRequire(import.meta.url);
@@ -56,11 +57,12 @@ async function font(page) {
 }
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHROMIUM_EXECUTABLE ? { executablePath: process.env.BROWSER_CHROMIUM_EXECUTABLE } : {}) });
-  for (const width of process.env.BROWSER_SUITE === 'map' ? [] : [1280, 390, 320]) {
-    const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: width < 500, isMobile: width < 500 });
+  for (const width of process.env.BROWSER_SUITE === 'map' ? [] : [1440, 390, 320]) {
+    const context = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, hasTouch: width < 500, isMobile: width < 500 });
     try {
       const page = await context.newPage(), errors = [];
       page.on('pageerror', error => errors.push(error.message));
+      await page.addInitScript(() => { const original = crypto.getRandomValues.bind(crypto); crypto.getRandomValues = array => array instanceof Uint32Array && array.length === 4 ? (array.set([1, 2, 3, 4]), array) : original(array); });
       await page.clock.install({ time: new Date('2026-10-15T01:00:00Z') });
       await page.clock.pauseAt(new Date('2026-10-15T01:00:01Z'));
       await page.goto(distUrl); await page.getByTestId('position').waitFor();
@@ -85,14 +87,13 @@ try {
       const saved = await readSlot(page);
       assert(saved.revision > before.revision); assert(saved.savedAt > before.savedAt);
       assert(saved.savedAt - before.savedAt <= 5_000);
-      await page.getByRole('button', { name: '일시정지', exact: true }).click();
-      await page.keyboard.press('ArrowRight'); assert.equal(await position(), '(1, 1)'); assert(await east.isDisabled());
       await page.getByRole('button', { name: '설정', exact: true }).click();
+      await page.keyboard.press('ArrowRight'); assert.equal(await position(), '(1, 1)'); assert(await east.isDisabled());
       const downloadPromise = page.waitForEvent('download');
       await page.getByRole('button', { name: '파일로 내보내기', exact: true }).click();
       const download = await downloadPromise;
       const exported = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
-      assert.equal(exported.schemaVersion, 5);
+      assert.equal(exported.schemaVersion, 6);
       await page.locator('input[type=file]').setInputFiles({ name: 'roundtrip.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
       await page.getByRole('button', { name: '이 탐험으로 교체', exact: true }).click();
       await page.getByTestId('file-status').filter({ hasText: '가져왔' }).waitFor();
@@ -102,7 +103,33 @@ try {
       assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth));
       assert.deepEqual(errors, []);
       await page.screenshot({ path: path.join(artifacts, `app-${width}.png`), fullPage: true });
+      const nav = page.getByRole('navigation', { name: '주 메뉴' });
+      await nav.getByRole('button', { name: '캐릭터', exact: true }).click();
+      if (width > 760) {
+        const character = page.getByRole('dialog', { name: '캐릭터', exact: true });
+        assert.equal((await character.boundingBox()).width, 600);
+        await page.getByRole('button', { name: '캐릭터 닫기', exact: true }).click();
+      } else {
+        assert((await page.locator('.tab-page').textContent()).includes('스킬'));
+        await nav.getByRole('button', { name: '탐험', exact: true }).click();
+      }
+      await page.locator('.map-grid').focus(); await page.keyboard.press('m');
+      await page.getByRole('dialog', { name: '전체 지도', exact: true }).waitFor();
+      await page.getByRole('button', { name: '전체 지도 닫기', exact: true }).click();
+      for (const label of ['거점', '더보기']) {
+        await nav.getByRole('button', { name: label, exact: true }).click();
+        if (width > 760) await page.getByRole('button', { name: `${label} 닫기`, exact: true }).click();
+        else await nav.getByRole('button', { name: '탐험', exact: true }).click();
+      }
+      assert((await page.locator('body').evaluate(el => getComputedStyle(el).fontFamily)).includes('IBM Plex Sans KR'));
+      if (width === 390) {
+        const geometry = await page.locator('.map-viewport').evaluate(el => ({ height: el.clientHeight, cell: getComputedStyle(document.querySelector('.map-cell')).width }));
+        assert.equal(geometry.height, 364); assert.equal(geometry.cell, '28px');
+      }
+      assert.equal(await page.getByRole('button', { name: '일시정지', exact: true }).count(), 0);
+      results.push({ width, navigationAndMapModal: true, localPlexFonts: true, noPauseButton: true });
       results.push(await checkInventory({ page, width, artifacts, readSlot, font }));
+      results.push(await checkCombat({ page, width, artifacts, readSlot }));
       assert.deepEqual(errors, []);
       results.push({ width, input: true, saveDuringContinuousInput: true, fileRoundtrip: true, errors });
     } finally { await context.close(); }
@@ -133,7 +160,7 @@ try {
       assert.equal(await far.getAttribute('aria-colindex'), String(size));
       await page.keyboard.press('ArrowRight');
       await page.locator('.map-cell.is-player').waitFor();
-      assert.equal(await page.locator('[data-x="1"][data-y="0"]').getAttribute('data-visibility'), 'explored');
+      assert.equal(await page.locator('[data-x="1"][data-y="0"]').getAttribute('data-visibility'), 'unexplored');
       const followed = await page.locator('.map-cell.is-player').evaluate(element => {
         const a = element.getBoundingClientRect(), b = element.closest('.map-viewport').getBoundingClientRect();
         return a.left >= b.left && a.right <= b.right && a.top >= b.top && a.bottom <= b.bottom;

@@ -10,7 +10,7 @@ export const timeHandlers: ActionHandlers<TimeAction, TimeEvent | AmbushEvent> =
     validate: (state, action, ctx) => {
       const ticks = action.ticks ?? 1;
       if (!Number.isSafeInteger(ticks) || ticks < 1) return 'invalid_action';
-      return !state.expedition?.pendingAmbush && currentLocation(state, ctx.content) ? null : 'condition_not_met';
+      return !(state.expedition?.pendingAmbush || state.expedition?.combat) && currentLocation(state, ctx.content) ? null : 'condition_not_met';
     },
     execute: (state, action, ctx, rng) => advanceTime(state, action.ticks ?? 1, ctx, rng),
   },

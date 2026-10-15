@@ -1,3 +1,4 @@
+import type { CombatState } from './combat-log.ts';
 export type MapPosition = Readonly<{ mapId: string; floor: number; x: number; y: number }>;
 export type MapExploration = Readonly<{
   mapVersion: number;
@@ -15,14 +16,17 @@ export type InventoryState = Readonly<{
 export type StaminaState = Readonly<{ current: number; max: number }>;
 export type CharacterState = Readonly<{
   inventory: InventoryState;
+  health: StaminaState;
   position: MapPosition | null;
   stamina: StaminaState;
   movedSinceLastTick: boolean;
   activity: 'waiting' | 'resting';
 }>;
-// S2의 미처리 습격만 보관한다. 전체 원정 수명 주기는 후속 단계에서 정의한다.
+// 미처리 조우·전투·토벌을 저장한다. 원정 재생성 수명 주기는 후속 단계에서 정의한다.
 export type ExpeditionState = Readonly<{
-  pendingAmbush: null | Readonly<{ triggeredAt: number; activityAtTrigger: 'waiting' | 'resting' }>;
+  pendingAmbush: null | Readonly<{ triggeredAt: number; activityAtTrigger: 'waiting' | 'resting'; encounterId?: string; retreat?: MapPosition }>;
+  combat?: CombatState;
+  defeatedEnemies?: Readonly<Record<string, true>>;
 }>;
 
 export type StateMeta = Readonly<{

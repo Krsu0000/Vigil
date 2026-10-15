@@ -24,10 +24,10 @@ describe('실제 v1 예시 변환과 v4 저장 연속성', () => {
     const object = parseSave(raw);
     const json = deserializeSave(JSON.stringify(raw));
     expect(json).toEqual(object);
-    expect(object).toEqual({ ...legacy, schemaVersion: 5, state: {
+    expect(object).toEqual({ ...legacy, schemaVersion: 6, state: {
       ...legacy.state, campaign: { exploration: {}, openedChests: {} },
       expedition: legacy.state.expedition === null ? null : { pendingAmbush: null },
-      character: legacy.state.character === null ? null : { inventory: { stacks: {}, equipment: { feet: null } }, position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const },
+      character: legacy.state.character === null ? null : { health: { current: 100, max: 100 }, inventory: { stacks: {}, equipment: { feet: null } }, position: null, stamina: { current: 900, max: 900 }, movedSinceLastTick: false, activity: 'waiting' as const },
     } });
     expect(object.state.meta).toEqual(legacy.state.meta);
     expect(object.state.expedition).toEqual(legacy.state.expedition === null ? null : { pendingAmbush: null });

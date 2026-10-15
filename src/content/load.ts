@@ -1,4 +1,5 @@
 import { DefinitionsSchema, ManifestSchema, TimeRulesSchema } from './schemas.ts';
+import { validateCombat } from './combat-validation.ts';
 import { validateItems } from './item-validation.ts';
 import { validateMaps } from './map-validation.ts';
 import type { ContentDefinition } from './schemas.ts';
@@ -110,7 +111,10 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
     });
   }
   if (errors.length > 0) return { ok: false, errors };
-  errors.push(...validateMaps(located), ...validateItems(located));
+  if (located.some(e => e.definition.kind === 'encounter') && !located.some(e => e.definition.kind === 'encounter' && e.definition.id === timeResult.data.combat.ambushEncounterId)) {
+    errors.push({ file: manifest.timeRulesFile, path: 'combat.ambushEncounterId', code: 'missing_reference', message: '습격 조우 정의가 없다' });
+  }
+  errors.push(...validateMaps(located), ...validateItems(located), ...validateCombat(located));
   if (errors.length > 0) return { ok: false, errors };
   const cycle = dependencyCycle(located);
   if (cycle !== null) {

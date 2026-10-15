@@ -33,36 +33,36 @@ describe('A안 전장의 안개', () => {
     expect(moved.campaign.exploration['map.s1_test']!.visited['0:1:2']).toBeUndefined();
   });
 
-  it('한 번 본 벽은 시야 밖에서도 남고 벽 너머는 노출하지 않는다', () => {
+  it('벽은 시야 밖에서 가려지고 벽 너머도 노출하지 않는다', () => {
     const ctx = mapContext();
     const state = walk(startedState(ctx), ['east', 'east'], ctx);
     expect(getTileVisibility(state, at(4, 1), ctx.content)).toBe('visible');
     expect(getTileVisibility(state, at(5, 1), ctx.content)).toBe('unexplored');
     const moved = walk(state, ['west'], ctx);
-    expect(getTileVisibility(moved, at(4, 1), ctx.content)).toBe('explored');
+    expect(getTileVisibility(moved, at(4, 1), ctx.content)).toBe('unexplored');
     expect(getTileVisibility(moved, at(5, 1), ctx.content)).toBe('unexplored');
     expect(moved.campaign.exploration['map.s1_test']!.visited['0:4:1']).toBeUndefined();
   });
 
-  it('시작점에서 확인한 위·왼쪽 벽도 이동 후 계속 남는다', () => {
+  it('시작점의 위·왼쪽 벽은 이동 후 가려진다', () => {
     const ctx = mapContext();
     const state = walk(startedState(ctx), ['east', 'east'], ctx);
-    expect(getTileVisibility(state, at(1, 0), ctx.content)).toBe('explored');
-    expect(getTileVisibility(state, at(0, 1), ctx.content)).toBe('explored');
+    expect(getTileVisibility(state, at(1, 0), ctx.content)).toBe('unexplored');
+    expect(getTileVisibility(state, at(0, 1), ctx.content)).toBe('unexplored');
     expect(getTileVisibility(state, at(8, 1), ctx.content)).toBe('unexplored');
   });
 
-  it('캐릭터가 없어도 확인한 벽은 캠페인의 길 기록에서 복원한다', () => {
+  it('캐릭터가 없으면 벽은 캠페인의 길 기록에서 노출하지 않는다', () => {
     const ctx = deepFreeze(mapContext());
     const state = deepFreeze({ ...startedState(ctx), character: null });
     const before = structuredClone(state);
-    expect(getTileVisibility(state, at(1, 0), ctx.content)).toBe('explored');
+    expect(getTileVisibility(state, at(1, 0), ctx.content)).toBe('unexplored');
     expect(getTileVisibility(state, at(1, 2), ctx.content)).toBe('unexplored');
     expect(state).toEqual(before);
     expect(Object.keys(state.campaign.exploration['map.s1_test']!.visited)).toHaveLength(1);
   });
 
-  it('확인한 벽의 계산은 다른 맵과 다른 층의 길 기록을 섞지 않는다', () => {
+  it('다른 맵과 다른 층의 길 기록으로 벽을 노출하지 않는다', () => {
     const sources = mapSources();
     const map = sources['maps/s1-test.json'][0]!;
     map.floors.push({ ...structuredClone(map.floors[0]!), floor: -1 });
@@ -75,7 +75,7 @@ describe('A안 전장의 안개', () => {
       ...state.campaign.exploration,
       'map.other': { mapVersion: 1, visited: { '-1:1:1': true as const } },
     } } };
-    expect(getTileVisibility(remembered, { ...at(1, 0), mapId: 'map.other', floor: -1 }, ctx.content)).toBe('explored');
+    expect(getTileVisibility(remembered, { ...at(1, 0), mapId: 'map.other', floor: -1 }, ctx.content)).toBe('unexplored');
     expect(getTileVisibility(remembered, { ...at(1, 0), mapId: 'map.other' }, ctx.content)).toBe('unexplored');
   });
 

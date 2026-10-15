@@ -25,14 +25,14 @@ npm run build
 npm run test:browser
 ```
 
-Codex의 준비된 실행 환경에서는 `CODEX_PRIMARY_RUNTIME_NODE_MODULES`의 Playwright도 사용할 수 있다. 별도 Chromium 바이너리를 쓸 때는 `BROWSER_CHROMIUM_EXECUTABLE`을 지정한다. 한국어 시스템 폰트가 없는 검사 환경에서는 Nanum Gothic fontsource 디렉터리를 `BROWSER_FONT_DIR`로 전달할 수 있다. 이 디렉터리에는 korean-400.css, korean-700.css와 해당 글꼴 파일이 있어야 한다.
+Codex의 준비된 실행 환경에서는 `CODEX_PRIMARY_RUNTIME_NODE_MODULES`의 Playwright도 사용할 수 있다. 별도 Chromium 바이너리를 쓸 때는 `BROWSER_CHROMIUM_EXECUTABLE`을 지정한다. 제품은 IBM Plex Sans KR/Mono를 로컬로 제공하므로 별도 폰트 주입은 필요 없다. 기존 BROWSER_FONT_DIR 검사 옵션은 남아 있지만 S5 화면 확인에서는 사용하지 않는다.
 
 결과 JSON과 스크린샷은 Git에서 제외한 `artifacts/browser/`에 생성한다. `BROWSER_ARTIFACTS`로 출력 위치를 바꿀 수 있다. `BROWSER_SUITE=map`은 큰 맵 검사만 실행한다.
 
 ## 검사 범위
 
-- **제품 배포 빌드, 1280/390/320px:** 99/100ms 입력 경계, 게임 자동 반복 없음, 화면 버튼·Space/Enter, 정지 차단, 연속 조작 중 실제 IndexedDB 저장, 파일 내보내기/가져오기 왕복, 가로 넘침·콘솔 오류.
-- **개발 전용 합성 맵, 128×128/512×512:** 표시 DOM 칸 수 상한, 실제 좌표/접근성 인덱스, 먼 좌표 스크롤, 미탐사 정보 숨김, 확인한 벽 유지, 이동 시 플레이어 추적, 화면 크기 변경.
+- **제품 배포 빌드, 1440/390/320px:** 99/100ms 입력 경계, 게임 자동 반복 없음, 화면 버튼·Space/Enter, 정지 차단, 연속 조작 중 실제 IndexedDB 저장, 파일 내보내기/가져오기 왕복, 가로 넘침·콘솔 오류.
+- **개발 전용 합성 맵, 128×128/512×512:** 표시 DOM 칸 수 상한, 실제 좌표/접근성 인덱스, 먼 좌표 스크롤, 미탐사 정보 숨김, 시야 밖 벽 재가림, 이동 시 플레이어 추적, 화면 크기 변경.
 - 합성 맵 진입점은 `tests/browser/fixture.html`이다. 제품의 index.html 및 빌드 진입점에서 참조하지 않는다. 검사에 쓰는 store/loop 노출은 이 진입점에만 있다.
 - 브라우저 검사와 모바일 크기 검사는 사용자의 실제 기기 확인을 대체하지 않는다. 제품 시나리오는 가짜 시계를 사용하고, 큰 맵 시나리오는 실제 ResizeObserver/스크롤/레이아웃을 사용한다.
 
@@ -51,3 +51,12 @@ S4 엔진/콘텐츠/저장 회귀는 `src/engine/systems/inventory/actions.test.
 
 
 D-039 후속 검사는 상자 열기 직후 성공 안내/품목/수량, 재방문 시 빈 상자 안내, 기존 결과를 덮지 않는 재입력, 정지 중 단축키 차단을 포함한다. 배포 빌드의 1280px은 버튼, 390px은 Z, 320px은 Space로 획득한다. 포커스된 이동 버튼의 기본 Space/Enter와 모달 내 입력 회귀도 함께 확인한다.
+
+
+## S5 전투/UI 회귀
+
+`browser-combat.mjs`는 실제 배포 빌드에서 늑대 무리 접촉 → 전투 시작 → 공격/방어/아이템/강타 → 승리/전리품 → 다른 적에게서 도주/직전 칸/적 유지까지 검사한다. 전투 도중 현실 시계를 진행해 회복/게임 시간이 멈춘 것을 확인하고 실제 IndexedDB 저장 후 새로고침으로 이어서 싸운다. 제품에 검사 Store/API를 노출하지 않는다. 재현을 위해 브라우저 검사 세션의 초기 crypto 시드만 [1,2,3,4]로 고정한다.
+
+PC1440×900, 모바일390×844/320×900에서 전투480px/하단시트·캐릭터600px·탭/전체지도·390px 지도364px/칸28px·로컬 Plex 폰트와 상단 정지 버튼 제거도 확인한다. 큰 맵 검사에서는 실제 지도 리사이즈/스크롤/플레이어 추적/틱 메모화를 유지한다. 결과 JSON/캡처는 artifacts/browser에 생성한다.
+
+Vitest의 신규 runtime/combat.test.ts는 거부 불변성·전열/후열·빗나감·방어/강타/음식·0스태미나·도주실패/성공·승리 지급1회·패배 사건·턴 시간 상한·진행/종료 저장/재생·v5변환·손상 복원 원자성·실시간/오프라인 정지·기존 습격 연결·거점 체력 회복을 검사한다. content/combat.test.ts는 몬스터/조우/전리품/배치 참조와 수치 범위를 검사한다.

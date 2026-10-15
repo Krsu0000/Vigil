@@ -1,0 +1,39 @@
+[
+  {
+    "kind": "encounter",
+    "id": "encounter.wolf_pack",
+    "name": "늑대 무리",
+    "enemies": [
+      {
+        "monsterId": "monster.wolf",
+        "row": "front"
+      },
+      {
+        "monsterId": "monster.hound",
+        "row": "back"
+      }
+    ]
+  },
+  {
+    "kind": "encounter",
+    "id": "encounter.stray",
+    "name": "배회하는 들개",
+    "enemies": [
+      {
+        "monsterId": "monster.hound",
+        "row": "front"
+      }
+    ]
+  },
+  {
+    "kind": "encounter",
+    "id": "encounter.hurlock",
+    "name": "폐허의 어둠피조물",
+    "enemies": [
+      {
+        "monsterId": "monster.hurlock",
+        "row": "front"
+      }
+    ]
+  }
+]

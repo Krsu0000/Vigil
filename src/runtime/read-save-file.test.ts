@@ -17,7 +17,7 @@ describe('가져올 파일 검증', () => {
   });
   it.each([v1, v2, v3])('이전 v$schemaVersion을 기존 변환으로 읽고 위치를 자동 배치하지 않는다', async raw => {
     const result = await readSaveFile(file(JSON.stringify(raw)), ctx.content);
-    expect(result.schemaVersion).toBe(5); expect(result.state.meta).toEqual(raw.state.meta);
+    expect(result.schemaVersion).toBe(6); expect(result.state.meta).toEqual(raw.state.meta);
     expect(result.saveId).toBe(raw.saveId); expect(result.savedAt).toBe(raw.savedAt);
     if (raw.schemaVersion === 1) expect(result.state.character).toBeNull();
     else expect(result.state.character!.position).toEqual((raw.state.character as { position: unknown }).position);

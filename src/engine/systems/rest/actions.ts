@@ -22,7 +22,7 @@ export const restHandlers: ActionHandlers<RestAction, RestEvent> = {
   'rest/start': {
     validate: (state, _action, ctx) => {
       const character = state.character;
-      return !state.expedition?.pendingAmbush && character?.activity === 'waiting' &&
+      return !(state.expedition?.pendingAmbush || state.expedition?.combat || state.character?.health.current === 0) && character?.activity === 'waiting' &&
         character.stamina.current < character.stamina.max && isDanger(state, ctx.content) ? null : 'condition_not_met';
     },
     execute: (state) => ({ state: { ...state, character: { ...state.character!, activity: 'resting' } }, events: [{ type: 'rest/started' }] }),
