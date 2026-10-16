@@ -735,3 +735,14 @@ monster-tools.ts는 사각형 편집, 몬스터 묶음 검사/충돌 거부, 기
 WorldBundle의 선택 monsters/encounters는 원본 기본 정의와 충돌하지 않게 조합하고 loadMakerWorld→실제 로더/엔진에 전달한다. register-world는 기존 정의를 canonical 값으로 대조하고 새 정의만 monsters.json/encounters.json에 추가한다. 기존 ID의 수치/행동 변경은 등록하지 않는다. MonsterDefinition.behavior/levelSourceId는 선택 필드이며 저장 상태에는 중복하지 않는다. 전투 행동은 기존 combat/act에서 차례와 직전 방어 행동을 계산하고 health/change/기존 피해 경로를 사용한다. 전투 재생도 같은 정의와 행동을 사용하므로 SaveFile7 스키마 변경은 없다.
 
 map-preview.ts는 전체 연결 검증을 먼저 수행하고 자동 모드에서 미연결/시작 맵 오류일 때만 선택 맵/층 복사본을 만든다. 외부 출입구 제거·시작 칸 임시 안전 처리는 원본을 변경하지 않으며 다른 잘못된 콘텐츠는 거부한다. Overview는 지형 캔버스와 선택 오버레이를 분리하고 내부 해상도 최대2048×2048(생성 최대512칸 기준)으로 제한한다. Pointer capture는 캔버스 밖에서 놓거나 터치 취소할 때 드래그 상태를 정리한다. src는 tools를 import하지 않는다.
+
+
+### T1 조건 행동 묶음과 저장 진행 상태 (D-048) `[구현됨]`
+
+content/schemas의 MonsterGroupSchema는 ID/이름·조건·가중치/우선순위·쿨다운/횟수·반복 단계 배열을 검증한다. 기존 behavior와 동시 지정하지 않으며 기존 몬스터 정의는 바꾸지 않는다. tactics.ts의 eligibleGroups/groupedAction은 GameState를 직접 바꾸지 않고 현재 적과 턴·주입 RNG에서 실행할 단계와 새 EnemyPlan을 반환한다. 실행 중 묶음은 먼저 이어가고 완료 후에만 다시 후보를 고른다. 가중치 추첨은 정수 합 범위의 nextInt를 사용하며 UI/전투 의도에서는 RNG를 쓰지 않는다.
+
+combat/act는 플레이어 행동 후 살아 있는 전열 적에 대해 선택·진행을 처리하고 기존 공격/회복 경로를 사용한다. 실제 방어 배율은 적 plan에 남기고 다음 적 행동에서 새 값으로 교체한다. 기본/순차 몬스터 경로는 계획 필드를 추가하거나 선택 난수를 호출하지 않는다. EnemyPlan은 적 개체별 상태이므로 같은 종류의 적도 독립적으로 묶음을 진행한다.
+
+SaveFile8은 plan을 허용하며 combat-schema-v7/schemas-v7은 직전 형식을 동결한 복사본이다. v7→v8은 메타 버전만 올리고 상태를 보존한다. validateCombatState는 초기 적에 계획을 허용하지 않으며 replayCombat이 같은 묶음/조건/난수 경로를 재생해 character/전투/시간/RNG 전체를 대조한다. 등록 시 기존 몬스터/조우 정의를 덮어쓰지 않는 D-046/047 원칙으로 이전 전투 해석을 보존한다. 콘텐츠0.4.0/DB1 유지, 현재 출력 저장 버전은8이다.
+
+tools/monster-groups.tsx는 묶음 카드/반복 단계 편집과 두 예제를 제공한다. 몬스터 제작기는 기존 순차 편집과 묶음 편집을 선택적으로 저장하며 불러올 때 해당 방식을 복원한다. 레벨 변형은 groups.steps의 heal.amount만 기본 비례 계산식으로 바꾸며 선택 조건/가중치/대기/반복은 보존한다.

@@ -37,7 +37,8 @@ function scaledMonster(world:WorldBundle,monsterId:string,targetLevel:number):{w
   const ratio=targetLevel/base.level,scaled=(n:number)=>Math.max(1,Math.round(n*ratio));
   const candidate=MonsterDefinitionSchema.parse({...base,id:`${base.id}_lv_${targetLevel}`,level:targetLevel,levelSourceId:base.id,
     references:[...new Set([...base.references,base.id])],health:scaled(base.health),damageMin:scaled(base.damageMin),damageMax:scaled(base.damageMax),
-    ...(base.behavior?{behavior:base.behavior.map(b=>b.type==='heal'?{...b,amount:scaled(b.amount)}:b)}:{})});
+    ...(base.behavior?{behavior:base.behavior.map(b=>b.type==='heal'?{...b,amount:scaled(b.amount)}:b)}:{}),
+    ...(base.groups?{groups:base.groups.map(g=>({...g,steps:g.steps.map(b=>b.type==='heal'?{...b,amount:scaled(b.amount)}:b)}))}:{})});
   const existing=monsters.find(m=>m.id===candidate.id);
   if(existing&&canonical(existing)===canonical(candidate))return {world,id:existing.id};
   if(existing)candidate.id=uniqueId(candidate.id,new Set(monsters.map(m=>m.id)));

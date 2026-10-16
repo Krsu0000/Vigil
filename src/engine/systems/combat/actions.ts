@@ -7,6 +7,7 @@ import { addLoot, inventoryHandlers } from '../inventory/actions.ts';
 import { consumeStamina } from '../stamina/stamina.ts';
 import { advanceCombatTime } from '../time/advance.ts';
 import { combatEffects } from './effects.ts';
+import {groupedAction} from './tactics.ts';
 import { findEncounter, livingFront, requireMonster, monsterBehavior } from './selectors.ts';
 
 export type CombatAction=Readonly<{type:'combat/start'}> | CombatTurnAction | Readonly<{type:'combat/close'}>;
@@ -63,10 +64,11 @@ export const combatHandlers:ActionHandlers<CombatAction,CombatEvent>={
         if(action.choice==='skill')next={...next,character:{...next.character!,stamina:consumeStamina(next.character!.stamina,rules.skillCost)}};
         if(rng.nextFloat()<rules.hitChance){
           const guard=monsterBehavior(monster,old.turn-1);
+          const guardMultiplier=monster.groups?enemy.plan?.guardMultiplier:guard?.type==='guard'?guard.multiplier:undefined;
           const damage=computeValue(rng.nextInt(rules.attackMin,rules.attackMax),[
             ...(action.choice==='skill'?[{target:'damage',op:'mul' as const,value:rules.skillMultiplier,source:'skill.power_strike'}]:[]),
-            ...(guard?.type==='guard'?[{target:'damage',op:'mul' as const,value:guard.multiplier,source:'monster.guard'}]:[]),
-          ],{round:'round',min:guard?.type==='guard'?0:1});
+            ...(guardMultiplier!==undefined?[{target:'damage',op:'mul' as const,value:guardMultiplier,source:'monster.guard'}]:[]),
+          ],{round:'round',min:guardMultiplier!==undefined?0:1});
           enemies[index]={...enemy,health:computeValue(enemy.health,[{target:'health',op:'add',value:-damage,source:'attack'}],{round:'round',min:0,max:enemy.maxHealth})};
           log(`${action.choice==='skill'?'강타':'공격'}. ${monster.name}에게 ${damage} 피해.`);
         }else log(`${monster.name}에게 공격이 빗나갔다.`);
@@ -81,11 +83,13 @@ export const combatHandlers:ActionHandlers<CombatAction,CombatEvent>={
       if(status==='active' && enemies.every(enemy=>enemy.health===0))status='victory';
       if(status==='active')for(const enemy of livingFront(enemies)){
         const monster=requireMonster(ctx.content,enemy.monsterId);
-        const behavior=monsterBehavior(monster,old.turn);
+        const grouped=monster.groups?groupedAction(monster,enemy,old.turn,rng):undefined;
+        const behavior=grouped?.behavior??(monster.groups?undefined:monsterBehavior(monster,old.turn));
+        if(grouped){const i=enemies.findIndex(e=>e.id===enemy.id);enemies[i]={...enemy,plan:grouped.plan};}
         if(behavior && behavior.type!=='attack'){
           if(behavior.type==='heal'){
             const i=enemies.findIndex(e=>e.id===enemy.id),healed=Math.min(enemy.maxHealth-enemy.health,behavior.amount);
-            enemies[i]={...enemy,health:enemy.health+healed};log(`${monster.name}: ${behavior.text} 체력 ${healed} 회복.`);
+            enemies[i]={...enemies[i]!,health:enemy.health+healed};log(`${monster.name}: ${behavior.text} 체력 ${healed} 회복.`);
           }else log(`${monster.name}: ${behavior.text}`);
           continue;
         }

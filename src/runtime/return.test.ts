@@ -76,7 +76,7 @@ describe('귀환과 실행 시간/저장', () => {
     const auto = createAutoSave(t.store, repository, { save: null, source: 'empty', previousValid: null, generation: 0 }, t.clock.wallNow, t.scheduler, visibility, () => t.store.getSnapshot().meta.campaignId, t.loop.synchronize, t.loop.resetAfterRestore);
     auto.start(); await auto.flush(); const exploration = t.store.getSnapshot().campaign.exploration;
     expect(t.loop.returnToCamp().ok).toBe(true); await auto.flush(); const saved = deserializeSave(primary!);
-    expect(saved.schemaVersion).toBe(7); expect(saved.state.campaign.exploration).toEqual(exploration); expect(auto.exportSave().state).toEqual(saved.state);
+    expect(saved.schemaVersion).toBe(8); expect(saved.state.campaign.exploration).toEqual(exploration); expect(auto.exportSave().state).toEqual(saved.state);
     t.loop.stop(); auto.stop(); t.jump(10_000);
     const loaded = await loadSavedGame(t.ctx.content, repository, t.clock.wallNow, () => { throw new Error('새 캠페인 금지'); });
     expect(loaded.store.getSnapshot().character!.position).toEqual(saved.state.character!.position);

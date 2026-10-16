@@ -3,6 +3,7 @@ import type { ContentDb } from '../content/types.ts';
 import type { GameState } from '../engine/core/state.ts';
 import type { CombatAction } from '../engine/systems/combat/actions.ts';
 import { livingFront, requireMonster, monsterBehavior } from '../engine/systems/combat/selectors.ts';
+import {groupedIntent} from '../engine/systems/combat/tactics.ts';
 import { findItem } from '../engine/systems/inventory/selectors.ts';
 import { Vitals } from './StatusPanel.tsx';
 export function CombatPanel({state,content,enabled,onAction}:{state:GameState;content:ContentDb;enabled:boolean;onAction:(action:CombatAction)=>void}){
@@ -16,7 +17,7 @@ export function CombatPanel({state,content,enabled,onAction}:{state:GameState;co
     <div className="sheet-handle"/><header><h2>전투</h2><span className="n">{active?combat.turn:combat.actions.length}턴</span></header>
     {monster&&target&&<><div className="enemy-header"><span className="enemy-portrait">{monster.glyph}</span><div><h3>{monster.name}<small>{monster.level}레벨</small></h3>
       <div className="enemy-health"><span>체력</span><span className="n" data-testid="enemy-health">{target.health} / {target.maxHealth}</span></div><div className="stat-track"><i style={{width:`${100*target.health/target.maxHealth}%`}}/></div>
-      <p>{monster.description}</p><p>의도 — {monsterBehavior(monster,combat.turn)?.text??monster.intent} · 기본 피해 <span className="n">{monster.damageMin}~{monster.damageMax}</span></p></div></div>
+      <p>{monster.description}</p><p>의도 — {monster.groups?groupedIntent(monster,target):monsterBehavior(monster,combat.turn)?.text??monster.intent} · 기본 피해 <span className="n">{monster.damageMin}~{monster.damageMax}</span></p></div></div>
       <div className="enemy-roster">{combat.enemies.filter(e=>e.health>0).map(enemy=><button key={enemy.id} className={target.id===enemy.id?'selected':''} disabled={!active||!front.includes(enemy)} onClick={()=>setSelected(enemy.id)}>
         <span>{enemy.row==='front'?'전열':'후열'} · {requireMonster(content,enemy.monsterId).name}</span><span className="n">{enemy.health}/{enemy.maxHealth}</span></button>)}</div></>}
     <div ref={history} className="combat-history" role="log" aria-label="전투 기록">{combat.history.length?combat.history.map((line,index)=><p key={index}><span className="n">{line.turn}턴</span>{line.text}</p>):<p>적이 자세를 낮춘다. 어떻게 하겠는가?</p>}</div>

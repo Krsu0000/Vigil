@@ -26,10 +26,10 @@ describe('맵 사이 이동과 저장',()=>{
     const {store}=setup();store.dispatch({type:'move/step',direction:'east'});store.dispatch({type:'map/travel'});const before=store.getSnapshot().campaign.exploration['map.second'];
     expect(store.dispatch({type:'map/return'}).ok).toBe(true);expect(store.getSnapshot().character!.position).toEqual({mapId:'map.s1_test',floor:0,x:1,y:1});expect(store.getSnapshot().campaign.exploration['map.second']).toEqual(before);
   });
-  it('SaveFile7에서 여러 맵 위치와 탐사 기록이 왕복 복원된다',()=>{
+  it('SaveFile8에서 여러 맵 위치와 탐사 기록이 왕복 복원된다',()=>{
     const {store,content}=setup();store.dispatch({type:'move/step',direction:'east'});store.dispatch({type:'map/travel'});
     const file=createSaveFile(store.getSnapshot(),{contentVersion:content.contentVersion,saveId:'00000000-0000-4000-8000-000000000001',revision:1,savedAt:1000});
-    expect(file.schemaVersion).toBe(7);const restored=createGameStore(content,restoreSave(JSON.parse(JSON.stringify(file))),()=>1000);
+    expect(file.schemaVersion).toBe(8);const restored=createGameStore(content,restoreSave(JSON.parse(JSON.stringify(file))),()=>1000);
     expect(restored.getSnapshot()).toEqual(store.getSnapshot());expect(restored.dispatch({type:'map/travel'}).ok).toBe(true);
   });
   it.each(['no-exit','pending','dead','combat'])('%s에서는 이동을 거부하고 같은 상태를 반환한다',mode=>{

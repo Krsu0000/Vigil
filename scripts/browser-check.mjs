@@ -11,6 +11,7 @@ import { checkWalls } from './browser-walls.mjs';
 import { checkRecords } from './browser-records.mjs';
 import { checkMobile } from './browser-mobile.mjs';
 import { checkMaker } from './browser-maker.mjs';
+import {checkGroups} from './browser-groups.mjs';
 import {checkAuthoring} from './browser-authoring.mjs';
 import {checkWorld,checkWorldEditor} from './browser-world.mjs';
 import { checkCombat } from './browser-combat.mjs';
@@ -63,7 +64,7 @@ async function font(page) {
 }
 try {
   browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHROMIUM_EXECUTABLE ? { executablePath: process.env.BROWSER_CHROMIUM_EXECUTABLE } : {}) });
-  for (const width of ['map','maker','world','authoring'].includes(process.env.BROWSER_SUITE) ? [] : [1440, 390, 320]) {
+  for (const width of ['map','maker','world','authoring','groups'].includes(process.env.BROWSER_SUITE) ? [] : [1440, 390, 320]) {
     const context = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 }, hasTouch: width < 500, isMobile: width < 500 });
     try {
       const page = await context.newPage(), errors = [];
@@ -99,7 +100,7 @@ try {
       await page.getByRole('button', { name: '파일로 내보내기', exact: true }).click();
       const download = await downloadPromise;
       const exported = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
-      assert.equal(exported.schemaVersion, 7);
+      assert.equal(exported.schemaVersion, 8);
       await page.locator('input[type=file]').setInputFiles({ name: 'roundtrip.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
       await page.getByRole('button', { name: '이 탐험으로 교체', exact: true }).click();
       await page.getByTestId('file-status').filter({ hasText: '가져왔' }).waitFor();
@@ -142,14 +143,15 @@ try {
       results.push({ width, input: true, saveDuringContinuousInput: true, fileRoundtrip: true, errors });
     } finally { await context.close(); }
   }
-  if (!['map','maker','world','authoring'].includes(process.env.BROWSER_SUITE)) results.push(await checkMobile({ browser, url:distUrl, artifacts }));
-  if (!['map','world','authoring'].includes(process.env.BROWSER_SUITE)) results.push(...await checkMaker({ browser, url:distUrl, artifacts, readSlot }));
-  if (!['map','maker','authoring'].includes(process.env.BROWSER_SUITE)) results.push(...await checkWorldEditor({browser,url:distUrl,artifacts,readSlot}));
-  if (!['map','maker','world'].includes(process.env.BROWSER_SUITE)) results.push(...await checkAuthoring({browser,url:distUrl,artifacts,readSlot}));
+  if (!['map','maker','world','authoring','groups'].includes(process.env.BROWSER_SUITE)) results.push(await checkMobile({ browser, url:distUrl, artifacts }));
+  if (!['map','world','authoring','groups'].includes(process.env.BROWSER_SUITE)) results.push(...await checkMaker({ browser, url:distUrl, artifacts, readSlot }));
+  if (!['map','maker','authoring','groups'].includes(process.env.BROWSER_SUITE)) results.push(...await checkWorldEditor({browser,url:distUrl,artifacts,readSlot}));
+  if (!['map','maker','world','groups'].includes(process.env.BROWSER_SUITE)) results.push(...await checkAuthoring({browser,url:distUrl,artifacts,readSlot}));
+  if (!['map','maker','world','authoring'].includes(process.env.BROWSER_SUITE)) results.push(...await checkGroups({browser,url:distUrl,artifacts,readSlot}));
   dev = await createServer({ root, server: { host: '127.0.0.1', port: 0 } }); await dev.listen();
   const fixtureUrl = dev.resolvedUrls.local[0];
-  if(!['map','maker','authoring'].includes(process.env.BROWSER_SUITE))results.push(...await checkWorld({browser,url:fixtureUrl,artifacts,readSlot}));
-  for (const size of ['maker','world','authoring'].includes(process.env.BROWSER_SUITE) ? [] : [128, 512]) {
+  if(!['map','maker','authoring','groups'].includes(process.env.BROWSER_SUITE))results.push(...await checkWorld({browser,url:fixtureUrl,artifacts,readSlot}));
+  for (const size of ['maker','world','authoring','groups'].includes(process.env.BROWSER_SUITE) ? [] : [128, 512]) {
     const context = await browser.newContext({ viewport: { width: 390, height: 900 }, isMobile: true, hasTouch: true });
     try {
       const page = await context.newPage(), errors = [];

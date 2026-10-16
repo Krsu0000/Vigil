@@ -53,3 +53,6 @@
 .monster-maker { max-width:900px; }
 .monster-step { padding:12px; border:1px solid #555; margin-bottom:12px; }
 .monster-step label { margin:8px 0; }
+.monster-group { border:1px solid #7897ae; padding:14px; margin:18px 0; }
+.monster-group>label { margin:10px 0; }
+.monster-groups>p { max-width:70ch; }

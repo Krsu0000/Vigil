@@ -21,7 +21,7 @@ export async function checkWorld({browser,url,artifacts,readSlot}){
       assert.deepEqual(travelled.state.campaign.recentRecords,old.state.campaign.recentRecords);
       await page.reload();await page.getByTestId('position').waitFor();assert((await page.locator('.region-header').textContent()).includes('두 번째 지역'));
       await page.getByRole('button',{name:'설정',exact:true}).click();const waiting=page.waitForEvent('download');await page.getByRole('button',{name:'파일로 내보내기',exact:true}).click();
-      const file=JSON.parse(await fs.readFile(await (await waiting).path(),'utf8'));assert.equal(file.schemaVersion,7);assert.equal(file.state.character.position.mapId,'map.second');
+      const file=JSON.parse(await fs.readFile(await (await waiting).path(),'utf8'));assert.equal(file.schemaVersion,8);assert.equal(file.state.character.position.mapId,'map.second');
       await page.locator('input[type=file]').setInputFiles({name:'world-save.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(file))});await page.getByRole('button',{name:'이 탐험으로 교체',exact:true}).click();await page.getByTestId('file-status').filter({hasText:'가져왔'}).waitFor();await page.getByRole('button',{name:'닫기',exact:true}).click();
       await page.clock.runFor(100);await page.locator('.map-grid').focus();await page.keyboard.press('Space');assert.equal(await page.getByTestId('position').textContent(),'(2, 1)');
       await page.clock.runFor(100);await page.getByRole('button',{name:'두 번째 지역 이동',exact:true}).click();
