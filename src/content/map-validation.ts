@@ -1,5 +1,6 @@
 import type { ContentDefinition } from './schemas.ts';
 import type { ContentError } from './types.ts';
+import { reachableCells } from './map-reachability.ts';
 
 type LocatedDefinition = { file: string; index: number; definition: ContentDefinition };
 
@@ -15,6 +16,7 @@ export function validateMaps(definitions: readonly LocatedDefinition[]): Content
     const floors = new Set<number>();
     map.floors.forEach((floor, floorIndex) => {
       const path = `floors.${floorIndex}`;
+      const errorCount = errors.length;
       if (floors.has(floor.floor)) report(`${path}.floor`, 'duplicate_floor', `중복된 층: ${floor.floor}`);
       floors.add(floor.floor);
       const expectedCells = floor.width * floor.height;
@@ -42,6 +44,20 @@ export function validateMaps(definitions: readonly LocatedDefinition[]): Content
       if (Number.isSafeInteger(expectedCells) && positions.size !== expectedCells) {
         report(`${path}.cells`, 'incomplete_floor', `모든 좌표를 한 번씩 배치해야 한다 (필요 ${expectedCells}, 배치 ${positions.size})`);
       }
+      // 잘못된 치수/좌표/참조를 먼저 보고한 뒤에만 밀집 연결 검사를 수행한다.
+      if (errors.length !== errorCount) return;
+      const walkable = new Uint8Array(expectedCells);
+      for (const cell of floor.cells) {
+        const tile = byId.get(cell.tileId);
+        if (tile?.kind === 'tile' && tile.walkable) walkable[cell.y * floor.width + cell.x] = 1;
+      }
+      const start = floor.floor === map.start.floor
+        ? map.start.y * floor.width + map.start.x : walkable.indexOf(1);
+      if ((map.start.x >= floor.width && floor.floor === map.start.floor) || !walkable[start]) return;
+      const seen = reachableCells(floor.width, floor.height, walkable, start);
+      let count = 0, first = -1;
+      for (let i = 0; i < walkable.length; i++) if (walkable[i] && !seen[i]) { count++; if (first < 0) first = i; }
+      if (count) report(`${path}.cells`, 'unreachable_cells', `도달할 수 없는 이동 가능 칸 ${count}개 (첫 좌표: ${first % floor.width}, ${Math.floor(first / floor.width)})`);
     });
 
     const floor = map.floors.find((candidate) => candidate.floor === map.start.floor);

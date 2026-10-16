@@ -6,10 +6,10 @@ import v1 from '../fixtures/v1-empty.json' with { type: 'json' };
 const initial = { format: SAVE_FORMAT, schemaVersion: 1, value: 5 };
 
 describe('세이브 버전 변환 체인', () => {
-  it('제품은 버전 7이며 실제 v1 → v2 → v3 → v4 → v5 → v6 → v7 변환이 등록돼 있다', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(7);
-    expect(SAVE_MIGRATIONS.map((step) => step.fromVersion)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(migrateSave(v1)).toMatchObject({ schemaVersion: 7, state: { campaign: { openedChests: {}, exploration: {} } } });
+  it('제품은 버전 8이며 실제 v1 → v2 → v3 → v4 → v5 → v6 → v7 → v8 변환이 등록돼 있다', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(8);
+    expect(SAVE_MIGRATIONS.map((step) => step.fromVersion)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(migrateSave(v1)).toMatchObject({ schemaVersion: 8, state: { campaign: { openedChests: {}, exploration: {} } } });
   });
 
   it('단계 목록 순서와 관계없이 버전 순서대로 연결한다', () => {

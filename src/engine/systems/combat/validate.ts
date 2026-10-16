@@ -50,7 +50,7 @@ export function validateCombatState(state: GameState, content: ContentDb): void 
     : combat.encounterId !== content.timeRules.combat.ambushEncounterId) throw new Error('전투 발생 위치/종류가 다르다');
   if (combat.origin === 'map' && !!state.expedition?.defeatedEnemies?.[combat.encounterId] !== (combat.status === 'victory')) throw new Error('전투 결과와 지도 토벌 기록이 다르다');
   if (initial.enemies.length !== encounter.enemies.length || initial.enemies.some((enemy, i) =>
-    enemy.id !== `${encounter.id}:${i}` || enemy.monsterId !== encounter.enemies[i]!.monsterId || enemy.row !== encounter.enemies[i]!.row ||
+    enemy.plan!==undefined || enemy.id !== `${encounter.id}:${i}` || enemy.monsterId !== encounter.enemies[i]!.monsterId || enemy.row !== encounter.enemies[i]!.row ||
     enemy.health !== requireMonster(content, enemy.monsterId).health || enemy.maxHealth !== enemy.health)) throw new Error('전투 초기 배치가 다르다');
   const replayed = replayCombat(combat, content);
   for (const [actual, expected] of [[state.character, replayed.character], [combat, replayed.expedition!.combat],

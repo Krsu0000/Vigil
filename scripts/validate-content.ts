@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { loadContent } from '../src/content/load.ts';
 import type { ContentDb, ContentError, EffectValidator } from '../src/content/types.ts';
 import { itemEffectRegistry } from '../src/engine/systems/inventory/effects.ts';
+import { loadMakerMap } from '../tools/map-content.ts';
 
 export type ContentCheckResult = {
   checkedFiles: string[];
@@ -46,6 +47,18 @@ export function checkContentFiles(
 }
 
 function main(): void {
+  if (process.argv[2] === '--map') {
+    try {
+      if (!process.argv[3] || process.argv.length !== 4) throw new Error('사용법: npm run validate:content -- --map 맵파일.json');
+      const result = loadMakerMap(JSON.parse(readFileSync(process.argv[3], 'utf8')));
+      if (!result.ok) {
+        for (const error of result.errors) console.error(`오류: ${error.path}: [${error.code}] ${error.message}`);
+        process.exitCode = 1;
+      }
+      console.log(`맵 검증: JSON 파일 1개, 오류 ${result.ok ? 0 : result.errors.length}개`);
+    } catch (error) { console.error(`맵 검증 실패: ${error instanceof Error ? error.message : String(error)}`); process.exitCode = 1; }
+    return;
+  }
   const contentDir = process.argv[2] ?? fileURLToPath(new URL('../src/content/', import.meta.url));
   const result = checkContentFiles(contentDir);
   for (const error of result.errors) {

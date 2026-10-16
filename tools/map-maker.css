@@ -1,0 +1,62 @@
+.map-maker { max-width:1040px; padding:24px; margin:auto; }
+.map-maker header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.map-maker h1 { font-size:21px; }
+.map-maker h2 { font-size:15px; margin:12px 0; }
+.map-maker a { color:inherit; padding:12px; }
+.maker-layout { display:grid; grid-template-columns:320px minmax(0,1fr); gap:28px; margin-top:16px; }
+.maker-fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0; }
+.map-maker label { display:flex; flex-direction:column; gap:5px; font-size:12px; }
+.map-maker input { width:100%; min-width:0; min-height:44px; padding:8px; font-size:16px; border:1px solid #555; border-radius:0; background:#202020; color:inherit; }
+.map-maker button,.maker-play button { min-height:44px; }
+.map-maker p { line-height:1.6; }
+.map-maker form>button { margin-top:16px; width:100%; }
+.maker-result h2 { display:flex; justify-content:space-between; }
+.maker-result canvas { display:block; image-rendering:pixelated; width:100%; max-height:60dvh; object-fit:contain; background:#202020; margin:12px 0; }
+.maker-actions { display:flex; gap:10px; margin:16px 0; }
+.maker-actions button { flex:1; }
+.maker-file { margin:16px 0; }
+.maker-error { white-space:pre-wrap; overflow-wrap:anywhere; border-top:1px solid #aaa; padding:16px 0; }
+.maker-play { display:flex; flex-direction:column; height:100dvh; min-height:0; padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px); overflow:hidden; }
+.maker-play>header { display:flex; align-items:center; gap:16px; flex:none; padding:4px 12px; border-bottom:1px solid #555; }
+.maker-play>header span { color:#aaa; font-size:11px; margin-left:auto; }
+.maker-map { flex:1; min-height:0; }
+.maker-map>.map-panel,.maker-map .map-viewport { height:100%; }
+.maker-map .map-legend { display:none; }
+.maker-position { display:flex; justify-content:space-between; padding:8px 12px; font-size:12px; }
+.maker-move-message { padding:0 12px 4px; font-size:11px; }
+.maker-controls { display:flex; justify-content:center; align-items:stretch; gap:12px; flex:none; padding:8px 12px; }
+@media(max-width:760px) {
+  .map-maker { padding:16px; }
+  .maker-layout { grid-template-columns:1fr; gap:12px; }
+  .map-maker h1 { font-size:18px; }
+  .map-maker header { gap:12px; }
+  .map-maker a { white-space:nowrap; }
+  .maker-result canvas { max-height:55dvh; }
+}
+
+.map-maker select { width:100%; min-height:44px; padding:8px; font:inherit; background:#202020; color:inherit; border:1px solid #555; }
+.maker-result { min-width:0; }
+.maker-actions { flex-wrap:wrap; }
+.maker-actions button { min-width:88px; }
+.maker-metadata,.maker-cell,.maker-exit { border-top:1px solid #444; padding-top:10px; margin-top:16px; }
+.maker-metadata label,.maker-cell>label,.maker-exit>label { margin:10px 0; }
+.maker-export { width:100%; }
+.maker-canvas-scroll { overflow:auto; max-height:60dvh; margin:12px 0; background:#202020; }
+.maker-canvas-scroll canvas { display:block; max-height:none; max-width:none; height:auto; object-fit:fill; margin:0; }
+.maker-travel { flex:none; margin:0 12px; }
+.maker-canvas-stack { position:relative; }
+.maker-canvas-stack .maker-selection-overlay { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; background:transparent; }
+.maker-brush,.maker-enemies { border-top:1px solid #555; margin:16px 0; padding-top:12px; }
+.maker-enemies label { margin:10px 0; }
+.maker-pick-status { border:1px solid #7897ae; padding:10px; }
+.map-maker textarea { width:100%; max-width:100%; background:#202020; color:inherit; padding:10px; border:1px solid #555; }
+.monster-maker { max-width:900px; }
+.monster-step { padding:12px; border:1px solid #555; margin-bottom:12px; }
+.monster-step label { margin:8px 0; }
+.monster-group { border:1px solid #7897ae; padding:14px; margin:18px 0; }
+.monster-group>label { margin:10px 0; }
+.monster-groups>p { max-width:70ch; }
+
+.maker-file-import { border:1px solid #555; padding:12px; margin:14px 0; min-width:0; }
+.maker-file-import input { display:block; max-width:100%; min-height:44px; }
+.maker-file-import p { white-space:pre-wrap; overflow-wrap:anywhere; margin:8px 0; }

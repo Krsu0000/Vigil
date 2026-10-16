@@ -9,6 +9,7 @@ export const ManifestSchema = z.strictObject({
   contentVersion: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/),
   timeRulesFile: JsonPathSchema,
   definitionFiles: z.array(JsonPathSchema),
+  startMapId: ContentIdSchema.optional(),
 });
 
 export const TimeRulesSchema = z.strictObject({
@@ -101,6 +102,11 @@ export const MapDefinitionSchema = DefinitionSchema.extend({
       zoneId: namedId('zone'),
       chestId: namedId('chest').optional(),
       encounterId: namedId('encounter').optional(),
+      exit: z.strictObject({
+        name: text,
+        kind: z.enum(['door','stairs','portal']),
+        target: z.strictObject({ mapId:namedId('map'),floor:floorNumber,x:nonnegativeInteger,y:nonnegativeInteger }),
+      }).optional(),
     })).min(1),
   })).min(1),
 });
@@ -125,13 +131,44 @@ export const ChestDefinitionSchema = DefinitionSchema.extend({
   loot: z.array(z.strictObject({ itemId: namedId('item'), quantity: positiveInteger })).min(1),
 }).refine(chest => chest.effects.length === 0, { message: '상자는 loot로만 아이템을 지급한다' });
 
+export const MonsterBehaviorSchema = z.discriminatedUnion('type', [
+  z.strictObject({type:z.literal('attack'),text, multiplier:z.number().min(0.1).max(10).default(1)}),
+  z.strictObject({type:z.literal('wait'),text}),
+  z.strictObject({type:z.literal('guard'),text, multiplier:z.number().min(0).max(1).default(0.5)}),
+  z.strictObject({type:z.literal('heal'),text, amount:positiveInteger}),
+]);
+export const MonsterGroupStepSchema=z.discriminatedUnion('type',[
+  MonsterBehaviorSchema.options[0].extend({repeat:z.number().int().min(1).max(20).default(1)}),
+  MonsterBehaviorSchema.options[1].extend({repeat:z.number().int().min(1).max(20).default(1)}),
+  MonsterBehaviorSchema.options[2].extend({repeat:z.number().int().min(1).max(20).default(1)}),
+  MonsterBehaviorSchema.options[3].extend({repeat:z.number().int().min(1).max(20).default(1)}),
+]);
+export const MonsterGroupConditionSchema=z.discriminatedUnion('type',[
+  z.strictObject({type:z.literal('always')}),
+  z.strictObject({type:z.literal('health_below'),value:z.number().int().min(1).max(100)}),
+  z.strictObject({type:z.literal('turn_at_least'),value:z.number().int().min(1).max(10000)}),
+  z.strictObject({type:z.literal('every_n_turns'),value:z.number().int().min(1).max(10000)}),
+]);
+export const MonsterGroupSchema=z.strictObject({
+  id:z.string().regex(/^[a-z][a-z0-9_]*$/),name:text,
+  weight:z.number().int().min(1).max(1000).default(1),priority:z.number().int().min(0).max(100).default(0),
+  condition:MonsterGroupConditionSchema.default({type:'always'}),
+  cooldown:z.number().int().min(0).max(1000).default(0),maxUses:z.number().int().min(0).max(1000).default(0),
+  steps:z.array(MonsterGroupStepSchema).min(1).max(32),
+}).refine(g=>g.steps.reduce((n,s)=>n+s.repeat,0)<=128,{message:'묶음 하나는 반복을 포함해 128턴 이하여야 한다'});
 export const MonsterDefinitionSchema = DefinitionSchema.extend({
   kind: z.literal('monster'), id: namedId('monster'), name: text, description: text,
   glyph: text, level: positiveInteger, health: positiveInteger,
   damageMin: positiveInteger, damageMax: positiveInteger,
   hitChance: z.number().min(0).max(1), intent: text,
+  behavior: z.array(MonsterBehaviorSchema).min(1).max(32).optional(),
+  groups:z.array(MonsterGroupSchema).min(1).max(32).optional(),
+  levelSourceId: namedId('monster').optional(),
   loot: z.array(z.strictObject({ itemId: namedId('item'), quantity: positiveInteger })),
-}).refine(monster => monster.damageMin <= monster.damageMax && monster.effects.length === 0, { message: '적의 피해 범위/효과가 유효하지 않다' });
+}).refine(monster => monster.damageMin <= monster.damageMax && monster.effects.length === 0 &&
+  [...(monster.behavior??[]),...(monster.groups??[]).flatMap(g=>g.steps)].every(b=>b.type!=='attack'||Number.isSafeInteger(Math.ceil(monster.damageMax*b.multiplier))) &&
+  !(monster.behavior&&monster.groups) && (!monster.groups||new Set(monster.groups.map(g=>g.id)).size===monster.groups.length),
+  { message: '피해 범위·효과·행동 형식 또는 묶음 ID를 확인해 주세요. 순차 행동과 묶음은 동시에 지정할 수 없습니다.' });
 export const EncounterDefinitionSchema = DefinitionSchema.extend({
   kind: z.literal('encounter'), id: namedId('encounter'), name: text,
   enemies: z.array(z.strictObject({ monsterId: namedId('monster'), row: z.enum(['front', 'back']) })).min(1).max(6),

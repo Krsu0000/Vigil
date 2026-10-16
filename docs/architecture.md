@@ -26,6 +26,7 @@
 | UI | `src/ui/` | React 컴포넌트, 표시, 일시적 UI 상태, UI 시스템 문구 |
 | 동기화 | `src/sync/` | 클라이언트 동기화 (서버 도입 단계부터) |
 | 서버 | `server/` | Workers 런타임과 D1 마이그레이션 (서버 도입 단계부터) |
+| 제작자 도구 | `tools/`, `map-maker.html` | 제작자 전용 생성 코어·콘텐츠 연결과 별도 브라우저 화면. 게임 UI/시작 경로와 분리한다 |
 | 스크립트 | `scripts/` | Node에서 직접 실행하는 개발 도구: 콘텐츠 검증 CLI(`validate-content.ts`), 제작자 맵 생성기(T1). 게임 실행 코드에 포함되지 않는다 |
 
 엔진은 브라우저 API를 쓸 수 없고 UI는 게임 규칙을 처리하면 안 되므로, 둘을 잇는 브라우저 의존 코드(틱 루프, `visibilitychange`, `performance.now()`)는 `src/runtime/`에 둔다(D-006).
@@ -419,7 +420,7 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
 | 배치 칸 | x, y, tileId, zoneId |
 
 - x·y는 좌상단 (0, 0)부터 시작하며 width·height 미만인 0 이상의 안전한 정수다. 층 번호는 음수를 포함한 안전한 정수다. 공통 위치는 맵 ID·층·x·y의 조합으로 식별하며 배열 순서를 좌표로 사용하지 않는다.
-- 각 층의 직사각형 전체를 한 번씩 배치한다. 벽도 명시한다. `map-validation.ts`는 층·좌표 중복, 범위 밖·누락 칸, 안전한 정수 범위를 넘는 칸 수를 거부한다. 실제 칸 수에 비례해 검사하고 전체 범위만큼 반복하거나 메모리를 할당하지 않는다.
+- 각 층의 직사각형 전체를 한 번씩 배치한다. 벽도 명시한다. `map-validation.ts`는 층·좌표 중복, 범위 밖·누락 칸, 안전한 정수 범위를 넘는 칸 수를 거부한다. 잘못된 치수/누락 배치는 실제 칸 수에 비례해 거부하며 잘못된 전체 범위만큼 메모리를 할당하지 않는다. 완전한 배치에는 D-045의 O(N) 연결 검사를 수행한다.
 - 실제 tileId·zoneId의 존재와 종류를 검증한다. 제작자가 같은 ID를 references에 다시 적을 필요는 없다. 시작 위치는 존재하는 층·칸이어야 하고 타일의 walkable이 true여야 한다.
 - 이동 가능 여부와 시야 차단 여부는 독립 속성이다. 콘텐츠 로더는 데이터를 검증하며 이동·시야 계산·안전/위험 효과를 실행하지 않는다. 이동·안개 조회는 3.3절의 맵 시스템이 담당한다.
 - 수동 맵 `map.s1_test`는 version 1, 0층 9×7, 시작 (1, 1)이다. 타일 2개·구역 2개를 참조한다. 시작점에서 안전·위험 구역 모두 상하좌우로 도달할 수 있음을 콘텐츠 테스트에서 확인했다. 맵 크기·기호·배치는 테스트용이며 최종 레벨 디자인이 아니다.
@@ -707,3 +708,43 @@ createVisibilityQuery는 바닥의 기존 현재 시야/visited 조회를 유지
 `MapScreen`과 CSS는 폭760px 이하 또는 폭1024px/높이500px 이하에서 같은 compact 조건을 사용한다. 모바일 game-shell은100dvh의 flex 열, game-columns/탐험/map-stage는 min-height:0으로 남은 높이를 나눈다. 하단 탭과 safe area는 실제 높이를 차지한다. 폭540px 이상/높이500px 이하의 탐험은 상태/지도/명령을 열로 나누는 grid다. 지도 자체의 칸/엔진 시야/가상화는 바꾸지 않고 기존 ResizeObserver의 카메라/미니맵 범위 갱신을 사용한다.
 
 게임 셸이 있는 모바일 문서의 스크롤을 제한하되 탭 페이지·대화상자·전투 시트는 내부 스크롤한다. 최근 기록 본문은 별도 span으로 줄임 표시하며 원본/저장은 유지한다. 임시 메시지는 상황 줄에서 읽고, 데스크톱의 별도 안내 줄은 유지한다. React 상태나 저장 상태에 화면 높이를 복제하지 않는다.
+
+
+### T1 제작자 도구와 연결 검사 (D-045) `[구현됨]`
+
+`tools/map-generator.ts`는 설정을 검증하고 별도 sfc32 상태에서 맵 정의/실제 생성 통계를 반환하는 순수 함수다. Node 진입점은 `scripts/generate-map.ts`, 브라우저 진입점은 `map-maker.html`/`tools/map-maker.tsx`다. Vite 다중 진입점을 사용하며 `src/`는 제작자 모듈을 import하지 않는다. 생성기의 규칙은 v1로 기록하고 기본 시드의 JSON 해시를 회귀 검사한다.
+
+`tools/map-content.ts`는 현재 콘텐츠 정의와 입력 맵을 메모리에서 조합해 기존 loadContent를 호출한다. 단일 층/안전한 시작점은 도구의 추가 제약이다. 미리보기는 배치 레이어를 제외한 새 콘텐츠와 새 GameStore에서 실제 move/step을 실행한다. 디스크/IndexedDB·제품 Store·플레이 난수/시간 상태를 공유하지 않는다. 잘못된 비동기 파일 읽기 결과나 실패한 검증은 현재 유효한 제작 결과를 교체하지 않는다.
+
+`content/map-reachability.ts`의 명시적 큐는 각 칸을 최대 한 번 방문한다. map-validation은 치수/완전성/참조 확인 후 바닥 마스크를 만들고 연결을 검사한다. 시간·추가 공간 O(N), 재귀/Array.shift 없음. 기존 타일/구역/배치 스키마와 저장 버전은 유지한다.
+
+
+### T1 맵 묶음과 출입구 (D-046) `[구현됨]`
+
+D-045 도구의 단일 층/이동 시험 제한을 확장한다. ContentDb.startMapId는 선택 필드이며 구형 단일 맵은 기존 시작점을 사용한다. MapDefinition의 선택 exit는 문/계단/포탈·표시 이름·MapPosition 목적지를 담는다. world-validation은 층별 좌표 인덱스를 재사용해 양 끝을 대조하고 맵/층 그래프를 큐로 탐색한다. 층 내부 연결은 기존 map-validation이 선행한다. src 모듈은 tools/scripts를 import하지 않는다.
+
+map/travel은 dispatch에서 진행 조건을 확인하고 도착 mapVersion/탐사 칸을 추가한다. 상태의 시간·난수·물품·기존 탐사/토벌은 보존한다. 런타임 travel은 이동과 nextMoveAt을 공유하고 회복 대기를 재설정한다. map/return은 명시한 시작 맵으로 귀환한다. MapView를 mapId/층 key로 다시 만들어 카메라가 이전 지역의 좌표를 이어받지 않게 한다.
+
+제작자의 world-editor는 불변 편집/왕복 연결/호환 검사를 담당한다. 맵 묶음의 시작 맵과 지도 배열은 별도 제작 데이터이며 GameState에 복제하지 않는다. 실제 게임 시험은 App의 종료 콜백만 추가하고 기존 시간 루프의 마운트/정리 경로를 사용한다. register-world는 변경 계획→전체 콘텐츠 검증→백업→파일 교체 순서로 동작하며 브라우저 저장에는 접근하지 않는다. 등록 후 runtime/content.ts의 기존 JSON glob이 새 파일을 포함한다.
+
+
+### T1 확장 제작 데이터와 시험 범위 (D-047) `[구현됨]`
+
+monster-tools.ts는 사각형 편집, 몬스터 묶음 검사/충돌 거부, 기본 정의 기반 레벨 변형, 고유 조우·절차적 배치를 담당한다. 배치/레벨 적용은 칸별 ID 변경을 모아 지도 배열을 한 번 갱신한다. 간격 조회는 주변 좌표 버킷만 사용한다. 제작 난수는 별도 sfc32이고 플레이 난수/시간을 참조하지 않는다.
+
+WorldBundle의 선택 monsters/encounters는 원본 기본 정의와 충돌하지 않게 조합하고 loadMakerWorld→실제 로더/엔진에 전달한다. register-world는 기존 정의를 canonical 값으로 대조하고 새 정의만 monsters.json/encounters.json에 추가한다. 기존 ID의 수치/행동 변경은 등록하지 않는다. MonsterDefinition.behavior/levelSourceId는 선택 필드이며 저장 상태에는 중복하지 않는다. 전투 행동은 기존 combat/act에서 차례와 직전 방어 행동을 계산하고 health/change/기존 피해 경로를 사용한다. 전투 재생도 같은 정의와 행동을 사용하므로 SaveFile7 스키마 변경은 없다.
+
+map-preview.ts는 전체 연결 검증을 먼저 수행하고 자동 모드에서 미연결/시작 맵 오류일 때만 선택 맵/층 복사본을 만든다. 외부 출입구 제거·시작 칸 임시 안전 처리는 원본을 변경하지 않으며 다른 잘못된 콘텐츠는 거부한다. Overview는 지형 캔버스와 선택 오버레이를 분리하고 내부 해상도 최대2048×2048(생성 최대512칸 기준)으로 제한한다. Pointer capture는 캔버스 밖에서 놓거나 터치 취소할 때 드래그 상태를 정리한다. src는 tools를 import하지 않는다.
+
+
+### T1 조건 행동 묶음과 저장 진행 상태 (D-048) `[구현됨]`
+
+content/schemas의 MonsterGroupSchema는 ID/이름·조건·가중치/우선순위·쿨다운/횟수·반복 단계 배열을 검증한다. 기존 behavior와 동시 지정하지 않으며 기존 몬스터 정의는 바꾸지 않는다. tactics.ts의 eligibleGroups/groupedAction은 GameState를 직접 바꾸지 않고 현재 적과 턴·주입 RNG에서 실행할 단계와 새 EnemyPlan을 반환한다. 실행 중 묶음은 먼저 이어가고 완료 후에만 다시 후보를 고른다. 가중치 추첨은 정수 합 범위의 nextInt를 사용하며 UI/전투 의도에서는 RNG를 쓰지 않는다.
+
+combat/act는 플레이어 행동 후 살아 있는 전열 적에 대해 선택·진행을 처리하고 기존 공격/회복 경로를 사용한다. 실제 방어 배율은 적 plan에 남기고 다음 적 행동에서 새 값으로 교체한다. 기본/순차 몬스터 경로는 계획 필드를 추가하거나 선택 난수를 호출하지 않는다. EnemyPlan은 적 개체별 상태이므로 같은 종류의 적도 독립적으로 묶음을 진행한다.
+
+SaveFile8은 plan을 허용하며 combat-schema-v7/schemas-v7은 직전 형식을 동결한 복사본이다. v7→v8은 메타 버전만 올리고 상태를 보존한다. validateCombatState는 초기 적에 계획을 허용하지 않으며 replayCombat이 같은 묶음/조건/난수 경로를 재생해 character/전투/시간/RNG 전체를 대조한다. 등록 시 기존 몬스터/조우 정의를 덮어쓰지 않는 D-046/047 원칙으로 이전 전투 해석을 보존한다. 콘텐츠0.4.0/DB1 유지, 현재 출력 저장 버전은8이다.
+
+tools/monster-groups.tsx는 묶음 카드/반복 단계 편집과 두 예제를 제공한다. 몬스터 제작기는 기존 순차 편집과 묶음 편집을 선택적으로 저장하며 불러올 때 해당 방식을 복원한다. 레벨 변형은 groups.steps의 heal.amount만 기본 비례 계산식으로 바꾸며 선택 조건/가중치/대기/반복은 보존한다.
+
+제작자 파일 입력은 tools/file-import.tsx의 FileImport/readImportJson을 공유한다. FileImport는 native 파일 선택값을 유지하고 파일명·상태·오류와 같은 File 재시도를 관리한다. 입력별 요청 번호로 늦은 이전 결과 표시를 막는다. readImportJson은 크기/빈 내용/구문을 검사하고 UTF-8 BOM을 제거한다. 맵/몬스터 스키마 검증과 적용은 각 제작자 콜백에서 수행하며 맵의 importVersion이 다른 편집 뒤의 오래된 적용을 막는다. 게임 저장 경로/콘텐츠 형식은 변경하지 않는다.

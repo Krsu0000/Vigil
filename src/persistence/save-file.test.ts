@@ -21,7 +21,7 @@ function fixture(): SaveFile {
   }, metadata);
 }
 
-describe('SaveFile v7 저장 계약', () => {
+describe('SaveFile v8 저장 계약', () => {
   it('직렬화 → 역직렬화 → Zod 검증 후 전체 세이브가 같다', () => {
     const save = deepFreeze(fixture());
     const restored = deserializeSave(serializeSave(save));
@@ -35,7 +35,7 @@ describe('SaveFile v7 저장 계약', () => {
     const state = initialState();
     const original = structuredClone(state);
     const save = createSaveFile(deepFreeze(state), deepFreeze(metadata));
-    expect(save).toMatchObject({ format: 'last-vigil-save', schemaVersion: 7, ...metadata });
+    expect(save).toMatchObject({ format: 'last-vigil-save', schemaVersion: 8, ...metadata });
     expect(save.state).toEqual(original);
     expect(save.state).not.toBe(state);
     expect(state).toEqual(original);
@@ -95,7 +95,7 @@ describe('SaveFile v7 저장 계약', () => {
   });
 
   it('미래 버전을 낮추거나 현재 형식으로 읽지 않는다', () => {
-    const raw = { ...fixture(), schemaVersion: 8 };
+    const raw = { ...fixture(), schemaVersion: fixture().schemaVersion + 1 };
     expect(() => parseSave(raw)).toThrow('미래 세이브 버전');
     expect(() => deserializeSave(JSON.stringify(raw))).toThrow('미래 세이브 버전');
   });

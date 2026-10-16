@@ -72,17 +72,18 @@ export const MapView = memo(function MapView({ content, map, position, memory, o
                 const seen = visibility(target);
                 // 미탐사 지형 정보는 DOM에도 넣지 않는다.
                 const tile = seen === 'unexplored' ? null : requireTile(content, findCell(map, target)!.tileId);
+                const exit = seen==='unexplored'?undefined:findCell(map,target)?.exit;
                 const chestId = seen === 'unexplored' ? undefined : findCell(map, target)?.chestId;
                 const chest = chestId && !openedChests?.[chestId] ? findChest(content, chestId) : undefined;
                 const encounterId = seen === 'unexplored' ? undefined : findCell(map, target)?.encounterId;
                 const encounter = encounterId && !defeatedEnemies?.[encounterId] ? findEncounter(content, encounterId) : undefined;
                 const enemy = encounter ? requireMonster(content, encounter.enemies[0]!.monsterId) : undefined;
                 const player = x === position.x && y === position.y;
-                const label = tile ? `${player ? strings.player : enemy?.name ?? chest?.name ?? tile.name} (${x}, ${y})` : strings.unexplored;
+                const label = tile ? `${player ? strings.player : enemy?.name ?? chest?.name ?? exit?.name ?? tile.name} (${x}, ${y})` : strings.unexplored;
                 return <div role="gridcell" aria-colindex={x + 1} key={x} aria-label={label}
                   className={`map-cell is-${seen}${tile && !tile.walkable ? ' is-wall' : ''}${player ? ' is-player' : ''}`}
                   data-x={x} data-y={y} data-visibility={seen}>
-                  <span aria-hidden="true" className={tile && !tile.walkable ? 'wall-object' : undefined}>{player ? strings.playerGlyph : enemy ? enemy.glyph : chest ? chest.glyph : tile?.walkable ? tile.glyph : ''}</span>
+                  <span aria-hidden="true" className={tile && !tile.walkable ? 'wall-object' : undefined}>{player ? strings.playerGlyph : enemy ? '●' : chest ? chest.glyph : exit ? exit.kind==='stairs'?'▼':exit.kind==='portal'?'◇':'⇥' : tile?.walkable ? tile.glyph : ''}</span>
                 </div>;
               })}
             </div>;

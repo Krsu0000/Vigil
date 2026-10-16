@@ -6,8 +6,9 @@ import type { AutoSave } from '../runtime/auto-save.ts';
 import { MapScreen } from './MapScreen.tsx';
 import './styles.css';
 
-export function App({ contentErrors = [], store, loop, autoSave, persistent = false, loading = false, saveLoadError = false, startupError = false }: {
+export function App({ contentErrors = [], store, loop, autoSave, persistent = false, loading = false, saveLoadError = false, startupError = false,onExitPreview }: {
   contentErrors?: readonly ContentError[]; store?: GameStore; loop?: ReturnType<typeof createGameLoop>; autoSave?: AutoSave; persistent?: boolean; loading?: boolean; saveLoadError?: boolean; startupError?: boolean;
+  onExitPreview?:()=>void;
 }) {
   return (
     <main>
@@ -29,7 +30,7 @@ export function App({ contentErrors = [], store, loop, autoSave, persistent = fa
         <section className="error-panel" role="alert"><h2>{strings.startupFailed}</h2><p>{strings.startupHelp}</p></section>
       )}
       {contentErrors.length === 0 && !startupError && !saveLoadError && store && <>
-        <MapScreen store={store} loop={loop} persistent={persistent} autoSave={autoSave} />
+        <MapScreen store={store} loop={loop} persistent={persistent} autoSave={autoSave} onExitPreview={onExitPreview}/>
       </>}
     </main>
   );

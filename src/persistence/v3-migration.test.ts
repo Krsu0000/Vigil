@@ -1,3 +1,4 @@
+import {v7ToV8} from './migrations/v7-to-v8.ts';
 import { v6ToV7 } from './migrations/v6-to-v7.ts';
 import { describe, expect, it } from 'vitest';
 import v2Empty from './fixtures/v2-empty.json' with { type: 'json' };
@@ -27,7 +28,7 @@ describe('이전 코드로 생성한 v2의 v3 변환', () => {
     } };
     expect(v2ToV3(input)).toEqual(expected);
     expect(SaveFileV3Schema.parse(expected)).toEqual(expected);
-    const current = v6ToV7(v5ToV6(v4ToV5(v3ToV4(expected))));
+    const current = v7ToV8(v6ToV7(v5ToV6(v4ToV5(v3ToV4(expected)))));
     expect(parseSave(input)).toEqual(current);
     expect(deserializeSave(JSON.stringify(input))).toEqual(current);
     expect(deserializeSave(serializeSave(parseSave(input)))).toEqual(current);

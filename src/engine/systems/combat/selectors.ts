@@ -9,6 +9,9 @@ export function findEncounter(content: ContentDb, id: string): DeepReadonly<Enco
 export function requireMonster(content: ContentDb, id: string): DeepReadonly<MonsterDefinition> {
   const entry=content.byId[id]; if(!entry || !('kind' in entry) || entry.kind!=='monster') throw new Error(`적 정의가 없다: ${id}`);return entry;
 }
+export function monsterBehavior(monster:DeepReadonly<MonsterDefinition>,turn:number) {
+  return turn>0 && monster.behavior ? monster.behavior[(turn-1)%monster.behavior.length] : undefined;
+}
 export function livingFront(enemies: readonly CombatEnemyState[]) {
   const alive=enemies.filter(enemy=>enemy.health>0);
   return alive.some(enemy=>enemy.row==='front') ? alive.filter(enemy=>enemy.row==='front') : alive;

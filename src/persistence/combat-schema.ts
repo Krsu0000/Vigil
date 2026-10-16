@@ -4,7 +4,8 @@ import { PositionSchema } from './schemas-v2.ts';
 import { StaminaSchema } from './schemas-v3.ts';
 import { GameStateV5Schema } from './schemas-v5.ts';
 const integer=z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
-const enemy=z.strictObject({id:z.string().min(1),monsterId:ContentIdSchema,health:integer,maxHealth:integer.min(1),row:z.enum(['front','back'])})
+const plan=z.strictObject({groupId:z.string().regex(/^[a-z][a-z0-9_]*$/).optional(),step:integer.max(31),repeat:integer.max(19),uses:z.record(z.string(),integer),completed:z.record(z.string(),integer),guardMultiplier:z.number().min(0).max(1).optional()});
+const enemy=z.strictObject({id:z.string().min(1),monsterId:ContentIdSchema,health:integer,maxHealth:integer.min(1),row:z.enum(['front','back']),plan:plan.optional()})
   .refine(e=>e.health<=e.maxHealth,{message:'적 체력 범위 오류'});
 export const CombatCharacterSchema=GameStateV5Schema.shape.character.unwrap().extend({health:StaminaSchema,archetype:z.enum(['warrior','rogue','mage']).optional(),mana:StaminaSchema.optional()});
 export const CombatStateSchema=z.strictObject({

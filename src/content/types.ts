@@ -5,6 +5,7 @@ export type ContentEntry = DeepReadonly<TimeRules> | DeepReadonly<ContentDefinit
 
 export type ContentDb = Readonly<{
   contentVersion: string;
+  startMapId?: string;
   timeRules: DeepReadonly<TimeRules>;
   definitions: readonly DeepReadonly<ContentDefinition>[];
   byId: Readonly<Record<string, ContentEntry>>;

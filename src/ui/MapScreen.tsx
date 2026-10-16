@@ -9,7 +9,7 @@ import { createGameLoop } from '../runtime/loop.ts';
 import type { Direction } from '../engine/systems/map/actions.ts';
 import type { InventoryAction } from '../engine/systems/inventory/actions.ts';
 import type { CombatAction } from '../engine/systems/combat/actions.ts';
-import { currentLocation, findCell, getReturnDestination, requireZone } from '../engine/systems/map/selectors.ts';
+import { currentExit, currentLocation, findCell, getReturnDestination, requireZone } from '../engine/systems/map/selectors.ts';
 import { findFloor } from '../engine/systems/map/indexes.ts';
 import { currentChest, findItem } from '../engine/systems/inventory/selectors.ts';
 import { findEncounter } from '../engine/systems/combat/selectors.ts';
@@ -30,7 +30,7 @@ const emptyRecords:readonly RecentRecord[]=[];
 type Tab='explore'|'inventory'|'character'|'base'|'more';
 const tabs:readonly {id:Tab;label:string;glyph:string}[]=[{id:'explore',label:'탐험',glyph:'♘'},{id:'inventory',label:'소지품',glyph:'▤'},{id:'character',label:'캐릭터',glyph:'◐'},{id:'base',label:'거점',glyph:'⌂'},{id:'more',label:'더보기',glyph:'⋯'}];
 const controls:readonly {direction:Direction;glyph:string}[]=[{direction:'north',glyph:'▲'},{direction:'west',glyph:'◀'},{direction:'south',glyph:'▼'},{direction:'east',glyph:'▶'}];
-export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave}:{store:GameStore;loop?:ReturnType<typeof createGameLoop>;persistent?:boolean;autoSave?:AutoSave}){
+export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onExitPreview}:{store:GameStore;loop?:ReturnType<typeof createGameLoop>;persistent?:boolean;autoSave?:AutoSave;onExitPreview?:()=>void}){
   const state=useSyncExternalStore(store.subscribe,store.getSnapshot,store.getSnapshot);
   const loop=useMemo(()=>suppliedLoop??createGameLoop(store,browserClock,browserScheduler),[store,suppliedLoop]);
   const session=useSyncExternalStore(loop.subscribe,loop.getSnapshot,loop.getSnapshot);
@@ -65,7 +65,8 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave}:{s
     note(event?.type==='inventory/used'?strings.itemUsed+event.recovered:event?.type==='inventory/equipped'?strings.itemEquipped:event?.type==='inventory/unequipped'?strings.itemUnequipped:strings.lootReceived);
   },[loop,note]);
   const interact=useCallback(()=>{if(tab!=='explore'||fullMap||combat)return;const current=store.getSnapshot(),chest=currentChest(current,store.content);
-    if(chest&&!current.campaign.openedChests[chest.id])inventoryAction({type:'inventory/open_chest',chestId:chest.id});},[store,inventoryAction,tab,fullMap,combat]);
+    if(currentExit(current,store.content)){const result=loop.travel();note(result.ok?'출입구를 통해 이동했습니다.':'지금은 이동할 수 없습니다.');return;}
+    if(chest&&!current.campaign.openedChests[chest.id])inventoryAction({type:'inventory/open_chest',chestId:chest.id});},[store,loop,inventoryAction,tab,fullMap,combat,note]);
   useEffect(()=>bindInteractionKeys(window,interact),[interact]);
   const rest=useCallback(()=>{const resting=store.getSnapshot().character?.activity==='resting';const result=loop.setResting(!resting);note(result.ok?resting?strings.restStopped:strings.restStarted:strings.restUnavailable);},[loop,store,note]);
   const returnHome=useCallback(()=>{const result=loop.returnToCamp();note(result.ok?strings.returnSucceeded:strings.returnUnavailable);},[loop,note]);
@@ -88,7 +89,8 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave}:{s
   const chest=currentChest(state,store.content),chestOpened=chest&&state.campaign.openedChests[chest.id];
   const resting=state.character!.activity==='resting';
   const miniMap=<MiniMap viewport={mapViewport} position={position} memory={location.memory} width={floor.width} height={floor.height} onOpen={()=>setFullMap(true)}/>;
-  const mapView=<MapView overview={fullMap} onViewportChange={reportViewport} content={store.content} map={map} position={position} memory={location.memory} openedChests={state.campaign.openedChests} defeatedEnemies={state.expedition?.defeatedEnemies}/>;
+  const exit=currentExit(state,store.content);
+  const mapView=<MapView key={`${map.id}:${position.floor}`} overview={fullMap} onViewportChange={reportViewport} content={store.content} map={map} position={position} memory={location.memory} openedChests={state.campaign.openedChests} defeatedEnemies={state.expedition?.defeatedEnemies}/>;
   const inventory=<InventoryPanel state={state} content={store.content} enabled={session.running} onAction={inventoryAction}/>;
   const characterContent=<><div className="content-tabs">{['캐릭터','소지품','장비','기록'].map(label=><button className={characterTab===label?'selected':''} onClick={()=>setCharacterTab(label)} key={label}>{label}</button>)}</div>
     {characterTab==='소지품'?inventory:characterTab==='기록'?<div className="recent-log">{logs.map((entry,index)=><p key={index}><time className="n" dateTime={new Date(entry.at).toISOString()} data-testid="record-time">{formatRecordTime(entry.at)}</time>{entry.text}</p>)}</div>:<><h2 className="character-name">이름 없는 감시자</h2><p className="muted">회색감시자</p><Vitals state={state}/><h3 className="section-title">장비</h3><p>{state.character!.inventory.equipment.feet?findItem(store.content,state.character!.inventory.equipment.feet)!.name:'장착한 장비 없음'}</p><h3 className="section-title">스킬</h3><p>강타 · 집중한 공격</p></>}
@@ -97,7 +99,7 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave}:{s
   const more=<><h2>기록</h2><h3 className="section-title">퀘스트</h3><p className="muted">기록된 퀘스트가 없습니다.</p><h3 className="section-title">코덱스</h3><p className="muted">기록된 문서가 없습니다.</p><button onClick={()=>loop.setSettingsOpen(true)}>설정</button></>;
   const tabContent=tab==='inventory'?inventory:tab==='character'?characterContent:tab==='base'?base:more;
   return <div className={`game-shell${combat?' has-combat':''}`}>
-    <header className="game-top"><h1 aria-label={strings.gameTitle}>VIGIL</h1><span data-testid="session-status">{combat?'전투':pending?'조우':session.running?'진행':'정지'}</span><span className="n" data-testid="clock">경과 {state.meta.gameTime}틱</span><span className="top-spacer"/>
+    <header className="game-top">{onExitPreview&&<button onClick={onExitPreview}>제작 화면으로</button>}<h1 aria-label={strings.gameTitle}>VIGIL</h1><span data-testid="session-status">{combat?'전투':pending?'조우':session.running?'진행':'정지'}</span><span className="n" data-testid="clock">경과 {state.meta.gameTime}틱</span><span className="top-spacer"/>
       <span className="idle-summary">진행 중 <span className="muted">없음</span></span>{autoSave&&<SaveStatus autoSave={autoSave}/>}<button aria-label="설정" onClick={()=>loop.setSettingsOpen(true)}>설정</button></header>
     {session.gapPaused&&<p className="gap-notice" role="alert">실행 공백으로 탐험이 정지했습니다. 설정을 열고 닫으면 이어서 진행합니다.</p>}
     <div className="game-columns" inert={!!combat}>
@@ -105,7 +107,8 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave}:{s
       <section className={`exploration-center${compact&&tab!=='explore'&&!combat?' tab-hidden':''}`} aria-label="탐험">
         <header className="region-header"><div><h2>{mapName}</h2><span className="muted">{position.floor}층 · {zone.name}</span></div><span className="region-meta">{zone.safety==='safe'?'안전지대':'위험지대'} · <span className="n" data-testid="visited">{exploredCount}</span>칸</span></header>
         <div className="map-stage">{mapView}{compact&&miniMap}</div>
-        <div className="situation" role="status"><span className="situation-text">{compact&&message?message:chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:zone.description}</span><span className="n" data-testid="position">({position.x}, {position.y})</span></div>
+        <div className="situation" role="status"><span className="situation-text">{compact&&message?message:chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:exit?`${exit.name} · Z / Space로 이동`:zone.description}</span><span className="n" data-testid="position">({position.x}, {position.y})</span></div>
+        {exit&&<section className="chest-controls exit-controls"><button disabled={!session.running} aria-keyshortcuts="Z Space" onClick={interact}>{exit.name} 이동</button></section>}
         {chest&&<section className="chest-controls"><button disabled={!session.running||!!chestOpened} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}</button>
           {chestOpened&&<div data-testid="chest-status" role="status">{lootedChestId===chest.id?<><p>{strings.chestLooted}</p><ul>{chest.loot.map((entry,index)=><li key={index}>{findItem(store.content,entry.itemId)!.name} ×{entry.quantity}</li>)}</ul></>:<p>{strings.chestEmpty}</p>}</div>}</section>}
         <div className="exploration-commands"><div className="movement-controls" role="group" aria-label={strings.move}>{controls.map(({direction,glyph})=><button type="button" className={`move-${direction}`} key={direction} aria-label={strings[direction]} disabled={!session.running}

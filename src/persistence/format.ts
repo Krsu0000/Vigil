@@ -1,2 +1,2 @@
 export const SAVE_FORMAT = 'last-vigil-save';
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
