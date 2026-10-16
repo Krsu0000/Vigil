@@ -56,3 +56,7 @@
 .monster-group { border:1px solid #7897ae; padding:14px; margin:18px 0; }
 .monster-group>label { margin:10px 0; }
 .monster-groups>p { max-width:70ch; }
+
+.maker-file-import { border:1px solid #555; padding:12px; margin:14px 0; min-width:0; }
+.maker-file-import input { display:block; max-width:100%; min-height:44px; }
+.maker-file-import p { white-space:pre-wrap; overflow-wrap:anywhere; margin:8px 0; }

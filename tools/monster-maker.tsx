@@ -1,9 +1,10 @@
-import {useState} from 'react';
+import {useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import {createRoot} from 'react-dom/client';
 import {MonsterDefinitionSchema} from '../src/content/schemas.ts';
 import type {MonsterDefinition} from '../src/content/schemas.ts';
 import {MonsterGroups,normalGroup} from './monster-groups.tsx';
+import {FileImport,readImportJson} from './file-import.tsx';
 import {parseMonsterPack} from './monster-tools.ts';
 import '../src/ui/styles.css';
 import './map-maker.css';
@@ -13,11 +14,11 @@ function download(data:unknown){const url=URL.createObjectURL(new Blob([JSON.str
 function MonsterMaker(){
   const [base,setBase]=useState(initial),[steps,setSteps]=useState<Step[]>([{type:'attack',text:'발톱을 휘두른다.',multiplier:1}]),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [mode,setMode]=useState<'sequence'|'groups'>('sequence'),[groups,setGroups]=useState<NonNullable<MonsterDefinition['groups']>>([normalGroup()]);
-  const [raw,setRaw]=useState(''),[formKey,setFormKey]=useState(0);
+  const [raw,setRaw]=useState(''),[formKey,setFormKey]=useState(0),importVersion=useRef(0);
   const build=(form:HTMLFormElement)=>{const f=new FormData(form);return MonsterDefinitionSchema.parse({...base,id:f.get('id'),name:f.get('name'),description:f.get('description'),glyph:f.get('glyph'),intent:f.get('intent'),
     ...Object.fromEntries(['level','health','damageMin','damageMax','hitChance'].map(k=>[k,Number(f.get(k))])),...(mode==='groups'?{behavior:undefined,groups}:{behavior:steps,groups:undefined})});};
   const submit=(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();try{const monster=build(e.currentTarget);download({format:'vigil-monsters-v1',monsters:[monster]});setRaw(JSON.stringify(monster,null,2));setError('');setMessage('JSON을 저장했습니다. 맵 메이커의 몬스터 불러오기로 사용할 수 있습니다.');}catch(e){setError(e instanceof Error?e.message:String(e));}};
-  const apply=(monster:MonsterDefinition)=>{setBase(monster);setMode(monster.groups?'groups':'sequence');setGroups(monster.groups??[normalGroup()]);setSteps(monster.behavior??[{type:'attack',text:monster.intent,multiplier:1}]);setFormKey(k=>k+1);setError('');setMessage('몬스터를 불러왔습니다.');};
+  const apply=(monster:MonsterDefinition)=>{importVersion.current++;setRaw(JSON.stringify(monster,null,2));setBase(monster);setMode(monster.groups?'groups':'sequence');setGroups(monster.groups??[normalGroup()]);setSteps(monster.behavior??[{type:'attack',text:monster.intent,multiplier:1}]);setFormKey(k=>k+1);setError('');setMessage('몬스터를 불러왔습니다.');};
   return <main className="map-maker monster-maker"><header><h1>몬스터 제작</h1><a href="/map-maker.html" target="_blank" rel="noreferrer">맵 메이커</a></header>
     <p>기본 수치와 반복할 행동 순서를 정하고 JSON으로 내보낸 뒤 맵 메이커에서 불러오세요. 기존 몬스터를 수정하려면 새 ID를 사용하세요.</p>
     <form key={formKey} onSubmit={submit}><div className="maker-fields">
@@ -33,7 +34,14 @@ function MonsterMaker(){
     </>}
     <div className="maker-actions">{mode==='sequence'&&<button type="button" disabled={steps.length>=32} onClick={()=>setSteps(s=>[...s,{type:'attack',text:'공격한다.',multiplier:1}])}>행동 추가</button>}<button type="submit">몬스터 JSON 내보내기</button></div></form>
     {error&&<p role="alert" className="maker-error">{error}</p>}<p role="status">{message}</p>
-    <label>몬스터 JSON 불러오기<input type="file" accept="application/json,.json" onChange={async e=>{const file=e.currentTarget.files?.[0];e.currentTarget.value='';if(!file)return;try{if(file.size>2*1024*1024)throw new Error('몬스터 파일은 2MB 이하로 불러와 주세요.');const pack=parseMonsterPack(JSON.parse(await file.text()));if(pack.monsters.length!==1)throw new Error('이 화면에서는 몬스터 한 개의 파일을 편집합니다. 여러 개 묶음은 맵 메이커에서 불러오세요.');apply(pack.monsters[0]!);}catch(e){setError(e instanceof Error?e.message:String(e));}}}/></label>
+    <FileImport label="몬스터 JSON 불러오기" onImport={async file=>{
+      const version=++importVersion.current;setError('');const raw=await readImportJson(file,2);
+      if(version!==importVersion.current)return '다른 불러오기로 취소되었습니다.';
+      const pack=parseMonsterPack(raw);
+      if(pack.monsters.length!==1)throw new Error('이 화면에서는 몬스터 한 개의 파일을 편집합니다. 여러 개 묶음은 맵 메이커에서 불러오세요.');
+      apply(pack.monsters[0]!);return `불러오기 완료 · ${pack.monsters[0]!.name}`;
+    }}/>
+
     <details><summary>고급 JSON 편집 · 전리품 등</summary><textarea aria-label="몬스터 JSON" rows={16} value={raw} onChange={e=>setRaw(e.target.value)}/><button onClick={()=>{try{apply(MonsterDefinitionSchema.parse(JSON.parse(raw)));}catch(e){setError(e instanceof Error?e.message:String(e));}}}>JSON을 제작 화면에 적용</button></details>
   </main>;
 }

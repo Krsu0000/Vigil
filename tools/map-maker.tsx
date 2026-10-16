@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import type {FormEvent,PointerEvent} from 'react';
 import {createRoot} from 'react-dom/client';
+import {FileImport,readImportJson} from './file-import.tsx';
 import {generateMap,GeneratorOptionsSchema,parseMapSeed} from './map-generator.ts';
 import type {GeneratorOptions} from './map-generator.ts';
 import {loadMakerWorld} from './map-content.ts';
@@ -103,11 +104,12 @@ function Maker(){
   };
   const download=(bundle:boolean)=>attempt(()=>{checked(world);const data=bundle||world.maps.length>1||map.floors.length>1||world.monsters?.length||world.encounters?.length?world:[map];
     const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download=bundle?'vigil-world.json':`${map.id.replace('.','-')}.json`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-  const importFile=async(file:File|undefined)=>{
-    if(!file)return;const version=++importVersion.current;
-    try{if(file.size>64*1024*1024)throw new Error('JSON은 64MB 이하로 불러와 주세요.');const text=await file.text();if(version!==importVersion.current)return;
-      const next=parseWorld(JSON.parse(text));checked(next);commit(next,`${file.name} · 검증 통과`);setSelectedId(next.startMapId);setSelection({mapId:next.startMapId,...next.maps.find(m=>m.id===next.startMapId)!.start});
-    }catch(e){if(version===importVersion.current)setError(errorText(e));}
+  const importFile=async(file:File)=>{
+    const version=++importVersion.current;setError('');
+    const raw=await readImportJson(file,64);
+    if(version!==importVersion.current)return '다른 편집으로 취소되었습니다. 다시 불러오려면 아래 버튼을 누르세요.';
+    const next=parseWorld(raw);checked(next);commit(next,`${file.name} · 검증 통과`);setSelectedId(next.startMapId);setSelection({mapId:next.startMapId,...next.maps.find(m=>m.id===next.startMapId)!.start});
+    return `불러오기 완료 · 맵 ${next.maps.length}개 · ${next.maps.find(m=>m.id===next.startMapId)!.name}`;
   };
   const startPreview=(game:boolean)=>attempt(()=>{const result=preparePreview(world,p,!game,scope);setPreview({store:createNewGameStore(result.content,[1,2,3,4],Date.now),game,notice:result.notice});});
   if(preview)return preview.game?<App store={preview.store} onExitPreview={()=>setPreview(undefined)}/>:<WalkPreview store={preview.store} onClose={()=>setPreview(undefined)} notice={preview.notice}/>;
@@ -148,7 +150,13 @@ function Maker(){
         </form>
       </section>
       <section className="maker-enemies" aria-label="몬스터 배치"><h2>몬스터 · 레벨 · 절차적 배치</h2><a href="/monster-maker.html" target="_blank" rel="noreferrer">몬스터 제작 화면 열기</a>
-        <label>몬스터 불러오기<input aria-label="몬스터 불러오기" type="file" accept="application/json,.json" onChange={async e=>{const f=e.currentTarget.files?.[0];e.currentTarget.value='';if(!f)return;const version=++importVersion.current;try{if(f.size>2*1024*1024)throw new Error('몬스터 파일은 2MB 이하로 불러와 주세요.');const raw=JSON.parse(await f.text());if(version!==importVersion.current)return;const next=importMonsters(world,raw);commit(next,'몬스터를 불러왔습니다. 아래 목록에서 선택해 배치하세요.');const added=next.monsters?.at(-1);if(added)setSelectedMonster(added.id);}catch(e){if(version===importVersion.current)setError(errorText(e));}}}/></label>
+        <FileImport label="몬스터 불러오기" onImport={async file=>{
+          const version=++importVersion.current;setError('');const raw=await readImportJson(file,2);
+          if(version!==importVersion.current)return '다른 편집으로 취소되었습니다. 다시 불러오려면 아래 버튼을 누르세요.';
+          const next=importMonsters(world,raw);commit(next,'몬스터를 불러왔습니다. 아래 목록에서 선택해 배치하세요.');const added=next.monsters?.at(-1);if(added)setSelectedMonster(added.id);
+          return '불러오기 완료 · 아래 목록에서 선택해 배치하세요.';
+        }}/>
+
         <label>배치할 몬스터<select aria-label="배치할 몬스터" value={selectedMonster} onChange={e=>setSelectedMonster(e.target.value)}>{catalog.map(m=><option value={m.id} key={m.id}>{m.glyph} {m.name} · 기본 Lv.{m.level}</option>)}</select></label>
         <label>선택 칸의 적 레벨<input aria-label="선택 칸의 적 레벨" type="number" min="1" max="999" value={enemyLevel} onChange={e=>setEnemyLevel(Number(e.target.value))}/></label>
         <div className="maker-actions"><button onClick={()=>attempt(()=>commit(placeMonster(world,p,selectedMonster,enemyLevel),'선택 칸에 몬스터를 배치했습니다.'))}>선택 칸에 몬스터 배치</button><button disabled={!cell.encounterId} onClick={()=>attempt(()=>commit(setEnemyLevels(world,map.id,enemyLevel,enemyLevel,[1,2,3,4],{...r,x1:p.x,y1:p.y,x2:p.x,y2:p.y}),'선택 칸의 적 레벨을 변경했습니다.'))}>선택 칸 레벨 적용</button></div>
@@ -166,7 +174,7 @@ function Maker(){
       {error&&<p className="maker-error" role="alert">{error}</p>}
       <div className="maker-actions"><button onClick={()=>startPreview(false)}>걸어 보기</button><button onClick={()=>startPreview(true)}>게임에서 시험</button><button onClick={()=>download(false)}>JSON 내려받기</button></div>
       <button className="maker-export" onClick={()=>download(true)}>배포용 맵 묶음 내보내기</button>
-      <label className="maker-file">수정한 JSON 불러오기<input type="file" accept="application/json,.json" onChange={e=>{void importFile(e.currentTarget.files?.[0]);e.currentTarget.value='';}}/></label>
+      <FileImport className="maker-file" label="수정한 JSON 불러오기" onImport={importFile}/>
       <p className="muted">묶음을 내보낸 뒤 register:world 명령으로 검증·등록하고 배포합니다. 사용법: docs/map-maker.md</p>
     </section></div></main>;
 }

@@ -746,3 +746,5 @@ combat/act는 플레이어 행동 후 살아 있는 전열 적에 대해 선택�
 SaveFile8은 plan을 허용하며 combat-schema-v7/schemas-v7은 직전 형식을 동결한 복사본이다. v7→v8은 메타 버전만 올리고 상태를 보존한다. validateCombatState는 초기 적에 계획을 허용하지 않으며 replayCombat이 같은 묶음/조건/난수 경로를 재생해 character/전투/시간/RNG 전체를 대조한다. 등록 시 기존 몬스터/조우 정의를 덮어쓰지 않는 D-046/047 원칙으로 이전 전투 해석을 보존한다. 콘텐츠0.4.0/DB1 유지, 현재 출력 저장 버전은8이다.
 
 tools/monster-groups.tsx는 묶음 카드/반복 단계 편집과 두 예제를 제공한다. 몬스터 제작기는 기존 순차 편집과 묶음 편집을 선택적으로 저장하며 불러올 때 해당 방식을 복원한다. 레벨 변형은 groups.steps의 heal.amount만 기본 비례 계산식으로 바꾸며 선택 조건/가중치/대기/반복은 보존한다.
+
+제작자 파일 입력은 tools/file-import.tsx의 FileImport/readImportJson을 공유한다. FileImport는 native 파일 선택값을 유지하고 파일명·상태·오류와 같은 File 재시도를 관리한다. 입력별 요청 번호로 늦은 이전 결과 표시를 막는다. readImportJson은 크기/빈 내용/구문을 검사하고 UTF-8 BOM을 제거한다. 맵/몬스터 스키마 검증과 적용은 각 제작자 콜백에서 수행하며 맵의 importVersion이 다른 편집 뒤의 오래된 적용을 막는다. 게임 저장 경로/콘텐츠 형식은 변경하지 않는다.
