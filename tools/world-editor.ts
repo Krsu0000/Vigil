@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { ContentIdSchema, MapDefinitionSchema } from '../src/content/schemas.ts';
+import { ContentIdSchema, MapDefinitionSchema,MonsterDefinitionSchema,EncounterDefinitionSchema } from '../src/content/schemas.ts';
 import type { MapDefinition } from '../src/content/schemas.ts';
 import type { ContentDb } from '../src/content/types.ts';
 
-export const WorldBundleSchema=z.strictObject({format:z.literal('vigil-world-v1'),startMapId:ContentIdSchema,maps:z.array(MapDefinitionSchema).min(1)});
+export const WorldBundleSchema=z.strictObject({format:z.literal('vigil-world-v1'),startMapId:ContentIdSchema,maps:z.array(MapDefinitionSchema).min(1),monsters:z.array(MonsterDefinitionSchema).optional(),encounters:z.array(EncounterDefinitionSchema).optional()});
 export type WorldBundle=z.infer<typeof WorldBundleSchema>;
 export type CellPosition={mapId:string;floor:number;x:number;y:number};
 export function parseWorld(raw:unknown):WorldBundle {
@@ -15,7 +15,9 @@ export function parseWorld(raw:unknown):WorldBundle {
 }
 export function worldFromContent(content:ContentDb):WorldBundle {
   const maps=content.definitions.filter((d):d is MapDefinition=>d.kind==='map').map(d=>structuredClone(d));
-  return {format:'vigil-world-v1',startMapId:content.startMapId??maps[0]!.id,maps};
+  return {format:'vigil-world-v1',startMapId:content.startMapId??maps[0]!.id,maps,
+    monsters:content.definitions.filter(d=>d.kind==='monster').map(d=>MonsterDefinitionSchema.parse(d)),
+    encounters:content.definitions.filter(d=>d.kind==='encounter').map(d=>EncounterDefinitionSchema.parse(d))};
 }
 export function cellAt(world:WorldBundle,p:CellPosition){return world.maps.find(m=>m.id===p.mapId)?.floors.find(f=>f.floor===p.floor)?.cells.find(c=>c.x===p.x&&c.y===p.y);}
 export function editCell(world:WorldBundle,p:CellPosition,change:(cell:MapDefinition['floors'][number]['cells'][number])=>void):WorldBundle {

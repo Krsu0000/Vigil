@@ -131,13 +131,21 @@ export const ChestDefinitionSchema = DefinitionSchema.extend({
   loot: z.array(z.strictObject({ itemId: namedId('item'), quantity: positiveInteger })).min(1),
 }).refine(chest => chest.effects.length === 0, { message: '상자는 loot로만 아이템을 지급한다' });
 
+export const MonsterBehaviorSchema = z.discriminatedUnion('type', [
+  z.strictObject({type:z.literal('attack'),text, multiplier:z.number().min(0.1).max(10).default(1)}),
+  z.strictObject({type:z.literal('wait'),text}),
+  z.strictObject({type:z.literal('guard'),text, multiplier:z.number().min(0).max(1).default(0.5)}),
+  z.strictObject({type:z.literal('heal'),text, amount:positiveInteger}),
+]);
 export const MonsterDefinitionSchema = DefinitionSchema.extend({
   kind: z.literal('monster'), id: namedId('monster'), name: text, description: text,
   glyph: text, level: positiveInteger, health: positiveInteger,
   damageMin: positiveInteger, damageMax: positiveInteger,
   hitChance: z.number().min(0).max(1), intent: text,
+  behavior: z.array(MonsterBehaviorSchema).min(1).max(32).optional(),
+  levelSourceId: namedId('monster').optional(),
   loot: z.array(z.strictObject({ itemId: namedId('item'), quantity: positiveInteger })),
-}).refine(monster => monster.damageMin <= monster.damageMax && monster.effects.length === 0, { message: '적의 피해 범위/효과가 유효하지 않다' });
+}).refine(monster => monster.damageMin <= monster.damageMax && monster.effects.length === 0 && (monster.behavior??[]).every(b=>b.type!=='attack'||Number.isSafeInteger(Math.ceil(monster.damageMax*b.multiplier))), { message: '적의 피해 범위/효과가 유효하지 않다' });
 export const EncounterDefinitionSchema = DefinitionSchema.extend({
   kind: z.literal('encounter'), id: namedId('encounter'), name: text,
   enemies: z.array(z.strictObject({ monsterId: namedId('monster'), row: z.enum(['front', 'back']) })).min(1).max(6),

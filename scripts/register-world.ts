@@ -6,6 +6,7 @@ import { checkContentFiles } from './validate-content.ts';
 import { parseWorld,assertCompatibleWorld } from '../tools/world-editor.ts';
 import { loadContent } from '../src/content/load.ts';
 import { ManifestSchema } from '../src/content/schemas.ts';
+import { mergeDefinitions } from '../tools/monster-tools.ts';
 import { itemEffectRegistry } from '../src/engine/systems/inventory/effects.ts';
 
 export function planWorldRegistration(root:string,raw:unknown):Record<string,string> {
@@ -23,6 +24,14 @@ export function planWorldRegistration(root:string,raw:unknown):Record<string,str
   }
   const added=world.maps.filter(m=>!registered.has(m.id));
   if(added.length){const file='maps/registered-world.json';touched.add(file);sources[file]=[...(sources[file] as unknown[]??[]),...added];if(!manifest.definitionFiles.includes(file))manifest.definitionFiles.push(file);}
+  for(const [kind,incoming] of [['monster',world.monsters??[]],['encounter',world.encounters??[]]] as const){
+    const existing=base.content.definitions.filter(d=>d.kind===kind);
+    const merged=mergeDefinitions<{id:string}>(existing,incoming);
+    const added=merged.filter(d=>!existing.some(e=>e.id===d.id));
+    if(added.length){const file=kind==='monster'?'monsters.json':'encounters.json';
+      if(!manifest.definitionFiles.includes(file))manifest.definitionFiles.push(file);
+      sources[file]=[...(sources[file] as unknown[]??[]),...added];touched.add(file);}
+  }
   manifest.startMapId=world.startMapId;sources['manifest.json']=manifest;
   const loaded=loadContent(sources,itemEffectRegistry.validate);
   if(!loaded.ok)throw new Error(loaded.errors.map(e=>`${e.file} ${e.path}: ${e.message}`).join('\n'));

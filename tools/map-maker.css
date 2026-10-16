@@ -44,3 +44,12 @@
 .maker-canvas-scroll { overflow:auto; max-height:60dvh; margin:12px 0; background:#202020; }
 .maker-canvas-scroll canvas { display:block; max-height:none; max-width:none; height:auto; object-fit:fill; margin:0; }
 .maker-travel { flex:none; margin:0 12px; }
+.maker-canvas-stack { position:relative; }
+.maker-canvas-stack .maker-selection-overlay { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; background:transparent; }
+.maker-brush,.maker-enemies { border-top:1px solid #555; margin:16px 0; padding-top:12px; }
+.maker-enemies label { margin:10px 0; }
+.maker-pick-status { border:1px solid #7897ae; padding:10px; }
+.map-maker textarea { width:100%; max-width:100%; background:#202020; color:inherit; padding:10px; border:1px solid #555; }
+.monster-maker { max-width:900px; }
+.monster-step { padding:12px; border:1px solid #555; margin-bottom:12px; }
+.monster-step label { margin:8px 0; }

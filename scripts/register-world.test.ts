@@ -6,6 +6,8 @@ import {describe,expect,it} from 'vitest';
 import {inventorySources} from '../src/content/test-fixtures.ts';
 import {checkContentFiles} from './validate-content.ts';
 import {planWorldRegistration,registerWorld} from './register-world.ts';
+import {importMonsters,placeMonster} from '../tools/monster-tools.ts';
+import {MonsterDefinitionSchema} from '../src/content/schemas.ts';
 import {connectedWorld} from '../tools/world-test-fixtures.ts';
 import {createNewGameStore,createGameStore} from '../src/runtime/store.ts';
 
@@ -15,6 +17,19 @@ function fixture(){
   return {dir,root};
 }
 describe('배포용 맵 묶음 등록',()=>{
+  it('사용자 몬스터·레벨 변형·개별 조우를 함께 등록하고 기존 정의 덮어쓰기를 거부한다',()=>{
+    const {dir,root}=fixture();try{
+      const old=checkContentFiles(root).content!,saved=createNewGameStore(old,[1,2,3,4],()=>0).getSnapshot();
+      const monster=MonsterDefinitionSchema.parse({kind:'monster',id:'monster.imported',name:'새 적',description:'사용자 적',glyph:'X',level:2,health:30,damageMin:4,damageMax:8,hitChance:1,intent:'기다린다',loot:[],behavior:[{type:'wait',text:'힘을 모은다'},{type:'attack',text:'내리친다',multiplier:2}]});
+      const world=placeMonster(importMonsters(connectedWorld(),[monster]),{mapId:'map.second',floor:0,x:2,y:1},monster.id,8);
+      const plan=planWorldRegistration(root,world);expect(plan['monsters.json']).toBeDefined();expect(plan['encounters.json']).toBeDefined();
+      registerWorld(root,world,join(dir,'backups'));const loaded=checkContentFiles(root);expect(loaded.errors).toEqual([]);expect(loaded.content!.byId['monster.imported_lv_8']).toMatchObject({health:120,damageMax:32,level:8});
+      expect(createGameStore(loaded.content!,saved,()=>0).getSnapshot()).toEqual(saved);expect(registerWorld(root,world,join(dir,'backups'))).toBeNull();
+      const before=readFileSync(join(root,'monsters.json'),'utf8'),changed=structuredClone(world);changed.monsters![0]!.health++;
+      expect(()=>registerWorld(root,changed,join(dir,'backups'))).toThrow('덮어쓸');expect(readFileSync(join(root,'monsters.json'),'utf8')).toBe(before);
+    }finally{rmSync(dir,{recursive:true,force:true});}
+  });
+
   it('기본 검증은 파일을 쓰지 않고, 적용은 백업 후 등록하며 구형 진행 중 전투도 복원한다',()=>{
     const {dir,root}=fixture();try{
       const before=checkContentFiles(root).content!;const store=createNewGameStore(before,[1,2,3,4],()=>1000);

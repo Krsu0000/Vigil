@@ -726,3 +726,12 @@ D-045 도구의 단일 층/이동 시험 제한을 확장한다. ContentDb.start
 map/travel은 dispatch에서 진행 조건을 확인하고 도착 mapVersion/탐사 칸을 추가한다. 상태의 시간·난수·물품·기존 탐사/토벌은 보존한다. 런타임 travel은 이동과 nextMoveAt을 공유하고 회복 대기를 재설정한다. map/return은 명시한 시작 맵으로 귀환한다. MapView를 mapId/층 key로 다시 만들어 카메라가 이전 지역의 좌표를 이어받지 않게 한다.
 
 제작자의 world-editor는 불변 편집/왕복 연결/호환 검사를 담당한다. 맵 묶음의 시작 맵과 지도 배열은 별도 제작 데이터이며 GameState에 복제하지 않는다. 실제 게임 시험은 App의 종료 콜백만 추가하고 기존 시간 루프의 마운트/정리 경로를 사용한다. register-world는 변경 계획→전체 콘텐츠 검증→백업→파일 교체 순서로 동작하며 브라우저 저장에는 접근하지 않는다. 등록 후 runtime/content.ts의 기존 JSON glob이 새 파일을 포함한다.
+
+
+### T1 확장 제작 데이터와 시험 범위 (D-047) `[구현됨]`
+
+monster-tools.ts는 사각형 편집, 몬스터 묶음 검사/충돌 거부, 기본 정의 기반 레벨 변형, 고유 조우·절차적 배치를 담당한다. 배치/레벨 적용은 칸별 ID 변경을 모아 지도 배열을 한 번 갱신한다. 간격 조회는 주변 좌표 버킷만 사용한다. 제작 난수는 별도 sfc32이고 플레이 난수/시간을 참조하지 않는다.
+
+WorldBundle의 선택 monsters/encounters는 원본 기본 정의와 충돌하지 않게 조합하고 loadMakerWorld→실제 로더/엔진에 전달한다. register-world는 기존 정의를 canonical 값으로 대조하고 새 정의만 monsters.json/encounters.json에 추가한다. 기존 ID의 수치/행동 변경은 등록하지 않는다. MonsterDefinition.behavior/levelSourceId는 선택 필드이며 저장 상태에는 중복하지 않는다. 전투 행동은 기존 combat/act에서 차례와 직전 방어 행동을 계산하고 health/change/기존 피해 경로를 사용한다. 전투 재생도 같은 정의와 행동을 사용하므로 SaveFile7 스키마 변경은 없다.
+
+map-preview.ts는 전체 연결 검증을 먼저 수행하고 자동 모드에서 미연결/시작 맵 오류일 때만 선택 맵/층 복사본을 만든다. 외부 출입구 제거·시작 칸 임시 안전 처리는 원본을 변경하지 않으며 다른 잘못된 콘텐츠는 거부한다. Overview는 지형 캔버스와 선택 오버레이를 분리하고 내부 해상도 최대2048×2048(생성 최대512칸 기준)으로 제한한다. Pointer capture는 캔버스 밖에서 놓거나 터치 취소할 때 드래그 상태를 정리한다. src는 tools를 import하지 않는다.

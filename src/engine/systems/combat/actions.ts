@@ -7,7 +7,7 @@ import { addLoot, inventoryHandlers } from '../inventory/actions.ts';
 import { consumeStamina } from '../stamina/stamina.ts';
 import { advanceCombatTime } from '../time/advance.ts';
 import { combatEffects } from './effects.ts';
-import { findEncounter, livingFront, requireMonster } from './selectors.ts';
+import { findEncounter, livingFront, requireMonster, monsterBehavior } from './selectors.ts';
 
 export type CombatAction=Readonly<{type:'combat/start'}> | CombatTurnAction | Readonly<{type:'combat/close'}>;
 type CombatProgressEvent=Readonly<{type:'combat/started'|'combat/acted'|'combat/closed';status:CombatState['status']}>;
@@ -62,8 +62,11 @@ export const combatHandlers:ActionHandlers<CombatAction,CombatEvent>={
         const monster=requireMonster(ctx.content,enemy.monsterId);
         if(action.choice==='skill')next={...next,character:{...next.character!,stamina:consumeStamina(next.character!.stamina,rules.skillCost)}};
         if(rng.nextFloat()<rules.hitChance){
-          const damage=computeValue(rng.nextInt(rules.attackMin,rules.attackMax),action.choice==='skill'?
-            [{target:'damage',op:'mul',value:rules.skillMultiplier,source:'skill.power_strike'}]:[],{round:'round',min:1});
+          const guard=monsterBehavior(monster,old.turn-1);
+          const damage=computeValue(rng.nextInt(rules.attackMin,rules.attackMax),[
+            ...(action.choice==='skill'?[{target:'damage',op:'mul' as const,value:rules.skillMultiplier,source:'skill.power_strike'}]:[]),
+            ...(guard?.type==='guard'?[{target:'damage',op:'mul' as const,value:guard.multiplier,source:'monster.guard'}]:[]),
+          ],{round:'round',min:guard?.type==='guard'?0:1});
           enemies[index]={...enemy,health:computeValue(enemy.health,[{target:'health',op:'add',value:-damage,source:'attack'}],{round:'round',min:0,max:enemy.maxHealth})};
           log(`${action.choice==='skill'?'강타':'공격'}. ${monster.name}에게 ${damage} 피해.`);
         }else log(`${monster.name}에게 공격이 빗나갔다.`);
@@ -78,11 +81,21 @@ export const combatHandlers:ActionHandlers<CombatAction,CombatEvent>={
       if(status==='active' && enemies.every(enemy=>enemy.health===0))status='victory';
       if(status==='active')for(const enemy of livingFront(enemies)){
         const monster=requireMonster(ctx.content,enemy.monsterId);
+        const behavior=monsterBehavior(monster,old.turn);
+        if(behavior && behavior.type!=='attack'){
+          if(behavior.type==='heal'){
+            const i=enemies.findIndex(e=>e.id===enemy.id),healed=Math.min(enemy.maxHealth-enemy.health,behavior.amount);
+            enemies[i]={...enemy,health:enemy.health+healed};log(`${monster.name}: ${behavior.text} 체력 ${healed} 회복.`);
+          }else log(`${monster.name}: ${behavior.text}`);
+          continue;
+        }
         if(rng.nextFloat()<monster.hitChance){
-          const damage=computeValue(rng.nextInt(monster.damageMin,monster.damageMax),action.choice==='defend'?
-            [{target:'damage',op:'mul',value:rules.defenseMultiplier,source:'defend'}]:[],{round:'round',min:1});
+          const damage=computeValue(rng.nextInt(monster.damageMin,monster.damageMax),[
+            ...(action.choice==='defend'?[{target:'damage',op:'mul' as const,value:rules.defenseMultiplier,source:'defend'}]:[]),
+            ...(behavior?.type==='attack'?[{target:'damage',op:'mul' as const,value:behavior.multiplier,source:'monster.attack'}]:[]),
+          ],{round:'round',min:1});
           next=combatEffects.apply(next,{type:'health/change',params:{amount:-damage}},ctx,rng).state;
-          log(`${monster.name}의 공격. 받은 피해 ${damage}.`);
+          log(behavior?`${monster.name}: ${behavior.text} 받은 피해 ${damage}.`:`${monster.name}의 공격. 받은 피해 ${damage}.`);
           if(next.character!.health.current===0){status='defeat';break;}
         }else log(`${monster.name}의 공격을 피했다.`);
       }

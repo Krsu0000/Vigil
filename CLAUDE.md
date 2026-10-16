@@ -47,7 +47,7 @@ src/
   ui/            React 컴포넌트 (엔진 호출과 표시, 일시적 UI 상태)
   sync/          클라이언트 동기화 (서버 도입 단계부터)
 scripts/         Node에서 직접 실행하는 개발 도구 (콘텐츠 검증 CLI, 제작자 맵 생성기)
-tools/           제작자 도구: 생성 코어/콘텐츠 연결, 별도 map-maker.html 브라우저 화면
+tools/           제작자 도구: 생성·영역 편집·몬스터 제작/배치·콘텐츠 연결, map-maker.html/monster-maker.html
 docs/            설계·진행 문서
 ```
 

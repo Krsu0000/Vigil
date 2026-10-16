@@ -11,6 +11,7 @@ import { itemEffectRegistry } from '../src/engine/systems/inventory/effects.ts';
 import type { ContentLoadResult, DeepReadonly } from '../src/content/types.ts';
 import type { MapDefinition } from '../src/content/schemas.ts';
 import { parseWorld } from './world-editor.ts';
+import {monsterCatalog,encounterCatalog} from './monster-tools.ts';
 
 // 같은 로더/참조 검증을 쓰되 제품 맵 파일을 메모리 안에서만 교체한다.
 export function loadMakerMap(raw:unknown):ContentLoadResult {
@@ -40,5 +41,5 @@ export function loadMakerWorld(raw:unknown,terrainOnly=false):ContentLoadResult 
   const world=parseWorld(raw);
   const maps=terrainOnly?world.maps.map(map=>({...map,floors:map.floors.map(f=>({...f,cells:f.cells.map(({chestId:_chest,encounterId:_enemy,...cell})=>cell)}))})):world.maps;
   return loadContent({'manifest.json':{...manifest,startMapId:world.startMapId,definitionFiles:[...manifest.definitionFiles.filter(f=>!f.startsWith('maps/')),'maps/s1-test.json']},'time-rules.json':timeRules,
-    'tiles.json':tiles,'zones.json':zones,'items.json':items,'chests.json':chests,'monsters.json':monsters,'encounters.json':encounters,'maps/s1-test.json':maps},itemEffectRegistry.validate);
+    'tiles.json':tiles,'zones.json':zones,'items.json':items,'chests.json':chests,'monsters.json':monsterCatalog(world),'encounters.json':encounterCatalog(world),'maps/s1-test.json':maps},itemEffectRegistry.validate);
 }
