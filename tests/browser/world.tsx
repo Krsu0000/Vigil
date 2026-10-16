@@ -1,0 +1,20 @@
+// 개발 검사 전용: 실제 저장/시작/루프/UI 경로를 같은 출처에서 구형/새 맵으로 연다.
+import {createRoot} from 'react-dom/client';
+import {App} from '../../src/ui/App.tsx';
+import {loadMakerMap,loadMakerWorld} from '../../tools/map-content.ts';
+import {connectedWorld} from '../../tools/world-test-fixtures.ts';
+import maps from '../../src/content/maps/s1-test.json' with {type:'json'};
+import {openSaveRepository} from '../../src/persistence/browser-repository.ts';
+import {loadSavedGame} from '../../src/runtime/startup.ts';
+import {createAutoSave} from '../../src/runtime/auto-save.ts';
+import {createGameLoop} from '../../src/runtime/loop.ts';
+import {browserClock,browserScheduler} from '../../src/runtime/clock.ts';
+const world=connectedWorld();world.maps[1]!.floors[0]!.cells.find(c=>c.x===1&&c.y===1)!.zoneId='zone.camp';
+const loaded=new URLSearchParams(location.search).has('legacy')?loadMakerMap(maps):loadMakerWorld(world);
+if(!loaded.ok)throw new Error(JSON.stringify(loaded.errors));
+const repository=await openSaveRepository();
+const {store,loaded:saved}=await loadSavedGame(loaded.content,repository,browserClock.wallNow,()=>[1,2,3,4]);
+const loop=createGameLoop(store,browserClock,browserScheduler);
+const autoSave=createAutoSave(store,repository,saved,browserClock.wallNow,browserScheduler,document,()=>crypto.randomUUID(),loop.synchronize,loop.resetAfterRestore);
+await autoSave.flush();
+createRoot(document.getElementById('root')!).render(<App store={store} loop={loop} autoSave={autoSave} persistent/>);

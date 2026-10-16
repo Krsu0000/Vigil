@@ -2,6 +2,7 @@ import { DefinitionsSchema, ManifestSchema, TimeRulesSchema } from './schemas.ts
 import { validateCombat } from './combat-validation.ts';
 import { validateItems } from './item-validation.ts';
 import { validateMaps } from './map-validation.ts';
+import { validateWorld } from './world-validation.ts';
 import type { ContentDefinition } from './schemas.ts';
 import type { ContentDb, ContentEntry, ContentError, ContentLoadResult, EffectValidator } from './types.ts';
 
@@ -116,6 +117,8 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
   }
   errors.push(...validateMaps(located), ...validateItems(located), ...validateCombat(located));
   if (errors.length > 0) return { ok: false, errors };
+  errors.push(...validateWorld(located,manifest.startMapId));
+  if (errors.length > 0) return { ok:false,errors };
   const cycle = dependencyCycle(located);
   if (cycle !== null) {
     const first = located.find((entry) => entry.definition.id === cycle[0])!;
@@ -131,6 +134,7 @@ export function loadContent(sources: ContentSources, validateEffect: EffectValid
   Object.setPrototypeOf(byId, null);
   const content: ContentDb = Object.freeze({
     contentVersion: manifest.contentVersion,
+    ...(manifest.startMapId ? {startMapId:manifest.startMapId} : {}),
     timeRules: timeResult.data,
     definitions: Object.freeze(located.map((entry) => entry.definition)),
     byId: Object.freeze(byId),

@@ -23,6 +23,7 @@
 | `npm run build` | 프로덕션 빌드 |
 | `npm run test:browser` | 배포 빌드·큰 맵 브라우저 회귀 검사(별도 Playwright 환경, docs/verification.md) |
 | `npm run generate:map` | 제작자용 시드 맵 생성/검증 후 JSON 출력 (`docs/map-maker.md`) |
+| `npm run register:world` | 맵 묶음 호환 검사, `--apply`로 백업 후 콘텐츠 등록 |
 | `npm run bench:map` | 큰 맵 조회/표시 범위 성능 측정 |
 
 이 명령은 `package.json`에 정의되어 있다. 실제 `package.json`과 다르면 이 표를 먼저 고친다.

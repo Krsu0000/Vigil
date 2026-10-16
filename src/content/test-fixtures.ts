@@ -14,7 +14,7 @@ export const rejectEffects: EffectValidator = () => ({
 });
 
 export function testSources(definitions?: unknown[]) {
-  const manifestData = { ...structuredClone(manifest), definitionFiles: [] as string[] };
+  const manifestData = { contentVersion:manifest.contentVersion,timeRulesFile:manifest.timeRulesFile,definitionFiles: [] as string[] };
   const sources: {
     'manifest.json': typeof manifestData;
     'time-rules.json': typeof timeRules;
@@ -31,7 +31,7 @@ export function mapSources() {
   const sources = testSources();
   sources['manifest.json'].definitionFiles = ['tiles.json', 'zones.json', 'maps/s1-test.json'];
   const testMaps = structuredClone(maps);
-  for (const map of testMaps) for (const floor of map.floors) for (const cell of floor.cells) { delete (cell as { chestId?: string }).chestId; delete (cell as { encounterId?: string }).encounterId; }
+  for (const map of testMaps) for (const floor of map.floors) for (const cell of floor.cells) { delete (cell as { chestId?: string }).chestId; delete (cell as { encounterId?: string }).encounterId;delete (cell as { exit?:unknown }).exit; }
   return {
     ...sources,
     'tiles.json': structuredClone(tiles),
@@ -43,7 +43,8 @@ export function mapSources() {
 // S4 회귀는 제품 상자 배치와 효과를 포함한 실제 콘텐츠를 사용한다.
 export function inventorySources() {
   const sources = mapSources();
-  sources['manifest.json'].definitionFiles = [...manifest.definitionFiles];
-  return { ...sources, 'maps/s1-test.json': structuredClone(maps),
+  sources['manifest.json'].definitionFiles = ['tiles.json','zones.json','maps/s1-test.json','items.json','chests.json','monsters.json','encounters.json'];
+  const testMaps=structuredClone(maps);for(const m of testMaps)for(const f of m.floors)for(const c of f.cells)delete (c as {exit?:unknown}).exit;
+  return { ...sources, 'maps/s1-test.json': testMaps,
     'items.json': structuredClone(items), 'chests.json': structuredClone(chests), 'monsters.json': structuredClone(monsters), 'encounters.json': structuredClone(encounters) };
 }

@@ -175,6 +175,15 @@ export function createGameLoop(store: GameStore, clock: Clock, scheduler: Schedu
       if (!status.running) return { ok: false, reason: 'paused' } as const;
       return store.dispatch(action);
     },
+    travel() {
+      pump(); schedule();
+      if (!status.running) return {ok:false,reason:'paused'} as const;
+      const now=clock.monotonicNow();
+      if (now<nextMoveAt) return {ok:false,reason:'cooldown'} as const;
+      const result=store.dispatch({type:'map/travel'});
+      if(result.ok){nextMoveAt=now+rules.minimumMoveIntervalMs;recoveryAt=now;schedule();}
+      return result;
+    },
     returnToCamp() {
       // 마감이 지난 기존 시간 처리를 먼저 한다. 귀환 자체의 추가 시간/이동 대기는 없다.
       pump();

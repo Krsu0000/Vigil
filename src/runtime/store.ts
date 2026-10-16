@@ -73,6 +73,7 @@ export function createGameStore(content: ContentDb, initial: GameState, now: () 
 
 // 초기 프로토타입의 시작 맵은 하나다. 여러 후보에서 배열 순서로 선택하지 않는다.
 export function initialMapId(content: ContentDb): string {
+  if (content.startMapId) return content.startMapId;
   const maps = content.definitions.filter((entry) => entry.kind === 'map');
   if (maps.length !== 1) throw new Error('초기 프로토타입에는 시작 맵이 1개 필요하다');
   return maps[0]!.id;

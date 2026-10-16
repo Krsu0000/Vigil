@@ -9,6 +9,7 @@ export const ManifestSchema = z.strictObject({
   contentVersion: z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/),
   timeRulesFile: JsonPathSchema,
   definitionFiles: z.array(JsonPathSchema),
+  startMapId: ContentIdSchema.optional(),
 });
 
 export const TimeRulesSchema = z.strictObject({
@@ -101,6 +102,11 @@ export const MapDefinitionSchema = DefinitionSchema.extend({
       zoneId: namedId('zone'),
       chestId: namedId('chest').optional(),
       encounterId: namedId('encounter').optional(),
+      exit: z.strictObject({
+        name: text,
+        kind: z.enum(['door','stairs','portal']),
+        target: z.strictObject({ mapId:namedId('map'),floor:floorNumber,x:nonnegativeInteger,y:nonnegativeInteger }),
+      }).optional(),
     })).min(1),
   })).min(1),
 });

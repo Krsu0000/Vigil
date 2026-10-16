@@ -717,3 +717,12 @@ createVisibilityQuery는 바닥의 기존 현재 시야/visited 조회를 유지
 `tools/map-content.ts`는 현재 콘텐츠 정의와 입력 맵을 메모리에서 조합해 기존 loadContent를 호출한다. 단일 층/안전한 시작점은 도구의 추가 제약이다. 미리보기는 배치 레이어를 제외한 새 콘텐츠와 새 GameStore에서 실제 move/step을 실행한다. 디스크/IndexedDB·제품 Store·플레이 난수/시간 상태를 공유하지 않는다. 잘못된 비동기 파일 읽기 결과나 실패한 검증은 현재 유효한 제작 결과를 교체하지 않는다.
 
 `content/map-reachability.ts`의 명시적 큐는 각 칸을 최대 한 번 방문한다. map-validation은 치수/완전성/참조 확인 후 바닥 마스크를 만들고 연결을 검사한다. 시간·추가 공간 O(N), 재귀/Array.shift 없음. 기존 타일/구역/배치 스키마와 저장 버전은 유지한다.
+
+
+### T1 맵 묶음과 출입구 (D-046) `[구현됨]`
+
+D-045 도구의 단일 층/이동 시험 제한을 확장한다. ContentDb.startMapId는 선택 필드이며 구형 단일 맵은 기존 시작점을 사용한다. MapDefinition의 선택 exit는 문/계단/포탈·표시 이름·MapPosition 목적지를 담는다. world-validation은 층별 좌표 인덱스를 재사용해 양 끝을 대조하고 맵/층 그래프를 큐로 탐색한다. 층 내부 연결은 기존 map-validation이 선행한다. src 모듈은 tools/scripts를 import하지 않는다.
+
+map/travel은 dispatch에서 진행 조건을 확인하고 도착 mapVersion/탐사 칸을 추가한다. 상태의 시간·난수·물품·기존 탐사/토벌은 보존한다. 런타임 travel은 이동과 nextMoveAt을 공유하고 회복 대기를 재설정한다. map/return은 명시한 시작 맵으로 귀환한다. MapView를 mapId/층 key로 다시 만들어 카메라가 이전 지역의 좌표를 이어받지 않게 한다.
+
+제작자의 world-editor는 불변 편집/왕복 연결/호환 검사를 담당한다. 맵 묶음의 시작 맵과 지도 배열은 별도 제작 데이터이며 GameState에 복제하지 않는다. 실제 게임 시험은 App의 종료 콜백만 추가하고 기존 시간 루프의 마운트/정리 경로를 사용한다. register-world는 변경 계획→전체 콘텐츠 검증→백업→파일 교체 순서로 동작하며 브라우저 저장에는 접근하지 않는다. 등록 후 runtime/content.ts의 기존 JSON glob이 새 파일을 포함한다.

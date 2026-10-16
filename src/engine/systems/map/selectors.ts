@@ -62,15 +62,23 @@ export function validateMapState(state: GameState, content: ContentDb): void {
 }
 
 
-// 현재 프로토타입은 맵 하나다. 여러 맵/거점 중 임의의 목적지를 고르지 않는다.
+// 시작 맵을 명시하면 지역/층에 관계없이 같은 거점으로 귀환한다.
+// 구형 단일 맵 콘텐츠는 해당 맵 시작점을 사용하며, 여러 맵에서 목적지를 추측하지 않는다.
 export function getReturnDestination(state: GameState, content: ContentDb): MapPosition | null {
   if (state.expedition?.pendingAmbush || state.expedition?.combat || state.character?.health.current === 0) return null;
   const location = currentLocation(state, content);
-  if (!location || content.definitions.filter(entry => entry.kind === 'map').length !== 1) return null;
+  const maps=content.definitions.filter(entry=>entry.kind==='map');
+  if (!location || (!content.startMapId && maps.length!==1)) return null;
   const source = findCell(location.map, location.position)!;
   if (requireZone(content, source.zoneId).safety !== 'danger') return null;
-  const position = { mapId: location.map.id, ...location.map.start };
-  const cell = findCell(location.map, position);
+  const home=findMap(content,content.startMapId??location.map.id)!;
+  const position = { mapId: home.id, ...home.start };
+  const cell = findCell(home, position);
   if (!cell || !requireTile(content, cell.tileId).walkable || requireZone(content, cell.zoneId).safety !== 'safe') return null;
   return position;
+}
+
+export function currentExit(state:GameState,content:ContentDb) {
+  const location=currentLocation(state,content);
+  return location ? findCell(location.map,location.position)?.exit : undefined;
 }

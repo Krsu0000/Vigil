@@ -10,13 +10,14 @@ import { loadContent } from '../src/content/load.ts';
 import { itemEffectRegistry } from '../src/engine/systems/inventory/effects.ts';
 import type { ContentLoadResult, DeepReadonly } from '../src/content/types.ts';
 import type { MapDefinition } from '../src/content/schemas.ts';
+import { parseWorld } from './world-editor.ts';
 
 // 같은 로더/참조 검증을 쓰되 제품 맵 파일을 메모리 안에서만 교체한다.
 export function loadMakerMap(raw:unknown):ContentLoadResult {
   if (!Array.isArray(raw) || raw.length!==1) throw new Error('맵 JSON에는 맵 정의1개를 배열로 넣어 주세요.');
   const failure=(path:string,message:string):ContentLoadResult => ({ ok:false,errors:[{ file:'maps/s1-test.json',path,code:'invalid_maker_map',message }] });
   if (!raw[0] || typeof raw[0]!=='object' || raw[0].kind!=='map') return failure('0.kind','맵 정의가 필요합니다.');
-  const loaded=loadContent({ 'manifest.json':manifest,'time-rules.json':timeRules,
+  const loaded=loadContent({ 'manifest.json':{...manifest,startMapId:raw[0].id,definitionFiles:[...manifest.definitionFiles.filter(f=>!f.startsWith('maps/')),'maps/s1-test.json']},'time-rules.json':timeRules,
     'tiles.json':tiles,'zones.json':zones,'items.json':items,'chests.json':chests,
     'monsters.json':monsters,'encounters.json':encounters,'maps/s1-test.json':raw },itemEffectRegistry.validate);
   if (!loaded.ok) return loaded;
@@ -33,4 +34,11 @@ export function loadMakerMap(raw:unknown):ContentLoadResult {
 export function loadTerrainPreview(map:DeepReadonly<MapDefinition>):ContentLoadResult {
   const terrain={ ...map,floors:map.floors.map(floor => ({ ...floor,cells:floor.cells.map(({ chestId: _chest,encounterId: _encounter,...cell }) => cell) })) };
   return loadMakerMap([terrain]);
+}
+
+export function loadMakerWorld(raw:unknown,terrainOnly=false):ContentLoadResult {
+  const world=parseWorld(raw);
+  const maps=terrainOnly?world.maps.map(map=>({...map,floors:map.floors.map(f=>({...f,cells:f.cells.map(({chestId:_chest,encounterId:_enemy,...cell})=>cell)}))})):world.maps;
+  return loadContent({'manifest.json':{...manifest,startMapId:world.startMapId,definitionFiles:[...manifest.definitionFiles.filter(f=>!f.startsWith('maps/')),'maps/s1-test.json']},'time-rules.json':timeRules,
+    'tiles.json':tiles,'zones.json':zones,'items.json':items,'chests.json':chests,'monsters.json':monsters,'encounters.json':encounters,'maps/s1-test.json':maps},itemEffectRegistry.validate);
 }

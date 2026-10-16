@@ -57,7 +57,7 @@ export async function checkMaker({ browser,url,artifacts,readSlot }) {
       await page.getByRole('button',{ name:'제작 화면으로',exact:true }).click();
       const edited=structuredClone(map);edited.name='손으로 고친 맵';
       const upload=raw => page.locator('.maker-file input').setInputFiles({ name:'edited.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(raw)) });
-      await upload([edited]);await page.getByRole('heading',{ name:/손으로 고친 맵/ }).waitFor();
+      await upload([edited]);await page.locator('.maker-result>h2').filter({hasText:'손으로 고친 맵'}).waitFor();
       const broken=structuredClone(edited),island=cells.findLast(c => c.tileId==='tile.floor' && Math.abs(c.x-map.start.x)+Math.abs(c.y-map.start.y)>5);
       for (const c of broken.floors[0].cells) if (Math.abs(c.x-island.x)+Math.abs(c.y-island.y)===1) c.tileId='tile.wall';
       await upload([broken]);await page.getByRole('alert').waitFor();
