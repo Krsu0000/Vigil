@@ -98,8 +98,10 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
   const base=<><h2>{zone.safety==='safe'?zone.name:'거점'}</h2><p>{zone.safety==='safe'?'안전한 거점입니다. 회복하면서 소지품을 정리할 수 있습니다.':'거점으로 돌아오면 보급품을 정리할 수 있습니다.'}</p><Vitals state={state}/>{zone.safety!=='safe'&&<button disabled={!session.running} onClick={returnHome}>거점으로 귀환</button>}<button onClick={()=>setTab('inventory')}>소지품 정리</button></>;
   const more=<><h2>기록</h2><h3 className="section-title">퀘스트</h3><p className="muted">기록된 퀘스트가 없습니다.</p><h3 className="section-title">코덱스</h3><p className="muted">기록된 문서가 없습니다.</p><button onClick={()=>loop.setSettingsOpen(true)}>설정</button></>;
   const tabContent=tab==='inventory'?inventory:tab==='character'?characterContent:tab==='base'?base:more;
+  const showRecords=()=>{setCharacterTab('기록');setTab('character');};
+  const situationText=chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:exit?`${exit.name} · Z / Space로 이동`:zone.description;
   return <div className={`game-shell${combat?' has-combat':''}`}>
-    <header className="game-top">{onExitPreview&&<button onClick={onExitPreview}>제작 화면으로</button>}<h1 aria-label={strings.gameTitle}>VIGIL</h1><span data-testid="session-status">{combat?'전투':pending?'조우':session.running?'진행':'정지'}</span><span className="n" data-testid="clock">경과 {state.meta.gameTime}틱</span><span className="top-spacer"/>
+    <header className="game-top">{onExitPreview&&<button onClick={onExitPreview}>제작 화면으로</button>}<h1 aria-label={strings.gameTitle}>VIGIL</h1><span className="session-screenreader" data-testid="session-status" aria-live="polite">{combat?'전투':pending?'조우':session.running?'진행':'정지'}</span><span className="n" data-testid="clock">경과 {state.meta.gameTime}틱</span><span className="top-spacer"/>
       <span className="idle-summary">진행 중 <span className="muted">없음</span></span>{autoSave&&<SaveStatus autoSave={autoSave}/>}<button aria-label="설정" onClick={()=>loop.setSettingsOpen(true)}>설정</button></header>
     {session.gapPaused&&<p className="gap-notice" role="alert">실행 공백으로 탐험이 정지했습니다. 설정을 열고 닫으면 이어서 진행합니다.</p>}
     <div className="game-columns" inert={!!combat}>
@@ -107,16 +109,33 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
       <section className={`exploration-center${compact&&tab!=='explore'&&!combat?' tab-hidden':''}`} aria-label="탐험">
         <header className="region-header"><div><h2>{mapName}</h2><span className="muted">{position.floor}층 · {zone.name}</span></div><span className="region-meta">{zone.safety==='safe'?'안전지대':'위험지대'} · <span className="n" data-testid="visited">{exploredCount}</span>칸</span></header>
         <div className="map-stage">{mapView}{compact&&miniMap}</div>
-        <div className="situation" role="status"><span className="situation-text">{compact&&message?message:chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:exit?`${exit.name} · Z / Space로 이동`:zone.description}</span><span className="n" data-testid="position">({position.x}, {position.y})</span></div>
-        {exit&&<section className="chest-controls exit-controls"><button disabled={!session.running} aria-keyshortcuts="Z Space" onClick={interact}>{exit.name} 이동</button></section>}
-        {chest&&<section className="chest-controls"><button disabled={!session.running||!!chestOpened} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}</button>
-          {chestOpened&&<div data-testid="chest-status" role="status">{lootedChestId===chest.id?<><p>{strings.chestLooted}</p><ul>{chest.loot.map((entry,index)=><li key={index}>{findItem(store.content,entry.itemId)!.name} ×{entry.quantity}</li>)}</ul></>:<p>{strings.chestEmpty}</p>}</div>}</section>}
-        <div className="exploration-commands"><div className="movement-controls" role="group" aria-label={strings.move}>{controls.map(({direction,glyph})=><button type="button" className={`move-${direction}`} key={direction} aria-label={strings[direction]} disabled={!session.running}
-          onPointerDown={event=>{if(event.isPrimary&&event.button===0)move(direction);}} onClick={event=>{if(event.detail===0)move(direction);}}>{glyph}</button>)}</div>
-          <button className="command" disabled={!session.running||!resting&&(zone.safety!=='danger'||state.character!.stamina.current===state.character!.stamina.max)} onClick={rest}><b>{resting?'휴식 중지':'휴식'}</b><small>R · 회복↑ 습격↑</small></button>
-          <button className="command" aria-label="귀환" disabled={!session.running||!getReturnDestination(state,store.content)} onClick={returnHome}><b>귀환</b><small>B · 즉시 · 거점</small></button></div>
-        {message&&!compact&&<p className="action-feedback" role="status">{message}</p>}
-        <section ref={recordView} className="recent-log" aria-label="최근 기록"><h2 className="section-title">최근 기록</h2>{logs.slice(compact?-2:-8).map((entry,index)=><p key={index}><time className="n" dateTime={new Date(entry.at).toISOString()} data-testid="record-time">{formatRecordTime(entry.at)}</time><span className="record-text">{entry.text}</span></p>)}</section>
+        <div className="situation" role="status">
+          <div className="situation-lines"><span className="situation-text">{situationText}</span>
+            {message&&<span className="situation-feedback">{message}</span>}
+            {chestOpened&&lootedChestId===chest?.id&&<div data-testid="chest-status" className="chest-reward">{strings.chestLooted} · {chest!.loot.map(entry=>`${findItem(store.content,entry.itemId)!.name} ×${entry.quantity}`).join(' · ')}</div>}
+          </div>
+          <span className="n" data-testid="position">({position.x}, {position.y})</span>
+        </div>
+        <div className="hud-lower">
+          <section ref={recordView} className="recent-log" aria-label="최근 기록">
+            <div className="record-heading"><h2 className="section-title">최근 기록</h2><button type="button" className="open-records" onClick={showRecords}>전체 기록 ›</button></div>
+            {logs.slice(compact?-2:-8).map((entry,index)=><p key={index}><time className="n" dateTime={new Date(entry.at).toISOString()} data-testid="record-time">{formatRecordTime(entry.at)}</time><span className="record-text">{entry.text}</span></p>)}
+          </section>
+          <div className={`action-dock${exit||chest?' has-interaction':''}`}>
+            {(exit||chest)&&<div className="chest-controls interaction-slot" aria-label="현재 위치 상호작용">
+              {exit?<button className="interact-primary" disabled={!session.running} aria-keyshortcuts="Z Space" onClick={interact}>{exit.name} 이동 <small>Z / Space</small></button>:
+               <button className={chestOpened?'interact-done':'interact-primary'} disabled={!session.running||!!chestOpened} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}<small>{chestOpened?'이미 연 상자':'Z / Space'}</small></button>}
+            </div>}
+            <div className="exploration-commands">
+              <div className="dock-secondary">
+                <button className="command" disabled={!session.running||!resting&&(zone.safety!=='danger'||state.character!.stamina.current===state.character!.stamina.max)} onClick={rest}><b>{resting?'휴식 중지':'휴식'}</b><small className="command-shortcut" aria-hidden="true">R</small></button>
+                <button className="command" aria-label="귀환" disabled={!session.running||!getReturnDestination(state,store.content)} onClick={returnHome}><b>귀환</b><small className="command-shortcut" aria-hidden="true">B</small></button>
+              </div>
+              <div className="movement-controls" role="group" aria-label={strings.move}>{controls.map(({direction,glyph})=><button type="button" className={`move-${direction}`} key={direction} aria-label={strings[direction]} disabled={!session.running}
+                onPointerDown={event=>{if(event.isPrimary&&event.button===0)move(direction);}} onClick={event=>{if(event.detail===0)move(direction);}}>{glyph}</button>)}</div>
+            </div>
+          </div>
+        </div>
         {pending&&!ambushOpen&&!combat&&<button className="pending-notice" onClick={()=>setAmbushOpen(true)}>미처리 조우 · 다시 열기</button>}
       </section>
       {!compact&&<aside className="right-column">{miniMap}{inventory}<section><h2 className="section-title">퀘스트</h2><p className="empty-note">기록된 퀘스트 없음</p></section><section><h2 className="section-title">코덱스</h2><p className="empty-note">기록된 문서 없음</p></section></aside>}
