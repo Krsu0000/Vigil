@@ -117,7 +117,7 @@ describe('휴식·습격 표시', () => {
     const save = { format: 'last-vigil-save',schemaVersion: 6,contentVersion: '0.2.4',saveId: state.meta.campaignId,revision: 0,savedAt: ctx.now,state: pending };
     store.restore(save);
     const html = renderToString(<App store={store} />);
-    expect(html).toContain('data-testid="session-status">조우');
+    expect(html).toMatch(/data-testid="session-status"[^>]*>조우<\/span>/);
     expect(html).toContain('미처리 조우 · 다시 열기');
     for (const direction of ['north','south','east','west']) expect(html).toMatch(new RegExp(`class="move-${direction}"[^>]*disabled`));
   });
