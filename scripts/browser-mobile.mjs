@@ -39,12 +39,17 @@ export async function checkMobile({ browser, url, artifacts }) {
         assert(r.y >= 0 && r.bottom <= layout.height + 1 && r.right <= layout.width + 1, `${label}: ${area} outside viewport`);
       }
       assert(layout.map.height >= 56, `${label}: map must retain at least two rows`);
-      assert(layout.commands.bottom <= layout.records.y + 1, `${label}: controls overlap records`);
-      assert(layout.records.bottom <= layout.nav.y + 1, `${label}: records overlap navigation`);
+      assert(layout.records.bottom <= layout.commands.y + 1, `${label}: records overlap controls`);
+      assert(layout.commands.bottom <= layout.nav.y + 1, `${label}: controls overlap navigation`);
       for (const b of layout.buttons) {
         assert(b.width >= 44 && b.height >= 44, `${label}: tap target ${JSON.stringify(b)}`);
         assert(b.top >= 0 && b.bottom <= layout.nav.bottom && b.left >= 0 && b.right <= layout.width, `${label}: hidden button`);
       }
+      // The input dock is the last content region before navigation.
+      // No empty interaction button is rendered on an ordinary floor tile.
+      const slot = page.locator('.interaction-slot');
+      const exists = await slot.count();
+      if (!exists) assert.equal(await page.locator('.interaction-empty').count(), 0);
       return layout;
     };
     for (const [width,height] of [[390,844],[390,650],[390,844],[320,568],[360,640],[430,932],[740,360],[568,320],[844,390],[932,430]]) {
