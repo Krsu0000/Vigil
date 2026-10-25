@@ -22,7 +22,7 @@ export async function checkRecords({ page, width, readSlot }) {
   assert.deepEqual(await view.evaluate(el => ({ x: el.scrollLeft, y: el.scrollTop })), initial);
   assert.equal(await view.evaluate(el => getComputedStyle(el).overflow), 'hidden');
   await page.locator('.map-grid').focus(); await page.clock.runFor(100); await page.keyboard.press('ArrowLeft');
-  const height = await view.evaluate(el => el.clientHeight); if (width > 760) assert(height >= 540);
+  const height = await view.evaluate(el => el.clientHeight); if (width > 760) assert(height >= 120, 'HUD 도크 도입 후에도 지도에 최소 120px 표시 영역이 필요하다');
   await page.clock.runFor(100); await page.keyboard.press('ArrowRight');
   await page.clock.runFor(5000); assert.deepEqual((await readSlot(page)).state.campaign.recentRecords, records);
   return { width, recentRecordsCap100: true, realTime24h: true, recordsReload: true, noMovementRecords: true, mapCameraNoManualPan: true };
