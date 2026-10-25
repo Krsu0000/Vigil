@@ -101,7 +101,7 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
   const showRecords=()=>{setCharacterTab('기록');setTab('character');};
   const situationText=chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:exit?`${exit.name} · Z / Space로 이동`:zone.description;
   return <div className={`game-shell${combat?' has-combat':''}`}>
-    <header className="game-top">{onExitPreview&&<button onClick={onExitPreview}>제작 화면으로</button>}<h1 aria-label={strings.gameTitle}>VIGIL</h1><span className={`session-chip ${combat?'is-combat':pending?'is-pending':session.running?'is-running':'is-paused'}`} data-testid="session-status">{combat?'전투':pending?'조우':session.running?'진행':'정지'}</span><span className="n" data-testid="clock">경과 {state.meta.gameTime}틱</span><span className="top-spacer"/>
+    <header className="game-top">{onExitPreview&&<button onClick={onExitPreview}>제작 화면으로</button>}<h1 aria-label={strings.gameTitle}>VIGIL</h1><span className="session-screenreader" data-testid="session-status" aria-live="polite">{combat?'전투':pending?'조우':session.running?'진행':'정지'}</span><span className="n" data-testid="clock">경과 {state.meta.gameTime}틱</span><span className="top-spacer"/>
       <span className="idle-summary">진행 중 <span className="muted">없음</span></span>{autoSave&&<SaveStatus autoSave={autoSave}/>}<button aria-label="설정" onClick={()=>loop.setSettingsOpen(true)}>설정</button></header>
     {session.gapPaused&&<p className="gap-notice" role="alert">실행 공백으로 탐험이 정지했습니다. 설정을 열고 닫으면 이어서 진행합니다.</p>}
     <div className="game-columns" inert={!!combat}>
@@ -121,16 +121,15 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
             <div className="record-heading"><h2 className="section-title">최근 기록</h2><button type="button" className="open-records" onClick={showRecords}>전체 기록 ›</button></div>
             {logs.slice(compact?-2:-8).map((entry,index)=><p key={index}><time className="n" dateTime={new Date(entry.at).toISOString()} data-testid="record-time">{formatRecordTime(entry.at)}</time><span className="record-text">{entry.text}</span></p>)}
           </section>
-          <div className="action-dock">
-            <div className="chest-controls interaction-slot" aria-label="현재 위치 상호작용">
+          <div className={`action-dock${exit||chest?' has-interaction':''}`}>
+            {(exit||chest)&&<div className="chest-controls interaction-slot" aria-label="현재 위치 상호작용">
               {exit?<button className="interact-primary" disabled={!session.running} aria-keyshortcuts="Z Space" onClick={interact}>{exit.name} 이동 <small>Z / Space</small></button>:
-               chest?<button className={chestOpened?'interact-done':'interact-primary'} disabled={!session.running||!!chestOpened} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}<small>{chestOpened?'이미 연 상자':'Z / Space'}</small></button>:
-               <span className="interaction-empty">이 칸에는 상호작용할 대상이 없습니다.</span>}
-            </div>
+               <button className={chestOpened?'interact-done':'interact-primary'} disabled={!session.running||!!chestOpened} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}<small>{chestOpened?'이미 연 상자':'Z / Space'}</small></button>}
+            </div>}
             <div className="exploration-commands">
               <div className="dock-secondary">
-                <button className="command" disabled={!session.running||!resting&&(zone.safety!=='danger'||state.character!.stamina.current===state.character!.stamina.max)} onClick={rest}><b>{resting?'휴식 중지':'휴식'}</b><small>R · 회복↑ 습격↑</small></button>
-                <button className="command" aria-label="귀환" disabled={!session.running||!getReturnDestination(state,store.content)} onClick={returnHome}><b>귀환</b><small>B · 즉시 · 거점</small></button>
+                <button className="command" disabled={!session.running||!resting&&(zone.safety!=='danger'||state.character!.stamina.current===state.character!.stamina.max)} onClick={rest}><b>{resting?'휴식 중지':'휴식'}</b><small className="command-shortcut" aria-hidden="true">R</small></button>
+                <button className="command" aria-label="귀환" disabled={!session.running||!getReturnDestination(state,store.content)} onClick={returnHome}><b>귀환</b><small className="command-shortcut" aria-hidden="true">B</small></button>
               </div>
               <div className="movement-controls" role="group" aria-label={strings.move}>{controls.map(({direction,glyph})=><button type="button" className={`move-${direction}`} key={direction} aria-label={strings[direction]} disabled={!session.running}
                 onPointerDown={event=>{if(event.isPrimary&&event.button===0)move(direction);}} onClick={event=>{if(event.detail===0)move(direction);}}>{glyph}</button>)}</div>
