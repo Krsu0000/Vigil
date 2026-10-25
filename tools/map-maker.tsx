@@ -2,6 +2,7 @@ import {useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import type {FormEvent,PointerEvent} from 'react';
 import {createRoot} from 'react-dom/client';
 import {FileImport,readImportJson} from './file-import.tsx';
+import {MakerNavigation} from './maker-navigation.tsx';
 import {generateMap,GeneratorOptionsSchema,parseMapSeed} from './map-generator.ts';
 import type {GeneratorOptions} from './map-generator.ts';
 import {loadMakerWorld} from './map-content.ts';
@@ -117,6 +118,7 @@ function Maker(){
   const change=(fn:Parameters<typeof editCell>[2])=>attempt(()=>commit(editCell(world,p,fn)));
   const place=(kind:'chestId'|'encounterId',id:string)=>change(c=>{if(id&&(c.tileId!=='tile.floor'||c.exit||(kind==='chestId'?c.encounterId:c.chestId)))throw new Error('출입구·다른 배치가 없는 바닥 칸을 선택해 주세요.');if(id)c[kind]=id;else delete c[kind];});
   return <main className="map-maker"><header><h1>제작자 맵 생성기</h1><a href="/">게임으로</a></header>
+    <MakerNavigation active="map"/>
     <p>맵을 편집하고 출입구로 연결한 뒤 배포용 묶음으로 내보냅니다. 시험 진행은 기존 저장과 별도로 실행됩니다.</p>
     <div className="maker-actions"><button onClick={()=>attempt(()=>{const loaded=loadGameContent();if(!loaded.ok)throw new Error('현재 게임 콘텐츠를 불러오지 못했습니다.');const next=worldFromContent(loaded.content);commit(next,'현재 게임 맵을 불러왔습니다.');setSelectedId(next.startMapId);setSelection({mapId:next.startMapId,...next.maps.find(m=>m.id===next.startMapId)!.start});})}>현재 게임 맵 불러오기</button>
       <button disabled={!history.current.length} onClick={()=>{const last=history.current.pop();if(last){importVersion.current++;setWorld(last);setError('');setSummary('직전 편집을 되돌렸습니다.');}}}>되돌리기</button><button onClick={()=>attempt(()=>{checked(world);setSummary('맵·배치·출입구 연결 검증을 통과했습니다.');})}>전체 검증</button></div>
