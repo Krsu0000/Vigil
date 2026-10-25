@@ -20,7 +20,7 @@ export function CombatPanel({state,content,enabled,onAction}:{state:GameState;co
       <p>{monster.description}</p><p>의도 — {monster.groups?groupedIntent(monster,target):monsterBehavior(monster,combat.turn)?.text??monster.intent} · 기본 피해 <span className="n">{monster.damageMin}~{monster.damageMax}</span></p></div></div>
       <div className="enemy-roster">{combat.enemies.filter(e=>e.health>0).map(enemy=><button key={enemy.id} className={target.id===enemy.id?'selected':''} disabled={!active||!front.includes(enemy)} onClick={()=>setSelected(enemy.id)}>
         <span>{enemy.row==='front'?'전열':'후열'} · {requireMonster(content,enemy.monsterId).name}</span><span className="n">{enemy.health}/{enemy.maxHealth}</span></button>)}</div></>}
-    <div ref={history} className="combat-history" role="log" aria-label="전투 기록">{combat.history.length?combat.history.map((line,index)=><p key={index}><span className="n">{line.turn}턴</span>{line.text}</p>):<p>적이 자세를 낮춘다. 어떻게 하겠는가?</p>}</div>
+    <div ref={history} className="combat-history" role="log" aria-label="전투 기록">{combat.history.length?combat.history.slice(-2).map((line,index)=><p key={index}><span className="n">{line.turn}턴</span>{line.text}</p>):<p>적이 자세를 낮춘다. 어떻게 하겠는가?</p>}</div>
     {active&&<div className="action-preview">공격 → {monster?.name} <span className="n">피해 {rules.attackMin}~{rules.attackMax} · 명중 {Math.round(rules.hitChance*100)}%</span></div>}
     <Vitals state={state}/>
     {active?<><div className="combat-primary"><button disabled={!enabled||!target} onClick={()=>onAction({type:'combat/act',choice:'attack',targetId:target!.id})}>공격</button>
