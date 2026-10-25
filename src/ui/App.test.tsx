@@ -82,6 +82,19 @@ describe('App', () => {
   });
 });
 
+describe('Play HUD 레이아웃 계약', () => {
+  it('상호작용 대상이 없는 칸에는 빈 안내와 버튼 공간을 만들지 않는다', () => {
+    const ctx = mapContext(), store = createNewGameStore(ctx.content, [1,2,3,4], () => ctx.now);
+    const html = renderToString(<App store={store} />).replaceAll('<!-- -->','');
+    expect(html).not.toContain('이 칸에는 상호작용할 대상이 없습니다.');
+    expect(html).not.toContain('class="interaction-slot"');
+    expect(html).toContain('class="action-dock"');
+    expect(html).toContain('전체 기록');
+    expect(html).not.toContain('session-chip');
+    expect(html).toContain('data-testid="session-status"');
+  });
+});
+
 describe('휴식·습격 표시', () => {
   it('휴식 중 상태와 중지 버튼·위험 안내를 엔진 상태에서 표시한다', () => {
     const ctx = mapContext(); const store = createNewGameStore(ctx.content,[1,2,3,4],() => ctx.now);
@@ -90,7 +103,9 @@ describe('휴식·습격 표시', () => {
     const html = renderToString(<App store={store} />).replaceAll('<!-- -->','');
     expect(html).toContain(strings.stopRest);
     expect(html).toContain('휴식 중');
-    expect(html).toContain('회복↑ 습격↑');
+    expect(html).not.toContain('회복↑ 습격↑');
+    expect(html).toContain('class="command-shortcut" aria-hidden="true">R');
+    expect(html).toContain('class="command-shortcut" aria-hidden="true">B');
   });
 
   it('미처리 습격은 안내·재열기 버튼을 유지하고 모든 이동 버튼을 비활성화한다', () => {
