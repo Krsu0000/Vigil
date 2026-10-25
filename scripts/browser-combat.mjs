@@ -15,7 +15,29 @@ export async function checkCombat({ page, width, artifacts, readSlot }) {
   await panel.getByRole('button', { name: '아이템', exact: true }).click(); await panel.getByRole('button', { name: '여행 식량 ×2', exact: true }).click();
   await page.clock.runFor(5000); const activeSave = await readSlot(page); assert.equal(activeSave.state.expedition.combat.actions.length, 3);
   await page.screenshot({ path: path.join(artifacts, `combat-${width}.png`), fullPage: true });
-  const rect = await panel.boundingBox(); if (width === 1440) assert.equal(rect.width, 480); else assert.equal(rect.y, 214);
+  const rect = await panel.boundingBox();
+  if (width === 1440) assert.equal(Math.round(rect.width), 480);
+  else {
+    const metrics = await panel.evaluate(el => {
+      const panel = el.getBoundingClientRect();
+      const controls = [...el.querySelectorAll('.combat-primary button,.combat-secondary button')].map(button => {
+        const b = button.getBoundingClientRect();
+        return { top:b.top,bottom:b.bottom,left:b.left,right:b.right,width:b.width,height:b.height };
+      });
+      return { viewportWidth:innerWidth,viewportHeight:innerHeight,panelTop:panel.top,
+        docScroll:document.scrollingElement.scrollHeight > innerHeight+1,
+        panelScroll:el.scrollHeight > el.clientHeight+1, controls };
+    });
+    assert(metrics.panelTop >= 0, '전투 패널이 화면 밖으로 나갔다');
+    assert.equal(metrics.controls.length,5,'전투 행동 5개 모두 존재해야 한다');
+    for (const b of metrics.controls) {
+      assert(b.top >= 0 && b.bottom <= metrics.viewportHeight+1, '전투 행동 버튼 세로 잘림');
+      assert(b.left >= 0 && b.right <= metrics.viewportWidth+1, '전투 행동 버튼 가로 잘림');
+      assert(b.width >= 44 && b.height >= 44,'전투 행동 터치 영역 부족');
+    }
+    assert(!metrics.docScroll,'전투 중 문서 스크롤이 발생했다');
+    assert(!metrics.panelScroll,'전투 패널이 내부 스크롤을 요구한다');
+  }
   assert(!await panel.evaluate(el => el.scrollWidth > el.clientWidth)); assert(!await page.evaluate(() => document.documentElement.scrollWidth > innerWidth));
   await page.reload(); panel = page.getByTestId('combat-panel'); await panel.waitFor();
   assert((await panel.locator('header').textContent()).includes('4턴'));
