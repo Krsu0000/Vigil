@@ -5,6 +5,7 @@ import {MonsterDefinitionSchema} from '../src/content/schemas.ts';
 import type {MonsterDefinition} from '../src/content/schemas.ts';
 import {MonsterGroups,normalGroup} from './monster-groups.tsx';
 import {FileImport,readImportJson} from './file-import.tsx';
+import {MakerNavigation} from './maker-navigation.tsx';
 import {parseMonsterPack} from './monster-tools.ts';
 import '../src/ui/styles.css';
 import './map-maker.css';
@@ -19,7 +20,8 @@ function MonsterMaker(){
     ...Object.fromEntries(['level','health','damageMin','damageMax','hitChance'].map(k=>[k,Number(f.get(k))])),...(mode==='groups'?{behavior:undefined,groups}:{behavior:steps,groups:undefined})});};
   const submit=(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();try{const monster=build(e.currentTarget);download({format:'vigil-monsters-v1',monsters:[monster]});setRaw(JSON.stringify(monster,null,2));setError('');setMessage('JSON을 저장했습니다. 맵 메이커의 몬스터 불러오기로 사용할 수 있습니다.');}catch(e){setError(e instanceof Error?e.message:String(e));}};
   const apply=(monster:MonsterDefinition)=>{importVersion.current++;setRaw(JSON.stringify(monster,null,2));setBase(monster);setMode(monster.groups?'groups':'sequence');setGroups(monster.groups??[normalGroup()]);setSteps(monster.behavior??[{type:'attack',text:monster.intent,multiplier:1}]);setFormKey(k=>k+1);setError('');setMessage('몬스터를 불러왔습니다.');};
-  return <main className="map-maker monster-maker"><header><h1>몬스터 제작</h1><a href="/map-maker.html" target="_blank" rel="noreferrer">맵 메이커</a></header>
+  return <main className="map-maker monster-maker"><header><h1>몬스터 제작</h1><a href="/">게임으로</a></header>
+    <MakerNavigation active="monster"/>
     <p>기본 수치와 반복할 행동 순서를 정하고 JSON으로 내보낸 뒤 맵 메이커에서 불러오세요. 기존 몬스터를 수정하려면 새 ID를 사용하세요.</p>
     <form key={formKey} onSubmit={submit}><div className="maker-fields">
       {(['id','name','glyph','description','intent'] as const).map((k,i)=><label key={k}>{['몬스터 ID','이름','아이콘 문자','설명','기본 의도 문구'][i]}<input name={k} defaultValue={base[k]} required/></label>)}
