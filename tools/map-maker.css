@@ -60,3 +60,11 @@
 .maker-file-import { border:1px solid #555; padding:12px; margin:14px 0; min-width:0; }
 .maker-file-import input { display:block; max-width:100%; min-height:44px; }
 .maker-file-import p { white-space:pre-wrap; overflow-wrap:anywhere; margin:8px 0; }
+
+/* Shared maker navigation; only already implemented tools are links. */
+.maker-navigation {display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px;padding-bottom:12px;border-bottom:1px solid #444;}
+.map-maker .maker-navigation>a {display:inline-flex;justify-content:center;align-items:center;min-height:44px;min-width:110px;padding:8px 12px;border:1px solid #555;text-decoration:none;font-size:13px;box-sizing:border-box;}
+.map-maker .maker-navigation>a[aria-current="page"] {border-color:#ddd;background:#282828;font-weight:600;color:#fff;}
+.map-maker .maker-navigation>a:focus-visible {outline:2px solid #ddd;outline-offset:2px;}
+.maker-navigation-status {font-size:12px;color:#aaa;flex:1;text-align:right;}
+@media(max-width:760px) {.maker-navigation-status {flex-basis:100%;text-align:left;}}
