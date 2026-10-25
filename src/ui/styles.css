@@ -1437,3 +1437,66 @@ small,.muted,.empty-note {
   .action-dock .exploration-commands {gap:5px;}
   .situation {min-height:36px;padding:3px 8px;}
 }
+
+/* 2026-10-26 user review: no decorative session badge; keep state for assistive technology and tests. */
+.session-screenreader {position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;}
+.action-dock:not(.has-interaction) .interaction-slot {display:none;}
+.dock-secondary .command {flex-direction:row;justify-content:flex-start;align-items:center;gap:8px;}
+.dock-secondary .command b {white-space:nowrap;}
+.dock-secondary .command .command-shortcut {display:inline;font:11px 'IBM Plex Mono',monospace;color:#a3a3a3;white-space:nowrap;margin:0;}
+/* Make the absent interaction area take no space. Keep reserved space only when a chest/exit exists. */
+@media(max-width:760px), (max-width:1024px) and (max-height:500px) {
+  .action-dock:not(.has-interaction) {gap:0;}
+  .action-dock .dock-secondary .command small.command-shortcut {display:inline;}
+}
+/* Compact mobile battle: fixed in viewport, map as a small context strip, actions always visible. */
+@media(max-width:760px) and (min-height:501px) {
+  .has-combat .region-header {display:none;}
+  .has-combat .map-stage {flex:0 0 clamp(52px,9dvh,80px);}
+  .has-combat .map-viewport {height:100%;}
+  .combat-panel {
+    top:calc(44px + var(--safe-top,0px) + clamp(52px,9dvh,80px));
+    bottom:0; height:auto; max-height:none; overflow:hidden;
+    padding:8px 12px calc(10px + var(--safe-bottom,0px));
+    gap:clamp(3px,0.75dvh,8px);
+  }
+  .combat-panel .sheet-handle {display:none;}
+  .combat-panel>header {flex:none;}
+  .combat-panel .enemy-header {flex:none;grid-template-columns:40px minmax(0,1fr);gap:9px;}
+  .combat-panel .enemy-portrait {height:40px;}
+  .combat-panel .enemy-header h3 {font-size:15px;margin:0;}
+  .combat-panel .enemy-header p {line-height:1.25;margin:2px 0;font-size:11px;}
+  .combat-panel .enemy-roster {flex:none;max-height:88px;overflow:hidden;gap:3px;}
+  .combat-panel .enemy-roster button {min-height:36px;padding:3px 6px;}
+  .combat-panel .combat-history {flex:1 1 auto;min-height:28px;overflow:hidden;padding-top:4px;}
+  .combat-panel .combat-history p {font-size:11px;line-height:1.35;margin:0;}
+  .combat-panel .action-preview {flex:none;padding:5px 8px;font-size:11px;line-height:1.25;}
+  .combat-panel .action-preview .n {display:inline;}
+  .combat-panel .vitals {flex:none;gap:3px 12px;padding-top:5px;}
+  .combat-panel .vital>div:first-child {font-size:10px;}
+  .combat-panel .stat-track {height:3px;margin-top:2px;}
+  .combat-panel .combat-primary,.combat-panel .combat-secondary {flex:none;gap:5px;}
+  .combat-panel .combat-primary button {min-height:44px;}
+  .combat-panel .combat-secondary button {min-height:44px;}
+  .combat-panel .combat-items {position:absolute;z-index:2;left:10px;right:10px;bottom:calc(112px + var(--safe-bottom,0px));max-height:min(180px,30dvh);overflow:auto;background:#1a1a1a;box-shadow:0 -4px 16px #000;border:1px solid #555;}
+  .combat-panel .combat-result {flex:1;min-height:0;overflow:auto;}
+}
+@media(max-width:760px) and (max-height:650px) and (min-height:501px) {
+  .has-combat .map-stage {flex-basis:44px;}
+  .combat-panel {top:calc(44px + var(--safe-top,0px) + 44px);gap:3px;padding:5px 8px calc(6px + var(--safe-bottom,0px));}
+  .combat-panel .enemy-header {grid-template-columns:32px minmax(0,1fr);}
+  .combat-panel .enemy-portrait {height:32px;}
+  .combat-panel .enemy-header p:first-of-type {display:none;}
+  .combat-panel .enemy-roster {max-height:76px;}
+  .combat-panel .combat-history {min-height:20px;}
+}
+/* Landscape/short viewport: remove the map strip to prioritise all combat commands. */
+@media(max-width:1024px) and (max-height:500px) {
+  .has-combat .map-stage,.has-combat .region-header {display:none;}
+  .combat-panel {top:calc(44px + var(--safe-top,0px));bottom:0;overflow:hidden;gap:3px;padding:5px 10px calc(5px + var(--safe-bottom,0px));}
+  .combat-panel .sheet-handle,.combat-panel .enemy-header p:first-of-type {display:none;}
+  .combat-panel .enemy-roster {max-height:60px;overflow:hidden;}
+  .combat-panel .combat-history {min-height:20px;overflow:hidden;}
+  .combat-panel .vitals {padding-top:3px;gap:3px;}
+  .combat-panel .combat-primary button,.combat-panel .combat-secondary button {min-height:44px;}
+}
