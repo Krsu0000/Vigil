@@ -15,7 +15,7 @@ export function validateTownAnchor(town:TownDefinition,content:ContentDb):void{
     throw new Error(`마을 입구는 안전하고 이동 가능한 격자 좌표여야 합니다: ${town.id}`);
 }
 /** A안: never rewrites the character's grid position; only exposes a UI entry at the anchor. */
-export function findTownAt(position:MapPosition|undefined,content:ContentDb):TownDefinition|undefined{
+export function findTownAt(position:MapPosition|null|undefined,content:ContentDb):TownDefinition|undefined{
   if(!position)return undefined;
   const candidate=availableTowns.find(t=>t.anchor.mapId===position.mapId&&t.anchor.floor===position.floor&&t.anchor.x===position.x&&t.anchor.y===position.y);
   if(!candidate)return undefined;
