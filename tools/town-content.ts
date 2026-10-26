@@ -11,5 +11,6 @@ export const sampleTown:TownDefinition=parseTown({
     {id:'hotspot.exit',label:'마을 나가기',description:'탐험 지도로 돌아갑니다.',x:78,y:75,target:{type:'exit'}},
   ]},{id:'scene.inn',title:'여관',description:'작은 여관의 실내입니다.',hotspots:[
     {id:'hotspot.square',label:'광장으로',description:'마을 광장으로 돌아갑니다.',x:20,y:70,target:{type:'scene',sceneId:'scene.square'}},
+    {id:'hotspot.innkeeper',label:'여관 주인',description:'여관 주인과 대화합니다.',x:65,y:43,target:{type:'npc',npcId:'npc.innkeeper'}},
   ]}],
 });
