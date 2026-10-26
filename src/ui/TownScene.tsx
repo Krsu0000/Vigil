@@ -6,6 +6,15 @@ export function TownScene({town,onExit}:{town:TownDefinition;onExit:()=>void}){
   const [notice,setNotice]=useState('');
   const heading=useRef<HTMLHeadingElement>(null);
   useEffect(()=>{heading.current?.focus();},[]);
+  useEffect(()=>{
+    const close=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'&&!event.defaultPrevented){
+        event.preventDefault();event.stopPropagation();onExit();
+      }
+    };
+    document.addEventListener('keydown',close,true);
+    return ()=>document.removeEventListener('keydown',close,true);
+  },[onExit]);
   const scene=town.scenes.find(s=>s.id===sceneId)??town.scenes[0]!;
   const enter=(id:string)=>{setSceneId(id);setNotice('');};
   const act=(spot:typeof scene.hotspots[number])=>{
