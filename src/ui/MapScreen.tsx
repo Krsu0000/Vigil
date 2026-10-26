@@ -124,7 +124,7 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
           <div className={`action-dock${exit||chest?' has-interaction':''}`}>
             {(exit||chest)&&<div className="chest-controls interaction-slot" aria-label="현재 위치 상호작용">
               {exit?<button className="interact-primary" disabled={!session.running} aria-keyshortcuts="Z Space" onClick={interact}>{exit.name} 이동 <small>Z / Space</small></button>:
-               <button className={chestOpened?'interact-done':'interact-primary'} disabled={!session.running||!!chestOpened} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}<small>{chestOpened?'이미 연 상자':'Z / Space'}</small></button>}
+               <button className={chestOpened?'interact-done':'interact-primary'} disabled={!session.running||!!chestOpened} aria-label={strings.openChest} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}<small>{chestOpened?'이미 연 상자':'Z / Space'}</small></button>}
             </div>}
             <div className="exploration-commands">
               <div className="dock-secondary">
