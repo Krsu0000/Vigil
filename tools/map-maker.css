@@ -98,3 +98,15 @@
   .town-maker .maker-actions {gap:6px;}
   .town-maker .town-stage-heading .maker-actions {width:100%;}
 }
+
+/* NPC authoring forms and in-editor dialogue preview. */
+.npc-maker .maker-layout {grid-template-columns:minmax(320px,450px) minmax(0,1fr);}
+.npc-maker select,.npc-maker textarea{width:100%;min-width:0;min-height:44px;background:#202020;border:1px solid #555;color:inherit;padding:8px;font:inherit;}
+.npc-maker textarea {resize:vertical;}
+.npc-choice-editor {border:1px solid #555;padding:12px;margin:10px 0;min-width:0;}
+.npc-choice-editor legend{padding:0 6px;}
+.npc-choice-editor button{margin-top:8px;}
+.npc-preview{border:1px solid #777;background:#202020;padding:18px;display:flex;flex-direction:column;gap:9px;}
+.npc-preview h3,.npc-preview p{margin:0;}
+.npc-preview button{width:100%;text-align:left;padding:9px 12px;}
+@media(max-width:900px){.npc-maker .maker-layout{grid-template-columns:minmax(0,1fr);gap:16px;}}
