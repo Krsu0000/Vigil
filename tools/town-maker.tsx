@@ -33,7 +33,7 @@ function TownMaker(){
   return <main className="map-maker town-maker">
     <header><h1>마을 제작 · 장면 미리보기</h1><a href="/">게임으로</a></header>
     <nav className="maker-navigation" aria-label="제작 도구"><a href="/map-maker.html">맵 메이커</a><a href="/monster-maker.html">몬스터 메이커</a><a href="/town-maker.html" aria-current="page">마을 메이커</a><span className="maker-navigation-status">NPC · 퀘스트: 준비 중</span></nav>
-    <p>포인트 앤 클릭 마을을 제작·시험하는 초기 화면입니다. **게임 안에서 마을 입장·퇴장하는 기능은 아직 연결되지 않았습니다.**</p>
+    <p>포인트 앤 클릭 마을을 제작·시험하는 초기 화면입니다. 게임 안에서 마을 입장·퇴장하는 기능은 아직 연결되지 않았습니다.</p>
     <div className="maker-draft-status" role="status">{status}</div>
     <div className="maker-layout">
       <section>
