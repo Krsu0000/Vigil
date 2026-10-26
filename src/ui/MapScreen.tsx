@@ -43,7 +43,8 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
   const [fullMap,setFullMap]=useState(false);const [ambushOpen,setAmbushOpen]=useState(false);
   const pending=state.expedition?.pendingAmbush;const combat=state.expedition?.combat;
   const [lootedChestId,setLootedChestId]=useState<string|null>(null);
-  useEffect(()=>setLootedChestId(null),[state.character?.position]);
+  const posKey=state.character?.position;
+  useEffect(()=>setLootedChestId(null),[posKey?.mapId,posKey?.floor,posKey?.x,posKey?.y]);
   const [message,setMessage]=useState<string>(strings.moveHelp);
   const logs=state.campaign.recentRecords??emptyRecords;
   const recordView=useRef<HTMLElement>(null);
@@ -112,7 +113,7 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
         <div className="situation" role="status">
           <div className="situation-lines"><span className="situation-text">{situationText}</span>
             {message&&<span className="situation-feedback">{message}</span>}
-            {chestOpened&&lootedChestId===chest?.id&&<div data-testid="chest-status" className="chest-reward">{strings.chestLooted} · {chest!.loot.map(entry=>`${findItem(store.content,entry.itemId)!.name} ×${entry.quantity}`).join(' · ')}</div>}
+            {chestOpened&&<div data-testid="chest-status" className="chest-reward">{lootedChestId===chest?.id?`${strings.chestLooted} · ${chest!.loot.map(entry=>`${findItem(store.content,entry.itemId)!.name} ×${entry.quantity}`).join(' · ')}`:'이미 연 상자입니다.'}</div>}
           </div>
           <span className="n" data-testid="position">({position.x}, {position.y})</span>
         </div>
