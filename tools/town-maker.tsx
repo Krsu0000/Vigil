@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {FileImport,readImportJson} from './file-import.tsx';
+import {MakerNavigation} from './maker-navigation.tsx';
 import {parseTown,sampleTown} from './town-content.ts';
 import type {TownDefinition} from './town-content.ts';
 import {addTownScene,removeTownScene,renameTownScene,addTownHotspot,removeTownHotspot,updateTownHotspot} from './town-editor.ts';
@@ -40,7 +41,7 @@ function TownMaker(){
   });
   return <main className="map-maker town-maker">
     <header><h1>마을 제작 · 포인트 앤 클릭</h1><a href="/">게임으로</a></header>
-    <nav className="maker-navigation" aria-label="제작 도구"><a href="/map-maker.html">맵 메이커</a><a href="/monster-maker.html">몬스터 메이커</a><a href="/town-maker.html" aria-current="page">마을 메이커</a><span className="maker-navigation-status">NPC · 퀘스트: 준비 중</span></nav>
+    <MakerNavigation active="town"/>
     <p>장면을 만들고 건물·NPC 핫스팟을 배치하세요. 게임 안에서 마을 입장·퇴장하는 기능은 아직 연결되지 않았습니다.</p>
     <p className="maker-draft-status" role="status">{status}</p>
     <div className="maker-layout">
