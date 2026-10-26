@@ -68,3 +68,7 @@
 .map-maker .maker-navigation>a:focus-visible {outline:2px solid #ddd;outline-offset:2px;}
 .maker-navigation-status {font-size:12px;color:#aaa;flex:1;text-align:right;}
 @media(max-width:760px) {.maker-navigation-status {flex-basis:100%;text-align:left;}}
+
+/* Maker-only draft status; game save slot remains unrelated. */
+.maker-draft-status {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:9px 12px;border:1px solid #505050;background:#1b1b1b;color:#bbb;font-size:12px;margin-bottom:12px;}
+.maker-draft-status button {min-height:44px;padding:6px 12px;}
