@@ -16,8 +16,9 @@ export function addTownScene(town:TownDefinition,fromId:string):{town:TownDefini
     {id:'hotspot.back',label:'돌아가기',description:'이전 장소로 이동합니다.',x:25,y:76,target:{type:'scene',sceneId:fromId}},
   ]};
   const linkId=unused(source.hotspots.map(h=>h.id),'hotspot');
+  const link:Hotspot={id:linkId,label:'새 장소',description:'새 장소로 이동합니다.',x:50,y:50,target:{type:'scene',sceneId:id}};
   const result:TownDefinition={...town,scenes:town.scenes.map(s=>s.id===fromId?
-    {...s,hotspots:[...s.hotspots,{id:linkId,label:'새 장소',description:'새 장소로 이동합니다.',x:50,y:50,target:{type:'scene',sceneId:id}}]}:s).concat(next)};
+    {...s,hotspots:[...s.hotspots,link]}:s).concat(next)};
   return {town:parseTown(result),sceneId:id};
 }
 export function removeTownScene(town:TownDefinition,id:string):TownDefinition{
