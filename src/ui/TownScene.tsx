@@ -1,29 +1,36 @@
 import {useEffect,useRef,useState} from 'react';
 import type {TownDefinition} from '../content/town-schema.ts';
+import {findNpc} from '../runtime/npcs.ts';
 
 export function TownScene({town,onExit}:{town:TownDefinition;onExit:()=>void}){
   const [sceneId,setSceneId]=useState(town.entrySceneId);
   const [notice,setNotice]=useState('');
+  const [dialogue,setDialogue]=useState<{npcId:string;nodeId:string}>();
+  const npc=dialogue?findNpc(dialogue.npcId):undefined;
+  const node=npc?.nodes.find(n=>n.id===dialogue?.nodeId);
   const heading=useRef<HTMLHeadingElement>(null);
   useEffect(()=>{heading.current?.focus();},[]);
   useEffect(()=>{
     const close=(event:KeyboardEvent)=>{
       if(event.key==='Escape'&&!event.defaultPrevented){
-        event.preventDefault();event.stopPropagation();onExit();
+        event.preventDefault();event.stopPropagation();
+        if(dialogue)setDialogue(undefined);else onExit();
       }
     };
     document.addEventListener('keydown',close,true);
     return ()=>document.removeEventListener('keydown',close,true);
-  },[onExit]);
+  },[onExit,dialogue]);
   const scene=town.scenes.find(s=>s.id===sceneId)??town.scenes[0]!;
-  const enter=(id:string)=>{setSceneId(id);setNotice('');};
+  const enter=(id:string)=>{setSceneId(id);setDialogue(undefined);setNotice('');};
   const act=(spot:typeof scene.hotspots[number])=>{
     if(spot.target.type==='exit'){onExit();return;}
     if(spot.target.type==='scene'){enter(spot.target.sceneId);return;}
-    setNotice(`${spot.label}: NPC 대화는 다음 개발 단계에서 사용할 수 있습니다.`);
+    const target=findNpc(spot.target.npcId);
+    if(!target){setNotice(`NPC 데이터가 등록되지 않았습니다: ${spot.target.npcId}`);return;}
+    setDialogue({npcId:target.id,nodeId:target.startNodeId});setNotice('');
   };
   return <section className="town-game-screen" role="dialog" aria-modal="true" aria-label={town.name} data-testid="town-screen">
-    <div className="town-game-shell">
+    <div className="town-game-shell" inert={!!dialogue}>
       <header className="town-game-header">
         <div><p className="town-game-eyebrow">거점 · 마을</p><h2 ref={heading} tabIndex={-1}>{town.name}</h2></div>
         <button type="button" onClick={onExit}>탐험으로 돌아가기</button>
@@ -45,5 +52,16 @@ export function TownScene({town,onExit}:{town:TownDefinition;onExit:()=>void}){
         </aside>
       </div>
     </div>
+    {npc&&node&&<div className="town-dialogue-backdrop">
+      <section className="town-dialogue-panel" role="dialog" aria-modal="true" aria-label={npc.name+'와 대화'}>
+        <header><span className="town-dialogue-glyph" aria-hidden="true">{npc.glyph}</span><h3>{npc.name}</h3>
+          <button type="button" onClick={()=>setDialogue(undefined)} aria-label="대화 닫기">×</button></header>
+        <p>{node.text}</p>
+        <div className="town-dialogue-choices">
+          {node.choices.map((choice,index)=><button type="button" key={index} onClick={()=>choice.nextNodeId?setDialogue({npcId:npc.id,nodeId:choice.nextNodeId}):setDialogue(undefined)}>{choice.label}</button>)}
+          {node.choices.length===0&&<button type="button" onClick={()=>setDialogue(undefined)}>대화 마치기</button>}
+        </div>
+      </section>
+    </div>}
   </section>;
 }
