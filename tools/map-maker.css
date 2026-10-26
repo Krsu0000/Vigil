@@ -77,3 +77,24 @@
 .town-hotspot:hover,.town-hotspot:focus-visible {background:#494949;outline:2px solid #ddd;outline-offset:2px;}
 .town-list-button {display:block;width:100%;min-height:44px;text-align:left;padding:8px 12px;margin:5px 0;}
 @media(max-width:760px) {.town-scene {min-height:250px;aspect-ratio:4/3;}.town-hotspot {min-width:88px;max-width:120px;font-size:12px;}}
+
+/* Town maker edit/preview UI: distinguish editing from simulated navigation. */
+.town-maker .maker-layout {grid-template-columns:minmax(300px,360px) minmax(0,1fr);}
+.town-maker textarea,.town-maker select {width:100%;max-width:100%;min-width:0;min-height:44px;padding:8px;color:inherit;background:#202020;border:1px solid #555;font:inherit;}
+.town-maker textarea {resize:vertical;}
+.town-maker .town-property {margin:12px 0;padding:12px;border:1px solid #555;display:flex;flex-direction:column;gap:8px;}
+.town-maker .town-property p {margin:0;}
+.town-maker .town-list-button[aria-pressed="true"],.town-maker .town-hotspot[aria-pressed="true"],.town-maker .town-stage-heading button[aria-pressed="true"]{border:2px solid #dedede;background:#454545;}
+.town-maker .town-stage-heading {display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;}
+.town-maker .town-stage-heading h2 {margin:0;}
+.town-maker .town-stage-heading .maker-actions {margin:0;}
+.town-maker .town-hotspot {cursor:pointer;}
+@media(max-width:900px) {
+  .town-maker .maker-layout {grid-template-columns:minmax(0,1fr);gap:16px;}
+  .town-maker .town-scene {min-height:260px;}
+}
+@media(max-width:350px) {
+  .town-maker .maker-fields {grid-template-columns:1fr 1fr;}
+  .town-maker .maker-actions {gap:6px;}
+  .town-maker .town-stage-heading .maker-actions {width:100%;}
+}
