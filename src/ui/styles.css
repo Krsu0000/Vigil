@@ -1500,3 +1500,40 @@ small,.muted,.empty-note {
   .combat-panel .vitals {padding-top:3px;gap:3px;}
   .combat-panel .combat-primary button,.combat-panel .combat-secondary button {min-height:44px;}
 }
+
+/* T2-C2: A-model town scene. UI overlay only; original grid/world state remains running. */
+.town-game-screen{position:fixed;inset:0;z-index:40;background:#141414;color:#e7e7e7;overflow:hidden;}
+.town-game-shell{max-width:1200px;height:100dvh;min-height:0;margin:auto;display:flex;flex-direction:column;padding:calc(16px + env(safe-area-inset-top,0px)) 20px calc(14px + env(safe-area-inset-bottom,0px));box-sizing:border-box;gap:14px;}
+.town-game-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;border-bottom:1px solid #444;padding-bottom:12px;}
+.town-game-header h2{margin:0;font-size:21px;}
+.town-game-header h2:focus{outline:none;}
+.town-game-eyebrow{color:#aaa;font-size:12px;margin:0 0 3px;}
+.town-game-header button{min-height:44px;padding:8px 16px;border:1px solid #666;background:#222;color:inherit;}
+.town-game-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,300px);gap:20px;min-height:0;flex:1;}
+.town-game-main,.town-game-details{min-width:0;min-height:0;overflow:auto;}
+.town-game-main h3,.town-game-details h3{margin:0 0 8px;font-size:17px;}
+.town-game-main p{margin:0 0 15px;line-height:1.5;color:#bdbdbd;}
+.town-game-stage{position:relative;width:100%;aspect-ratio:16/9;min-height:230px;max-height:70dvh;border:1px solid #565656;background:linear-gradient(140deg,#343434,#202020);overflow:hidden;}
+.town-game-hotspot{position:absolute;transform:translate(-50%,-50%);min-width:88px;min-height:44px;max-width:170px;padding:8px 12px;background:#272727;border:1px solid #aaa;color:#f5f5f5;cursor:pointer;overflow-wrap:anywhere;}
+.town-game-hotspot:hover,.town-game-hotspot:focus-visible{background:#4a4a4a;outline:2px solid #f1f1f1;outline-offset:2px;}
+.town-game-list-item{width:100%;min-height:55px;display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;margin:0 0 8px;padding:10px;border:1px solid #555;background:#202020;color:inherit;}
+.town-game-list-item span{font-size:12px;color:#b7b7b7;line-height:1.3;}
+.town-game-list-item:hover,.town-game-list-item:focus-visible{border-color:#aaa;}
+.town-game-notice,.town-game-hint{color:#aaa;font-size:12px;line-height:1.5;}
+@media(max-width:760px){
+ .town-game-shell{padding:calc(8px + env(safe-area-inset-top,0px)) 12px calc(8px + env(safe-area-inset-bottom,0px));gap:10px;}
+ .town-game-header h2{font-size:17px;}
+ .town-game-header button{padding:8px;font-size:12px;}
+ .town-game-columns{display:flex;flex-direction:column;gap:12px;}
+ .town-game-main{flex:0 1 auto;overflow:auto;}
+ .town-game-stage{aspect-ratio:4/3;min-height:180px;max-height:42dvh;}
+ .town-game-hotspot{min-width:80px;max-width:130px;min-height:44px;font-size:12px;}
+ .town-game-details{flex:1;overflow:auto;}
+ .town-game-details h3{margin-bottom:5px;}
+ .town-game-list-item{min-height:44px;margin-bottom:5px;padding:7px 10px;}
+}
+@media(max-height:540px){
+ .town-game-header{padding-bottom:5px;}
+ .town-game-shell{gap:6px;padding-top:4px;padding-bottom:4px;}
+ .town-game-stage{min-height:110px;max-height:38dvh;}
+}
