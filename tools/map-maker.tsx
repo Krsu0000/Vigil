@@ -75,7 +75,7 @@ function Maker(){
   const defaults=GeneratorOptionsSchema.parse({}),[world,setWorld]=useState<WorldBundle>(()=>parseWorld([generateMap().map]));
   const [selectedId,setSelectedId]=useState(world.startMapId),[selection,setSelection]=useState<CellPosition>({mapId:world.maps[0]!.id,...world.maps[0]!.start});
   const [summary,setSummary]=useState('칸을 선택해 지형·배치·출입구를 편집할 수 있습니다.'),[error,setError]=useState('');
-  const [draftReady,setDraftReady]=useState(false),[draftStatus,setDraftStatus]=useState('초안을 확인하는 중…');
+  const [draftReady,setDraftReady]=useState(false),[draftCanSave,setDraftCanSave]=useState(true),[draftStatus,setDraftStatus]=useState('초안을 확인하는 중…');
   const [preview,setPreview]=useState<{store:GameStore;game:boolean;notice:string}>(),history=useRef<WorldBundle[]>([]),importVersion=useRef(0);
   useEffect(()=>{
     let active=true;
@@ -89,16 +89,16 @@ function Maker(){
         setSelection({mapId:start.id,...start.start});
         setDraftStatus('이전 제작 초안을 복원했습니다.');
       }else setDraftStatus('저장된 초안이 없습니다.');
-    }).catch(e=>{if(active)setDraftStatus('초안 복원 실패: '+errorText(e));}).finally(()=>{if(active)setDraftReady(true);});
+    }).catch(e=>{if(active){setDraftCanSave(false);setDraftStatus('초안 복원 실패 · 자동 저장 중지: '+errorText(e));}}).finally(()=>{if(active)setDraftReady(true);});
     return ()=>{active=false;};
   },[]);
   useEffect(()=>{
-    if(!draftReady)return;
+    if(!draftReady||!draftCanSave)return;
     const timeout=setTimeout(()=>{
       void saveMakerDraft('map',world).then(()=>setDraftStatus('초안 자동 저장 완료')).catch(e=>setDraftStatus('초안 저장 실패: '+errorText(e)));
     },700);
     return ()=>clearTimeout(timeout);
-  },[world,draftReady]);
+  },[world,draftReady,draftCanSave]);
   const map=world.maps.find(m=>m.id===selectedId)??world.maps[0]!;
   const floor=map.floors.find(f=>f.floor===selection.floor)??map.floors[0]!;
   const p={mapId:map.id,floor:floor.floor,x:Math.max(0,Math.min(floor.width-1,selection.mapId===map.id?selection.x:map.start.x)),y:Math.max(0,Math.min(floor.height-1,selection.mapId===map.id?selection.y:map.start.y))};
@@ -144,7 +144,7 @@ function Maker(){
   const place=(kind:'chestId'|'encounterId',id:string)=>change(c=>{if(id&&(c.tileId!=='tile.floor'||c.exit||(kind==='chestId'?c.encounterId:c.chestId)))throw new Error('출입구·다른 배치가 없는 바닥 칸을 선택해 주세요.');if(id)c[kind]=id;else delete c[kind];});
   return <main className="map-maker"><header><h1>제작자 맵 생성기</h1><a href="/">게임으로</a></header>
     <MakerNavigation active="map"/>
-    <div className="maker-draft-status" role="status">{draftStatus} <button type="button" onClick={()=>{if(!window.confirm("저장된 제작 초안을 삭제하고 새로운 맵으로 시작할까요?"))return;void clearMakerDraft("map").then(()=>{const fresh=parseWorld([generateMap().map]);setWorld(fresh);setSelectedId(fresh.startMapId);setSelection({mapId:fresh.startMapId,...fresh.maps[0]!.start});history.current=[];setDraftStatus("새 제작 초안을 시작했습니다.");}).catch(e=>setDraftStatus("초안 초기화 실패: "+errorText(e)));}}>새 초안 시작</button></div>
+    <div className="maker-draft-status" role="status">{draftStatus} <button type="button" onClick={()=>{if(!window.confirm("저장된 제작 초안을 삭제하고 새로운 맵으로 시작할까요?"))return;void clearMakerDraft("map").then(()=>{const fresh=parseWorld([generateMap().map]);setWorld(fresh);setSelectedId(fresh.startMapId);setSelection({mapId:fresh.startMapId,...fresh.maps[0]!.start});history.current=[];setDraftCanSave(true);setDraftStatus("새 제작 초안을 시작했습니다.");}).catch(e=>setDraftStatus("초안 초기화 실패: "+errorText(e)));}}>새 초안 시작</button></div>
     <p>맵을 편집하고 출입구로 연결한 뒤 배포용 묶음으로 내보냅니다. 시험 진행은 기존 저장과 별도로 실행됩니다.</p>
     <div className="maker-actions"><button onClick={()=>attempt(()=>{const loaded=loadGameContent();if(!loaded.ok)throw new Error('현재 게임 콘텐츠를 불러오지 못했습니다.');const next=worldFromContent(loaded.content);commit(next,'현재 게임 맵을 불러왔습니다.');setSelectedId(next.startMapId);setSelection({mapId:next.startMapId,...next.maps.find(m=>m.id===next.startMapId)!.start});})}>현재 게임 맵 불러오기</button>
       <button disabled={!history.current.length} onClick={()=>{const last=history.current.pop();if(last){importVersion.current++;setWorld(last);setError('');setSummary('직전 편집을 되돌렸습니다.');}}}>되돌리기</button><button onClick={()=>attempt(()=>{checked(world);setSummary('맵·배치·출입구 연결 검증을 통과했습니다.');})}>전체 검증</button></div>
