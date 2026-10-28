@@ -39,7 +39,8 @@ export async function checkMobile({ browser, url, artifacts }) {
         assert(r.y >= 0 && r.bottom <= layout.height + 1 && r.right <= layout.width + 1, `${label}: ${area} outside viewport`);
       }
       assert(layout.map.height >= 56, `${label}: map must retain at least two rows`);
-      assert(layout.records.bottom <= layout.commands.y + 1, `${label}: records overlap controls`);
+      const overlap=(a,b)=>a.x<b.right-1&&a.right>b.x+1&&a.y<b.bottom-1&&a.bottom>b.y+1;
+      assert(!overlap(layout.records,layout.commands), `${label}: records overlap controls`);
       assert(layout.commands.bottom <= layout.nav.y + 1, `${label}: controls overlap navigation`);
       for (const b of layout.buttons) {
         assert(b.width >= 44 && b.height >= 44, `${label}: tap target ${JSON.stringify(b)}`);
