@@ -1536,4 +1536,19 @@ small,.muted,.empty-note {
  .town-game-header{padding-bottom:5px;}
  .town-game-shell{gap:6px;padding-top:4px;padding-bottom:4px;}
  .town-game-stage{min-height:110px;max-height:38dvh;}
+/* Short landscape HUD regression: preserve 44px commands instead of squeezing
+ * the new action dock into the old 150px side column. */
+@media(min-width:540px) and (max-width:1024px) and (max-height:500px) {
+  .exploration-center {display:flex;flex-direction:column;min-height:0;min-width:0;}
+  .exploration-center>.region-header {flex:0 0 34px;}
+  .exploration-center>.map-stage {flex:1 1 auto;min-height:0;}
+  .exploration-center>.situation {flex:0 0 28px;min-height:28px;max-height:34px;}
+  .hud-lower {display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,1fr);flex:0 0 104px;min-width:0;max-height:104px;}
+  .hud-lower>.recent-log {order:0;min-height:0;max-height:104px;overflow:hidden;padding:5px 8px;}
+  .action-dock {order:1;min-width:240px;padding:3px 6px 4px;}
+  .action-dock .exploration-commands {display:flex;flex:1;min-width:0;width:100%;padding:0;gap:5px;}
+  .action-dock .dock-secondary {display:grid;flex:1 1 90px;min-width:88px;grid-template-rows:repeat(2,44px);gap:3px;}
+  .action-dock .dock-secondary .command {width:100%;min-width:88px;min-height:44px;max-height:44px;padding:3px 6px;}
+  .action-dock .movement-controls {flex:0 0 auto;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:3px;}
+  .action-dock .movement-controls button {min-width:44px;min-height:44px;}
 }
