@@ -54,6 +54,17 @@
             "type": "scene",
             "sceneId": "scene.square"
           }
+        },
+        {
+          "id": "hotspot.innkeeper",
+          "label": "여관 주인",
+          "description": "여관 주인과 이야기를 나눕니다.",
+          "x": 65,
+          "y": 43,
+          "target": {
+            "type": "npc",
+            "npcId": "npc.innkeeper"
+          }
         }
       ]
     }

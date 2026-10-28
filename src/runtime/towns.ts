@@ -2,6 +2,7 @@ import firstTownRaw from '../world/towns/first.json' with {type:'json'};
 import type {ContentDb} from '../content/types.ts';
 import type {MapPosition} from '../engine/core/state.ts';
 import {parseTown} from '../content/town-schema.ts';
+import {validateRegisteredTownNpcs} from './npcs.ts';
 import type {TownDefinition} from '../content/town-schema.ts';
 import {findMap,findCell,requireTile,requireZone} from '../engine/systems/map/selectors.ts';
 
@@ -20,5 +21,6 @@ export function findTownAt(position:MapPosition|null|undefined,content:ContentDb
   const candidate=availableTowns.find(t=>t.anchor.mapId===position.mapId&&t.anchor.floor===position.floor&&t.anchor.x===position.x&&t.anchor.y===position.y);
   if(!candidate)return undefined;
   validateTownAnchor(candidate,content);
+  validateRegisteredTownNpcs(candidate);
   return candidate;
 }
