@@ -1501,6 +1501,43 @@ small,.muted,.empty-note {
   .combat-panel .combat-primary button,.combat-panel .combat-secondary button {min-height:44px;}
 }
 
+/* T2-C2: A-model town scene. UI overlay only; original grid/world state remains running. */
+.town-game-screen{position:fixed;inset:0;z-index:40;background:#141414;color:#e7e7e7;overflow:hidden;}
+.town-game-shell{max-width:1200px;height:100dvh;min-height:0;margin:auto;display:flex;flex-direction:column;padding:calc(16px + env(safe-area-inset-top,0px)) 20px calc(14px + env(safe-area-inset-bottom,0px));box-sizing:border-box;gap:14px;}
+.town-game-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;border-bottom:1px solid #444;padding-bottom:12px;}
+.town-game-header h2{margin:0;font-size:21px;}
+.town-game-header h2:focus{outline:none;}
+.town-game-eyebrow{color:#aaa;font-size:12px;margin:0 0 3px;}
+.town-game-header button{min-height:44px;padding:8px 16px;border:1px solid #666;background:#222;color:inherit;}
+.town-game-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,300px);gap:20px;min-height:0;flex:1;}
+.town-game-main,.town-game-details{min-width:0;min-height:0;overflow:auto;}
+.town-game-main h3,.town-game-details h3{margin:0 0 8px;font-size:17px;}
+.town-game-main p{margin:0 0 15px;line-height:1.5;color:#bdbdbd;}
+.town-game-stage{position:relative;width:100%;aspect-ratio:16/9;min-height:230px;max-height:70dvh;border:1px solid #565656;background:linear-gradient(140deg,#343434,#202020);overflow:hidden;}
+.town-game-hotspot{position:absolute;transform:translate(-50%,-50%);min-width:88px;min-height:44px;max-width:170px;padding:8px 12px;background:#272727;border:1px solid #aaa;color:#f5f5f5;cursor:pointer;overflow-wrap:anywhere;}
+.town-game-hotspot:hover,.town-game-hotspot:focus-visible{background:#4a4a4a;outline:2px solid #f1f1f1;outline-offset:2px;}
+.town-game-list-item{width:100%;min-height:55px;display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;margin:0 0 8px;padding:10px;border:1px solid #555;background:#202020;color:inherit;}
+.town-game-list-item span{font-size:12px;color:#b7b7b7;line-height:1.3;}
+.town-game-list-item:hover,.town-game-list-item:focus-visible{border-color:#aaa;}
+.town-game-notice,.town-game-hint{color:#aaa;font-size:12px;line-height:1.5;}
+@media(max-width:760px){
+ .town-game-shell{padding:calc(8px + env(safe-area-inset-top,0px)) 12px calc(8px + env(safe-area-inset-bottom,0px));gap:10px;}
+ .town-game-header h2{font-size:17px;}
+ .town-game-header button{padding:8px;font-size:12px;}
+ .town-game-columns{display:flex;flex-direction:column;gap:12px;}
+ .town-game-main{flex:0 1 auto;overflow:auto;}
+ .town-game-stage{aspect-ratio:4/3;min-height:180px;max-height:42dvh;}
+ .town-game-hotspot{min-width:80px;max-width:130px;min-height:44px;font-size:12px;}
+ .town-game-details{flex:1;overflow:auto;}
+ .town-game-details h3{margin-bottom:5px;}
+ .town-game-list-item{min-height:44px;margin-bottom:5px;padding:7px 10px;}
+}
+@media(max-height:540px){
+ .town-game-header{padding-bottom:5px;}
+ .town-game-shell{gap:6px;padding-top:4px;padding-bottom:4px;}
+ .town-game-stage{min-height:110px;max-height:38dvh;}
+}
+
 /* Short landscape HUD regression: preserve 44px commands instead of squeezing
  * the new action dock into the old 150px side column. */
 @media(min-width:540px) and (max-width:1024px) and (max-height:500px) {
@@ -1516,4 +1553,21 @@ small,.muted,.empty-note {
   .action-dock .dock-secondary .command {width:100%;min-width:88px;min-height:44px;max-height:44px;padding:3px 6px;}
   .action-dock .movement-controls {flex:0 0 auto;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:3px;}
   .action-dock .movement-controls button {min-width:44px;min-height:44px;}
+}
+
+/* T2-C3: dialogue is a local presentation of static choices; no quest or save mutation. */
+.town-dialogue-backdrop{position:absolute;inset:0;z-index:2;display:flex;justify-content:center;align-items:center;padding:16px;background:#000b;}
+.town-dialogue-panel{width:min(100%,540px);max-height:min(85dvh,700px);overflow:auto;padding:18px;background:#1b1b1b;border:1px solid #8c8c8c;box-shadow:0 6px 25px #000a;}
+.town-dialogue-panel header{display:flex;align-items:center;gap:12px;padding:0 0 10px;border-bottom:1px solid #555;}
+.town-dialogue-panel header h3{flex:1;margin:0;font-size:18px;}
+.town-dialogue-panel header button{min-width:44px;min-height:44px;border:1px solid #777;background:#292929;color:inherit;font-size:21px;}
+.town-dialogue-glyph{display:grid;place-items:center;width:44px;height:44px;font-size:26px;border:1px solid #777;}
+.town-dialogue-panel>p{margin:18px 0;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;}
+.town-dialogue-choices{display:grid;gap:8px;}
+.town-dialogue-choices button{width:100%;min-height:44px;text-align:left;padding:10px 14px;border:1px solid #777;background:#252525;color:#f4f4f4;}
+.town-dialogue-choices button:hover,.town-dialogue-choices button:focus-visible{background:#424242;outline:2px solid #ddd;outline-offset:2px;}
+@media(max-width:760px){
+ .town-dialogue-backdrop{padding:8px calc(8px + env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) calc(8px + env(safe-area-inset-left,0px));align-items:flex-end;}
+ .town-dialogue-panel{width:100%;max-height:min(78dvh,620px);padding:12px;}
+ .town-dialogue-panel>p{margin:12px 0;}
 }

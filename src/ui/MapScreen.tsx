@@ -24,6 +24,8 @@ import { SettingsDialog } from './SettingsDialog.tsx';
 import { SaveStatus } from './SaveStatus.tsx';
 import { formatRecordTime } from './record-time.ts';
 import { strings } from './strings/index.ts';
+import { findTownAt } from '../runtime/towns.ts';
+import { TownScene } from './TownScene.tsx';
 
 const compactQuery='(max-width: 760px), (max-width: 1024px) and (max-height: 500px)';
 const emptyRecords:readonly RecentRecord[]=[];
@@ -40,8 +42,11 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
   const [mapViewport,setMapViewport]=useState<MapViewport>();
   const reportViewport=useCallback((value:MapViewport)=>setMapViewport(previous=>previous&&Object.keys(value).every(key=>previous[key as keyof MapViewport]===value[key as keyof MapViewport])?previous:value),[]);
   const [tab,setTab]=useState<Tab>('explore');const [characterTab,setCharacterTab]=useState('캐릭터');
+  const [townOpen,setTownOpen]=useState(false);
   const [fullMap,setFullMap]=useState(false);const [ambushOpen,setAmbushOpen]=useState(false);
   const pending=state.expedition?.pendingAmbush;const combat=state.expedition?.combat;
+  const availableTown=findTownAt(state.character?.position,store.content);
+  useEffect(()=>{if(townOpen&&(!availableTown||pending||combat))setTownOpen(false);},[townOpen,availableTown,pending,combat]);
   const [lootedChestId,setLootedChestId]=useState<string|null>(null);
   const posKey=state.character?.position;
   useEffect(()=>setLootedChestId(null),[posKey?.mapId,posKey?.floor,posKey?.x,posKey?.y]);
@@ -53,11 +58,11 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
   useEffect(()=>{if(pending){setAmbushOpen(true);setTab('explore');setFullMap(false);note(pending.encounterId?'앞을 가로막는 적과 마주쳤다.':'누군가 접근하는 기척이 느껴진다.');}},[pending]);
   useEffect(()=>{document.title=pending||combat?`전투 · ${strings.gameTitle}`:strings.gameTitle;},[pending,combat]);
   const move=useCallback((direction:Direction)=>{
-    if(tab!=='explore'||fullMap||combat)return;
+    if(tab!=='explore'||fullMap||combat||townOpen)return;
     const result=loop.move(direction);
     if(!result.ok){if(result.reason!=='cooldown')note(result.reason==='insufficient_resources'?strings.insufficientStamina:result.reason==='paused'?strings.pausedMove:strings.blocked);return;}
     setMessage('');
-  },[loop,tab,fullMap,combat,note]);
+  },[loop,tab,fullMap,combat,townOpen,note]);
   useEffect(()=>bindMovementKeys(window,move),[move]);
   const inventoryAction=useCallback((action:InventoryAction)=>{
     const result=loop.inventoryAction(action);if(!result.ok){note(strings.inventoryActionBlocked);return;}
@@ -65,19 +70,21 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
     if(event?.type==='inventory/looted')setLootedChestId(event.chestId);
     note(event?.type==='inventory/used'?strings.itemUsed+event.recovered:event?.type==='inventory/equipped'?strings.itemEquipped:event?.type==='inventory/unequipped'?strings.itemUnequipped:strings.lootReceived);
   },[loop,note]);
-  const interact=useCallback(()=>{if(tab!=='explore'||fullMap||combat)return;const current=store.getSnapshot(),chest=currentChest(current,store.content);
+  const interact=useCallback(()=>{if(tab!=='explore'||fullMap||combat||townOpen)return;const current=store.getSnapshot(),chest=currentChest(current,store.content);
     if(currentExit(current,store.content)){const result=loop.travel();note(result.ok?'출입구를 통해 이동했습니다.':'지금은 이동할 수 없습니다.');return;}
-    if(chest&&!current.campaign.openedChests[chest.id])inventoryAction({type:'inventory/open_chest',chestId:chest.id});},[store,loop,inventoryAction,tab,fullMap,combat,note]);
+    if(chest&&!current.campaign.openedChests[chest.id]){inventoryAction({type:'inventory/open_chest',chestId:chest.id});return;}
+    if(!chest&&!current.expedition?.pendingAmbush&&loop.getSnapshot().running&&findTownAt(current.character?.position,store.content))setTownOpen(true);
+  },[store,loop,inventoryAction,tab,fullMap,combat,townOpen,note]);
   useEffect(()=>bindInteractionKeys(window,interact),[interact]);
   const rest=useCallback(()=>{const resting=store.getSnapshot().character?.activity==='resting';const result=loop.setResting(!resting);note(result.ok?resting?strings.restStopped:strings.restStarted:strings.restUnavailable);},[loop,store,note]);
   const returnHome=useCallback(()=>{const result=loop.returnToCamp();note(result.ok?strings.returnSucceeded:strings.returnUnavailable);},[loop,note]);
   useEffect(()=>{const handler=(event:KeyboardEvent)=>{if(event.repeat||event.defaultPrevented||event.ctrlKey||event.altKey||event.metaKey||event.isComposing)return;
     if(event.target instanceof Element&&event.target.closest('dialog[open],input,textarea,select,button,a,[contenteditable="true"]'))return;
-    const key=event.key.toLowerCase();if(key==='escape'){loop.setSettingsOpen(true);return;}
+    const key=event.key.toLowerCase();if(townOpen){if(key==='escape'){setTownOpen(false);event.preventDefault();}return;}if(key==='escape'){loop.setSettingsOpen(true);return;}
     if(combat)return;if(key==='i'){setTab('inventory');event.preventDefault();}else if(key==='c'){setTab('character');event.preventDefault();}
     else if(key==='m'){setFullMap(true);event.preventDefault();}else if(tab==='explore'&&key==='r'){rest();event.preventDefault();}else if(tab==='explore'&&key==='b'){returnHome();event.preventDefault();}};
     window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);
-  },[loop,combat,tab,rest,returnHome]);
+  },[loop,combat,tab,rest,returnHome,townOpen]);
   const location=currentLocation(state,store.content);
   const memory=location?.memory;
   const mapName=useMemo(()=>location?.map.name,[location?.map]);
@@ -100,12 +107,12 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
   const more=<><h2>기록</h2><h3 className="section-title">퀘스트</h3><p className="muted">기록된 퀘스트가 없습니다.</p><h3 className="section-title">코덱스</h3><p className="muted">기록된 문서가 없습니다.</p><button onClick={()=>loop.setSettingsOpen(true)}>설정</button></>;
   const tabContent=tab==='inventory'?inventory:tab==='character'?characterContent:tab==='base'?base:more;
   const showRecords=()=>{setCharacterTab('기록');setTab('character');};
-  const situationText=chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:exit?`${exit.name} · Z / Space로 이동`:zone.description;
+  const situationText=chest?chestOpened?'물품을 모두 챙긴 상자입니다.':`${chest.name} · Z / Space로 열기`:exit?`${exit.name} · Z / Space로 이동`:availableTown?`${availableTown.name} · Z / Space로 입장`:zone.description;
   return <div className={`game-shell${combat?' has-combat':''}`}>
     <header className="game-top">{onExitPreview&&<button onClick={onExitPreview}>제작 화면으로</button>}<h1 aria-label={strings.gameTitle}>VIGIL</h1><span className="session-screenreader" data-testid="session-status" aria-live="polite">{combat?'전투':pending?'조우':session.running?'진행':'정지'}</span><span className="n" data-testid="clock">경과 {state.meta.gameTime}틱</span><span className="top-spacer"/>
       <span className="idle-summary">진행 중 <span className="muted">없음</span></span>{autoSave&&<SaveStatus autoSave={autoSave}/>}<button aria-label="설정" onClick={()=>loop.setSettingsOpen(true)}>설정</button></header>
     {session.gapPaused&&<p className="gap-notice" role="alert">실행 공백으로 탐험이 정지했습니다. 설정을 열고 닫으면 이어서 진행합니다.</p>}
-    <div className="game-columns" inert={!!combat}>
+    <div className="game-columns" inert={!!combat||townOpen}>
       <StatusPanel state={state} onCharacter={()=>setTab('character')}/>
       <section className={`exploration-center${compact&&tab!=='explore'&&!combat?' tab-hidden':''}`} aria-label="탐험">
         <header className="region-header"><div><h2>{mapName}</h2><span className="muted">{position.floor}층 · {zone.name}</span></div><span className="region-meta">{zone.safety==='safe'?'안전지대':'위험지대'} · <span className="n" data-testid="visited">{exploredCount}</span>칸</span></header>
@@ -122,10 +129,31 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
             <div className="record-heading"><h2 className="section-title">최근 기록</h2><button type="button" className="open-records" onClick={showRecords}>전체 기록 ›</button></div>
             {logs.slice(compact?-2:-8).map((entry,index)=><p key={index}><time className="n" dateTime={new Date(entry.at).toISOString()} data-testid="record-time">{formatRecordTime(entry.at)}</time><span className="record-text">{entry.text}</span></p>)}
           </section>
-          <div className={`action-dock${exit||chest?' has-interaction':''}`}>
-            {(exit||chest)&&<div className="chest-controls interaction-slot" aria-label="현재 위치 상호작용">
-              {exit?<button className="interact-primary" disabled={!session.running} aria-keyshortcuts="Z Space" onClick={interact}>{exit.name} 이동 <small>Z / Space</small></button>:
-               <button className={chestOpened?'interact-done':'interact-primary'} disabled={!session.running||!!chestOpened} aria-label={strings.openChest} aria-keyshortcuts="Z Space" onClick={interact}>{strings.openChest}<small>{chestOpened?'이미 연 상자':'Z / Space'}</small></button>}
+          <div className={`action-dock${exit||chest||availableTown?' has-interaction':''}`}>
+            {(exit||chest||availableTown)&&<div className="chest-controls interaction-slot" aria-label="현재 위치 상호작용">
+              {exit ? (
+  <button className="interact-primary" disabled={!session.running}
+    aria-keyshortcuts="Z Space" onClick={interact}>
+    {exit.name} 이동 <small>Z / Space</small>
+  </button>
+) : chest ? (
+  <button className={chestOpened ? 'interact-done' : 'interact-primary'}
+    disabled={!session.running || !!chestOpened}
+    aria-label={strings.openChest}
+    aria-keyshortcuts="Z Space"
+    onClick={interact}>
+    {strings.openChest}
+    <small>{chestOpened ? '이미 연 상자' : 'Z / Space'}</small>
+  </button>
+) : (
+  <button className="interact-primary"
+    disabled={!session.running}
+    aria-label="마을 입장"
+    aria-keyshortcuts="Z Space"
+    onClick={interact}>
+    {availableTown!.name} 입장 <small>Z / Space</small>
+  </button>
+)}
             </div>}
             <div className="exploration-commands">
               <div className="dock-secondary">
@@ -142,7 +170,8 @@ export function MapScreen({store,loop:suppliedLoop,persistent=false,autoSave,onE
       {!compact&&<aside className="right-column">{miniMap}{inventory}<section><h2 className="section-title">퀘스트</h2><p className="empty-note">기록된 퀘스트 없음</p></section><section><h2 className="section-title">코덱스</h2><p className="empty-note">기록된 문서 없음</p></section></aside>}
       {compact&&tab!=='explore'&&!combat&&<section className="tab-page" aria-label={tabs.find(t=>t.id===tab)!.label}>{tabContent}</section>}
     </div>
-    <nav className="bottom-tabs" aria-label="주 메뉴">{tabs.map(({id,label,glyph})=><button key={id} className={tab===id?'selected':''} disabled={!!combat} onClick={()=>setTab(id)}><i aria-hidden="true">{glyph}</i>{label}</button>)}</nav>
+    <nav className="bottom-tabs" aria-label="주 메뉴" inert={townOpen}>{tabs.map(({id,label,glyph})=><button key={id} className={tab===id?'selected':''} disabled={!!combat||townOpen} onClick={()=>setTab(id)}><i aria-hidden="true">{glyph}</i>{label}</button>)}</nav>
+    {townOpen&&availableTown&&!combat&&!pending&&!session.settingsOpen&&<TownScene town={availableTown} onExit={()=>setTownOpen(false)}/>}
     {!compact&&tab!=='explore'&&!combat&&<GameDialog title={tabs.find(t=>t.id===tab)!.label} onClose={()=>setTab('explore')}>{tabContent}</GameDialog>}
     {fullMap&&!combat&&<GameDialog title="전체 지도" className="full-map-dialog" onClose={()=>setFullMap(false)}>{mapView}</GameDialog>}
     {pending&&ambushOpen&&!combat&&!session.settingsOpen&&<GameDialog title={pending.encounterId?'적과 조우했습니다':'습격'} onClose={()=>setAmbushOpen(false)}><p>{findEncounter(store.content,pending.encounterId??store.content.timeRules.combat.ambushEncounterId)?.name??'정체를 알 수 없는 적'}</p><p>전투를 시작하거나 도주를 시도하세요.</p><div className="encounter-actions"><button onClick={()=>combatAction({type:'combat/start'})}>전투 시작</button><button onClick={()=>{const started=loop.combatAction({type:'combat/start'});if(started.ok)combatAction({type:'combat/act',choice:'escape'});}}>도주 시도</button></div></GameDialog>}

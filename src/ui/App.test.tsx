@@ -85,6 +85,8 @@ describe('App', () => {
 describe('Play HUD 레이아웃 계약', () => {
   it('상호작용 대상이 없는 칸에는 빈 안내와 버튼 공간을 만들지 않는다', () => {
     const ctx = mapContext(), store = createNewGameStore(ctx.content, [1,2,3,4], () => ctx.now);
+    // The start tile now contains the town entrance; use an ordinary safe floor tile.
+    store.dispatch({type:'move/step',direction:'south'});
     const html = renderToString(<App store={store} />).replaceAll('<!-- -->','');
     expect(html).not.toContain('이 칸에는 상호작용할 대상이 없습니다.');
     expect(html).not.toContain('class="interaction-slot"');
@@ -92,6 +94,17 @@ describe('Play HUD 레이아웃 계약', () => {
     expect(html).toContain('전체 기록');
     expect(html).not.toContain('session-chip');
     expect(html).toContain('data-testid="session-status"');
+  });
+});
+
+describe('마을 입장 UI', () => {
+  it('안전 구역의 격자 앵커에서만 마을 입장 버튼을 표시한다', () => {
+    const ctx=mapContext(),store=createNewGameStore(ctx.content,[1,2,3,4],()=>ctx.now);
+    expect(renderToString(<App store={store}/>)).toContain('aria-label="마을 입장"');
+    const before=store.getSnapshot().character?.position;
+    store.dispatch({type:'move/step',direction:'south'});
+    expect(renderToString(<App store={store}/>)).not.toContain('aria-label="마을 입장"');
+    expect(store.getSnapshot().character?.position).not.toEqual(before);
   });
 });
 

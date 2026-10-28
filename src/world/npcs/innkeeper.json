@@ -1,0 +1,36 @@
+{
+  "format": "vigil-npc-v1",
+  "id": "npc.innkeeper",
+  "name": "여관 주인",
+  "glyph": "◇",
+  "description": "여관을 운영하는 주민입니다.",
+  "startNodeId": "dialogue.greeting",
+  "nodes": [
+    {
+      "id": "dialogue.greeting",
+      "text": "낯선 여행자로군요. 쉬어 갈 곳을 찾으십니까?",
+      "choices": [
+        {
+          "label": "여관에 관해 물어본다",
+          "nextNodeId": "dialogue.about"
+        },
+        {
+          "label": "돌아간다"
+        }
+      ]
+    },
+    {
+      "id": "dialogue.about",
+      "text": "여기는 여행자들이 잠시 몸을 쉬어 가는 곳입니다. 숙박 기능은 아직 준비 중입니다.",
+      "choices": [
+        {
+          "label": "다른 이야기를 나눈다",
+          "nextNodeId": "dialogue.greeting"
+        },
+        {
+          "label": "대화를 마친다"
+        }
+      ]
+    }
+  ]
+}
